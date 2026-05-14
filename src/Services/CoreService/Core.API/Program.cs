@@ -66,6 +66,7 @@ builder.Services.AddFluentValidationAutoValidation();
 
 builder.Services.AddScoped<ICaseStateManager, CaseStateManager>();
 builder.Services.AddScoped<IInvestmentCaseAppService, InvestmentCaseAppService>();
+builder.Services.AddScoped<ICompanyAppService, CompanyAppService>();
 builder.Services.AddScoped<ICaseAuthorizationService, CaseAuthorizationService>();
 builder.Services.AddScoped<ICaseNumberGenerator, CaseNumberGenerator>();
 
@@ -162,7 +163,7 @@ builder.Services.AddScoped<IMapper, ServiceMapper>();
 builder.Services.AddAuthorization(options =>
 {
     // IdentityService issues ClaimTypes.Role = UserRole.ToString(): Applicant, InvestmentExpert, InvestmentManager, LegalExpert, FinancialExpert, Admin, ...
-    options.AddPolicy("ApplicantOnly", p => p.RequireRole(SystemRoles.Applicant));
+    options.AddPolicy("ApplicantOnly", p => p.RequireRole(SystemRoles.Applicant, SystemRoles.Admin));
     options.AddPolicy("InternalOnly", p => p.RequireRole(SystemRoles.InvestmentExpert, SystemRoles.InvestmentManager, SystemRoles.FinancialExpert, SystemRoles.LegalExpert, SystemRoles.Admin));
 
     options.AddPolicy("InvestmentCases.Review", p => p.Requirements.Add(new PermissionRequirement("investment_cases:review")));

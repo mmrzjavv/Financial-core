@@ -84,7 +84,6 @@ public sealed class LocalIdentityClient(
             user.Id.ToString(),
             $"{user.FirstName} {user.LastName}".Trim(),
             user.PhoneNumber,
-            user.ApplicantType.ToString(),
             company);
     }
 
@@ -102,9 +101,14 @@ public sealed class LocalIdentityClient(
             : new CompanyInfo(
                 company.Id.ToString(),
                 company.Name,
+                company.EconomicCode,
                 company.RegistrationNumber ?? string.Empty,
+                company.NationalId ?? string.Empty,
                 company.PhoneNumber ?? string.Empty,
-                company.Address ?? string.Empty);
+                company.Address ?? string.Empty,
+                company.City ?? string.Empty,
+                company.Province ?? string.Empty,
+                company.PostalCode ?? string.Empty);
     }
 
     private async Task<UserInfo?> MapUserAsync(User user, bool includePermissions, CancellationToken cancellationToken)
@@ -132,7 +136,6 @@ public sealed class LocalIdentityClient(
             user.IsActive,
             user.IsPhoneVerified,
             user.NationalCode ?? string.Empty,
-            user.ApplicantType.ToString(),
             company,
             permissions);
     }

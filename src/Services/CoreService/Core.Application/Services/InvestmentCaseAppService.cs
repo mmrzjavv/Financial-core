@@ -7,6 +7,7 @@ using BuildingBlocks.Observability.Correlation;
 using BuildingBlocks.Persistence.Abstractions;
 using Core.Application.Authorization;
 using Core.Application.Abstractions;
+using Microsoft.EntityFrameworkCore;
 using Core.Application.DTOs;
 using Core.Application.Requests;
 using Core.Application.Responses;
@@ -21,6 +22,7 @@ namespace Core.Application.Services;
 public sealed class InvestmentCaseAppService(
     IInvestmentCaseRepository repository,
     IUnitOfWork unitOfWork,
+    ICoreDbContext dbContext,
     ICaseStateManager stateManager,
     ICaseWorkflowOrchestrator workflowOrchestrator,
     ICaseNumberGenerator caseNumberGenerator,
@@ -35,27 +37,41 @@ public sealed class InvestmentCaseAppService(
         var authResult = RequireUserId();
         if (authResult.IsFailure) return Result<InvestmentCaseDto>.Fail(authResult.Error!);
 
-        if (!authorizationService.HasPermission(CasePermissions.Create) || authorizationService.IsInternalUser)
+        if (!authorizationService.HasPermission(CasePermissions.Create))
             return Result<InvestmentCaseDto>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var now = clock.UtcNow;
         var caseNumber = await caseNumberGenerator.GenerateAsync(cancellationToken);
         var entity = new InvestmentCase(caseNumber, authResult.Value!, request.ApplicantType);
+
         if (request.ApplicantType == ApplicantType.Company)
         {
-            if (request.Company is null)
+            if (request.CompanyId is null || request.CompanyId == Guid.Empty)
                 return Result<InvestmentCaseDto>.Fail(Error.Validation(ApiMessages.CompanyRequiredForCompanyApplicant));
 
+            if (!Guid.TryParse(authResult.Value, out var userId))
+                return Result<InvestmentCaseDto>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
+
+            var company = await dbContext.Companies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == request.CompanyId.Value, cancellationToken);
+
+            if (company is null)
+                return Result<InvestmentCaseDto>.Fail(Error.NotFound(ApiMessages.CompanyNotFound));
+
+            if (company.OwnerUserId != userId)
+                return Result<InvestmentCaseDto>.Fail(Error.Forbidden(ApiMessages.CompanyAccessDenied));
+
             entity.UpsertCompanyProfile(
-                request.Company.Name,
-                request.Company.EconomicCode,
-                request.Company.RegistrationNumber,
-                request.Company.NationalId,
-                request.Company.PhoneNumber,
-                request.Company.Address,
-                request.Company.City,
-                request.Company.Province,
-                request.Company.PostalCode);
+                company.Name,
+                company.EconomicCode,
+                company.RegistrationNumber,
+                company.NationalId,
+                company.PhoneNumber,
+                company.Address,
+                company.City,
+                company.Province,
+                company.PostalCode);
         }
         var workflowInstanceId = await workflowOrchestrator.StartAsync(entity.Id, cancellationToken);
         entity.AttachWorkflowInstance(workflowInstanceId);

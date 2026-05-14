@@ -219,7 +219,7 @@
           const createRes = await panel.apiRequest({
             method: "POST",
             path: panel.casesBasePath(),
-            body: { applicantUserId: panel.getActiveSession().userId, applicantType: 1, company: null },
+            body: { applicantType: 1 },
           });
           const created = unwrap(createRes.body).payload;
           caseId = pickId(created);

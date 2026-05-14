@@ -354,6 +354,7 @@
     saveState({ currentCaseId: v });
     qs("#currentCaseId").value = v;
     qs("#currentCaseLabel").textContent = v || "(not set)";
+    document.dispatchEvent(new CustomEvent("testpanel:case-changed", { detail: { caseId: v } }));
   }
 
   function renderTopbar() {
@@ -759,6 +760,59 @@
     );
   }
 
+  function optionalText(selector) {
+    const value = qs(selector).value.trim();
+    return value || null;
+  }
+
+  function populateCompanySelect(companies) {
+    const select = qs("#caseCompanyId");
+    select.innerHTML = "";
+    if (!companies || !companies.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "شرکتی ثبت نشده است";
+      select.appendChild(option);
+      return;
+    }
+
+    companies.forEach((company) => {
+      const option = document.createElement("option");
+      const id = company.id || company.Id;
+      const name = company.name || company.Name || "شرکت";
+      const economicCode = company.economicCode || company.EconomicCode || "";
+      option.value = id;
+      option.textContent = economicCode ? name + " (" + economicCode + ")" : name;
+      select.appendChild(option);
+    });
+  }
+
+  function syncCaseCompanyFields() {
+    const isCompany = Number(qs("#caseApplicantType").value) === 2;
+    qs("#caseCompanyRow").style.display = isCompany ? "" : "none";
+  }
+
+  async function loadMyCompanies() {
+    const res = await apiRequest({ method: "GET", path: "/api/v1/panel/companies/mine" });
+    const companies = unwrapEnvelope(res.body).payload || [];
+    populateCompanySelect(companies);
+    return companies;
+  }
+
+  function buildCompanyPayload() {
+    return {
+      name: qs("#companyName").value.trim(),
+      economicCode: qs("#companyEconomicCode").value.trim(),
+      registrationNumber: optionalText("#companyRegistrationNumber"),
+      nationalId: optionalText("#companyNationalId"),
+      phoneNumber: optionalText("#companyPhoneNumber"),
+      address: optionalText("#companyAddress"),
+      city: optionalText("#companyCity"),
+      province: optionalText("#companyProvince"),
+      postalCode: optionalText("#companyPostalCode"),
+    };
+  }
+
   function wireCases() {
     qs("#btnSetCurrentCase").addEventListener("click", () =>
       withUiError(async () => {
@@ -766,16 +820,37 @@
       })
     );
 
+    qs("#caseApplicantType").addEventListener("change", syncCaseCompanyFields);
+    syncCaseCompanyFields();
+
+    qs("#btnLoadCompanies").addEventListener("click", () =>
+      withUiError(async () => {
+        await loadMyCompanies();
+      })
+    );
+
+    qs("#btnCreateCompany").addEventListener("click", () =>
+      withUiError(async () => {
+        const payload = buildCompanyPayload();
+        if (!payload.name || !payload.economicCode) {
+          throw new Error("نام شرکت و کد اقتصادی الزامی است.");
+        }
+
+        await apiRequest({ method: "POST", path: "/api/v1/panel/companies", body: payload });
+        await loadMyCompanies();
+      })
+    );
+
     qs("#btnCreateCase").addEventListener("click", () =>
       withUiError(async () => {
         const applicantType = Number(qs("#caseApplicantType").value);
-        const companyName = qs("#caseCompanyName").value.trim();
-        const eco = qs("#caseCompanyEco").value.trim();
+        const payload = { applicantType };
 
-        const payload = {
-          applicantType,
-          company: companyName || eco ? { name: companyName || "Company", economicCode: eco || "0" } : null,
-        };
+        if (applicantType === 2) {
+          const companyId = qs("#caseCompanyId").value.trim();
+          if (!companyId) throw new Error("برای متقاضی حقوقی، انتخاب شرکت الزامی است.");
+          payload.companyId = companyId;
+        }
 
         const res = await apiRequest({ method: "POST", path: casesBasePath(), body: payload });
         const created = unwrapEnvelope(res.body).payload;
@@ -1446,6 +1521,10 @@
       setActiveSessionId,
       setCurrentCaseId,
     };
+
+    if (typeof window.initPortal === "function") {
+      window.initPortal(window.TestPanel);
+    }
 
     if (typeof window.initWorkflowRunner === "function") {
       window.initWorkflowRunner(window.TestPanel);

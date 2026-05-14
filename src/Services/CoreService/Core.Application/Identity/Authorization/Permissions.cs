@@ -58,6 +58,7 @@ public static class RolePermissions
         {
             Permissions.Users_Read,
             Permissions.Companies_Read,
+            Permissions.Companies_Write,
             Permissions.Sessions_Read,
             Permissions.Otp_Send,
             Permissions.Otp_Verify

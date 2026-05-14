@@ -18,7 +18,6 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(e => e.LastName).IsRequired().HasMaxLength(100);
         builder.Property(e => e.NationalCode).HasMaxLength(10);
         builder.Property(e => e.CreatedAt).IsRequired();
-        builder.Property(e => e.ApplicantType).IsRequired();
 
         builder.HasOne(e => e.Company).WithMany(x => x.Users).HasForeignKey(x => x.CompanyId);
         builder.HasIndex(e => e.PhoneNumber).IsUnique();

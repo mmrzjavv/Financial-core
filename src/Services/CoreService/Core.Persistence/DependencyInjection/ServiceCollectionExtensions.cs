@@ -2,6 +2,7 @@ using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Application.Common;
 using BuildingBlocks.Persistence.Db.DomainEvents;
 using BuildingBlocks.Persistence.Db.Interceptors;
+using Core.Application.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +33,8 @@ public static class ServiceCollectionExtensions
                 sp.GetRequiredService<AuditingSaveChangesInterceptor>(),
                 sp.GetRequiredService<SoftDeleteSaveChangesInterceptor>());
         });
+
+        services.AddScoped<ICoreDbContext>(sp => sp.GetRequiredService<CoreDbContext>());
 
         return services;
     }

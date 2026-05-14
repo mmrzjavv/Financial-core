@@ -19,6 +19,8 @@ public static class ApiMessages
     public const string InvalidDocumentKey = "کلید سند نامعتبر است.";
     public const string InvalidAttachmentKey = "کلید پیوست نامعتبر است.";
     public const string CompanyRequiredForCompanyApplicant = "برای متقاضی حقوقی، انتخاب شرکت الزامی است.";
+    public const string CompanyNotFound = "شرکت انتخاب‌شده یافت نشد.";
+    public const string CompanyAccessDenied = "به این شرکت دسترسی ندارید.";
     public const string DataEntry1NotEditable = "در وضعیت فعلی امکان ویرایش ورود اطلاعات ۱ وجود ندارد.";
     public const string DataEntry2NotEditable = "در وضعیت فعلی امکان ویرایش ورود اطلاعات ۲ وجود ندارد.";
     public const string FinancialWorksheetNotEditable = "در وضعیت فعلی امکان ویرایش کاربرگ مالی وجود ندارد.";

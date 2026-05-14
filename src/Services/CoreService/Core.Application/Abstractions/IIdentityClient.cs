@@ -22,10 +22,19 @@ public sealed record UserInfo(
     bool IsActive,
     bool IsPhoneVerified,
     string NationalCode,
-    string ApplicantType,
     CompanyInfo? Company,
     IReadOnlyList<string> Permissions);
 
-public sealed record ApplicantProfile(string UserId, string FullName, string PhoneNumber, string ApplicantType, CompanyInfo? Company);
+public sealed record ApplicantProfile(string UserId, string FullName, string PhoneNumber, CompanyInfo? Company);
 
-public sealed record CompanyInfo(string CompanyId, string Name, string RegistrationNumber, string PhoneNumber, string Address);
+public sealed record CompanyInfo(
+    string CompanyId,
+    string Name,
+    string EconomicCode,
+    string RegistrationNumber,
+    string NationalId,
+    string PhoneNumber,
+    string Address,
+    string City,
+    string Province,
+    string PostalCode);

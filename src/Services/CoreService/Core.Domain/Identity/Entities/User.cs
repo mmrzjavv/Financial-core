@@ -11,7 +11,6 @@ public class User : BaseEntity
     public string LastName { get; set; } = string.Empty;
     public string? NationalCode { get; set; }
     public UserRole Role { get; set; }
-    public ApplicantType ApplicantType { get; set; } = ApplicantType.Individual;
     public Guid? CompanyId { get; set; }
     public Company? Company { get; set; }
     public bool IsActive { get; set; } = true;
