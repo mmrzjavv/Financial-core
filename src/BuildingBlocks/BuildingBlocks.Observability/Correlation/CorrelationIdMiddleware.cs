@@ -12,7 +12,7 @@ public sealed class CorrelationIdMiddleware : IMiddleware
         var correlationId = string.IsNullOrWhiteSpace(incoming) ? Guid.NewGuid().ToString("N") : incoming;
 
         context.TraceIdentifier = correlationId;
-        context.Items[HeaderName] = correlationId;
+        context.Items[CorrelationContext.ItemKey] = correlationId;
         context.Response.Headers[HeaderName] = correlationId;
 
         await next(context);

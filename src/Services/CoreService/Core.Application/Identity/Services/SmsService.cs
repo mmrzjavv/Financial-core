@@ -1,14 +1,15 @@
 using System.Text.Json;
 using Core.Application.Identity.Common.Options;
 using Core.Application.Identity.Interfaces;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Serilog;
 
 namespace Core.Application.Identity.Services;
 
 public class SmsService : ISmsService
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<SmsService> _logger;
     private readonly string _apiBaseUrl;
     private readonly string _apiKey;
     private readonly string _senderNumber;
@@ -16,15 +17,16 @@ public class SmsService : ISmsService
 
     private readonly Dictionary<int, string> _smsMessages = new()
     {
-        { 1, "ò«—»— ê—«„Ì° »Â ”«„«‰Â „« ŒÊ‘ ¬„œÌœ." },
-        { 2, "”›«—‘ ‘„« »« „Ê›ﬁÌ  À»  Ê œ— Õ«· Å—œ«“‘ «” ." },
-        { 3, "’Ê— Õ”«» ÃœÌœÌ »—«Ì ‘„« ’«œ— ‘œÂ «” . ÃÂ  Å—œ«Œ  »Â Å‰· „—«Ã⁄Â ò‰Ìœ." },
-        { 4, "œ—ŒÊ«”  ‘„« »« „Ê›ﬁÌ  «‰Ã«„ ‘œ." }
+        { 1, "????? ?????? ?? ?????? ?? ??? ?????." },
+        { 2, "????? ??? ?? ?????? ??? ? ?? ??? ?????? ???." },
+        { 3, "???????? ????? ???? ??? ???? ??? ???. ??? ?????? ?? ??? ?????? ????." },
+        { 4, "??????? ??? ?? ?????? ????? ??." }
     };
 
-    public SmsService(HttpClient httpClient, IOptions<SmsOptions> options)
+    public SmsService(HttpClient httpClient, IOptions<SmsOptions> options, ILogger<SmsService> logger)
     {
         _httpClient = httpClient;
+        _logger = logger;
         _apiBaseUrl = string.IsNullOrWhiteSpace(options.Value.ApiBaseUrl)
             ? "https://api.kavenegar.com"
             : options.Value.ApiBaseUrl.TrimEnd('/');
@@ -56,7 +58,7 @@ public class SmsService : ISmsService
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync();
-                Log.Warning("Kavenegar SMS error. StatusCode={StatusCode} Body={Body}", (int)response.StatusCode, error);
+                _logger.LogWarning("Kavenegar SMS error. StatusCode={StatusCode} Body={Body}", (int)response.StatusCode, error);
                 return false;
             }
 
@@ -64,7 +66,7 @@ public class SmsService : ISmsService
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Exception while sending OTP");
+            _logger.LogError(ex, "Exception while sending OTP");
             return false;
         }
     }
@@ -76,10 +78,10 @@ public class SmsService : ISmsService
 
         return
          
-            $"òœ  √ÌÌœ Ê—Êœ ‘„«: {otpCode}\n\n" +
-            $"«Ì‰ òœ »Â „œ  {validMinutes} œﬁÌﬁÂ „⁄ »— «” .\n" +
-            $"·ÿ›« «“ œ— «Œ Ì«— ﬁ—«— œ«œ‰ ¬‰ »Â œÌê—«‰ ŒÊœœ«—Ì ò‰Ìœ.\n\n" +
-            $"’‰œÊﬁ ÅéÊÂ‘ Ê ›‰«Ê—Ì €Ì— œÊ· Ì „”ò‰";
+            $"?? ????? ???? ???: {otpCode}\n\n" +
+            $"??? ?? ?? ??? {validMinutes} ????? ????? ???.\n" +
+            $"????? ?? ?? ?????? ???? ???? ?? ?? ????? ??????? ????.\n\n" +
+            $"????? ????? ? ?????? ??? ????? ????";
     }
 
 
@@ -89,7 +91,7 @@ public class SmsService : ISmsService
         {
             if (!_smsMessages.TryGetValue(messageId, out var messageText))
             {
-                throw new ArgumentException("‘‰«”Â ÅÌ«„ò Ê«—œ ‘œÂ œ— œÌò‘‰—Ì „ÊÃÊœ ‰Ì” .");
+                throw new ArgumentException("????? ????? ???? ??? ?? ??????? ????? ????.");
             }
 
             string url = $"{_apiBaseUrl}/v1/{_apiKey}/sms/send.json";
@@ -106,7 +108,7 @@ public class SmsService : ISmsService
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error sending Normal SMS");
+            _logger.LogError(ex, "Error sending Normal SMS");
             return false;
         }
     }
@@ -118,7 +120,7 @@ public class SmsService : ISmsService
         {
             if (!_smsMessages.TryGetValue(messageId, out var messageText))
             {
-                throw new ArgumentException("‘‰«”Â ÅÌ«„ò Ê«—œ ‘œÂ œ— œÌò‘‰—Ì „ÊÃÊœ ‰Ì” .");
+                throw new ArgumentException("????? ????? ???? ??? ?? ??????? ????? ????.");
             }
 
 
@@ -140,7 +142,7 @@ public class SmsService : ISmsService
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error sending Bulk SMS");
+            _logger.LogError(ex, "Error sending Bulk SMS");
             return false;
         }
     }

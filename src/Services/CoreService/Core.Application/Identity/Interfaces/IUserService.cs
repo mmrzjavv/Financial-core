@@ -1,21 +1,21 @@
-using Core.Application.Identity.Common.DTOs;
+using BuildingBlocks.Application.Results;
 using Core.Application.Identity.DTOs.User;
 
 namespace Core.Application.Identity.Interfaces;
 
 public interface IUserService
 {
-    Task<PanelOperationResult<UserDto>> SendOtpAsync(SendOtpDto dto);
-  Task<PanelOperationResult<LoginDto>> VerifyOtpAsync(VerifyOtpDto dto);
-    Task<PanelOperationResult<LoginDto>> RefreshTokenAsync(RefreshTokenDto dto, string? accessToken);
-    Task<PanelOperationResult<UserDto>> LogoutCurrentSessionAsync(Guid userId, Guid sessionId);
-    Task<PanelOperationResult<UserDto>> RevokeSessionAsync(Guid userId, Guid sessionId);
-    Task<PanelOperationResult<UserDto>> RevokeAllSessionsAsync(Guid userId);
-    Task<PanelOperationResult<SessionDto>> GetActiveSessionsAsync(Guid userId);
-    Task<PanelOperationResult<UserDto>> GetByIdAsync(Guid id);
-    Task<PanelOperationResult<UserDto>> GetPagedAsync(int take, int skip);
-    Task<PanelOperationResult<UserDto>> CreateAsync(CreateUserDto dto);
-    Task<PanelOperationResult<UserDto>> UpdateAsync(Guid id, Guid requesterId, UpdateUserDto dto);
-    Task<PanelOperationResult<UserDto>> DeleteAsync(Guid id);
-    Task<PanelOperationResult<UserDto>> Profile(Guid id);
+    Task<ApiOperationResult<UserDto>> SendOtpAsync(SendOtpDto dto);
+  Task<ApiOperationResult<LoginDto>> VerifyOtpAsync(VerifyOtpDto dto);
+    Task<ApiOperationResult<LoginDto>> RefreshTokenAsync(RefreshTokenDto dto, string? accessToken);
+    Task<ApiOperationResult<UserDto>> LogoutCurrentSessionAsync(Guid userId, Guid sessionId);
+    Task<ApiOperationResult<UserDto>> RevokeSessionAsync(Guid userId, Guid sessionId);
+    Task<ApiOperationResult<UserDto>> RevokeAllSessionsAsync(Guid userId);
+    Task<ApiOperationResult<SessionDto>> GetActiveSessionsAsync(Guid userId);
+    Task<ApiOperationResult<UserDto>> GetByIdAsync(Guid id);
+    Task<ApiOperationResult<UserDto>> GetPagedAsync(int take, int skip);
+    Task<ApiOperationResult<UserDto>> CreateAsync(CreateUserDto dto);
+    Task<ApiOperationResult<UserDto>> UpdateAsync(Guid id, Guid requesterId, UpdateUserDto dto);
+    Task<ApiOperationResult<UserDto>> DeleteAsync(Guid id);
+    Task<ApiOperationResult<UserDto>> Profile(Guid id);
 }

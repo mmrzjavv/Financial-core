@@ -2,7 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using FluentValidation;
 using Mapster;
-using Core.Application.Identity.Common.DTOs;
+using BuildingBlocks.Application.Results;
 using Core.Application.Identity.DTOs.User;
 using Core.Application.Identity.Notifications;
 using Core.Application.Identity.Abstractions;
@@ -11,6 +11,7 @@ using Core.Application.Identity.Common.Interfaces;
 using Services.CoreService.Core.Domain.Identity.Entities;
 using Services.CoreService.Core.Domain.Identity.Enums;
 using Microsoft.Extensions.Options;
+using Core.Application.Identity.Authorization;
 using Core.Application.Identity.Common.Options;
 
 namespace Core.Application.Identity.Services;
@@ -67,9 +68,9 @@ public class UserService : IUserService
         _logger = logger;
     }
 
-    public async Task<PanelOperationResult<UserDto>> SendOtpAsync(SendOtpDto dto)
+    public async Task<ApiOperationResult<UserDto>> SendOtpAsync(SendOtpDto dto)
     {
-        var result = new PanelOperationResult<UserDto>();
+        var result = new ApiOperationResult<UserDto>();
 
         try
         {
@@ -105,7 +106,9 @@ public class UserService : IUserService
                 return result.Failed("??????? ??? ?? ??????? ????? ??. ???? ??? ??? ?????? ???? ????.", HttpStatusCode.BadRequest);
             }
 
-            var otpCode = RandomNumberGenerator.GetInt32(100_000, 1_000_000).ToString();
+            var otpCode = _otpOptions.Value.DevBypassEnabled && !string.IsNullOrWhiteSpace(_otpOptions.Value.DevCode)
+                ? _otpOptions.Value.DevCode
+                : RandomNumberGenerator.GetInt32(100_000, 1_000_000).ToString();
             var validTime = DateTime.UtcNow.AddMinutes(Math.Max(1, _otpOptions.Value.TtlMinutes));
 
             await _otpCacheService.StoreOtpAsync(dto.PhoneNumber, otpCode, CancellationToken.None);
@@ -128,9 +131,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<LoginDto>> VerifyOtpAsync(VerifyOtpDto dto)
+    public async Task<ApiOperationResult<LoginDto>> VerifyOtpAsync(VerifyOtpDto dto)
     {
-        var result = new PanelOperationResult<LoginDto>();
+        var result = new ApiOperationResult<LoginDto>();
 
         try
         {
@@ -165,7 +168,11 @@ public class UserService : IUserService
             }
 
             var sessionId = Guid.NewGuid();
-            var tokenData = _tokenHelper.GenerateToken(user.Id.ToString(), user.PhoneNumber, user.Role.ToString(), sessionId.ToString("N"));
+            var tokenData = _tokenHelper.GenerateToken(
+                user.Id.ToString(),
+                user.PhoneNumber,
+                RoleClaimMapper.ToClaimRole(user.Role),
+                sessionId.ToString("N"));
 
             await _sessionCacheService.StoreSessionAsync(CreateSessionDescriptor(user.Id, sessionId), CancellationToken.None);
 
@@ -210,9 +217,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<LoginDto>> RefreshTokenAsync(RefreshTokenDto dto, string? accessToken)
+    public async Task<ApiOperationResult<LoginDto>> RefreshTokenAsync(RefreshTokenDto dto, string? accessToken)
     {
-        var result = new PanelOperationResult<LoginDto>();
+        var result = new ApiOperationResult<LoginDto>();
 
         try
         {
@@ -284,7 +291,11 @@ public class UserService : IUserService
                 await _unitOfWork.RefreshTokens.UpdateAsync(stored);
             }
 
-            var tokenData = _tokenHelper.GenerateToken(user.Id.ToString(), user.PhoneNumber, user.Role.ToString(), sessionId.ToString("N"));
+            var tokenData = _tokenHelper.GenerateToken(
+                user.Id.ToString(),
+                user.PhoneNumber,
+                RoleClaimMapper.ToClaimRole(user.Role),
+                sessionId.ToString("N"));
 
             var newRefresh = _refreshTokenService.CreateNew(
                 userId: user.Id,
@@ -334,9 +345,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<UserDto>> LogoutCurrentSessionAsync(Guid userId, Guid sessionId)
+    public async Task<ApiOperationResult<UserDto>> LogoutCurrentSessionAsync(Guid userId, Guid sessionId)
     {
-        var result = new PanelOperationResult<UserDto>();
+        var result = new ApiOperationResult<UserDto>();
         try
         {
             if (userId == Guid.Empty || sessionId == Guid.Empty)
@@ -368,9 +379,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<UserDto>> RevokeSessionAsync(Guid userId, Guid sessionId)
+    public async Task<ApiOperationResult<UserDto>> RevokeSessionAsync(Guid userId, Guid sessionId)
     {
-        var result = new PanelOperationResult<UserDto>();
+        var result = new ApiOperationResult<UserDto>();
         try
         {
             var dbSession = await _unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
@@ -402,9 +413,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<UserDto>> RevokeAllSessionsAsync(Guid userId)
+    public async Task<ApiOperationResult<UserDto>> RevokeAllSessionsAsync(Guid userId)
     {
-        var result = new PanelOperationResult<UserDto>();
+        var result = new ApiOperationResult<UserDto>();
         try
         {
             var sessions = await _unitOfWork.UserSessions.GetAllAsync(s => s.UserId == userId && s.RevokedAt == null, disableTracking: false);
@@ -433,9 +444,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<SessionDto>> GetActiveSessionsAsync(Guid userId)
+    public async Task<ApiOperationResult<SessionDto>> GetActiveSessionsAsync(Guid userId)
     {
-        var result = new PanelOperationResult<SessionDto>();
+        var result = new ApiOperationResult<SessionDto>();
         try
         {
             var sessions = await _unitOfWork.UserSessions.GetActiveByUserAsync(userId);
@@ -454,9 +465,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<UserDto>> CreateAsync(CreateUserDto dto)
+    public async Task<ApiOperationResult<UserDto>> CreateAsync(CreateUserDto dto)
     {
-        var result = new PanelOperationResult<UserDto>();
+        var result = new ApiOperationResult<UserDto>();
         try
         {
             var validation = await _createUserValidator.ValidateAsync(dto, CancellationToken.None);
@@ -482,7 +493,11 @@ public class UserService : IUserService
 
             var user = dto.Adapt<User>();
             user.CreatedAt = DateTime.UtcNow;
-            user.Role = UserRole.User;
+            user.Role = _otpOptions.Value.DevBypassEnabled
+                && !string.IsNullOrWhiteSpace(_otpOptions.Value.SeedAdminPhone)
+                && string.Equals(dto.PhoneNumber, _otpOptions.Value.SeedAdminPhone, StringComparison.Ordinal)
+                ? UserRole.Admin
+                : UserRole.User;
 
             await _unitOfWork.Users.AddAsync(user);
             await _unitOfWork.SaveChangesAsync();
@@ -495,9 +510,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<UserDto>> UpdateAsync(Guid id, Guid requesterId, UpdateUserDto dto)
+    public async Task<ApiOperationResult<UserDto>> UpdateAsync(Guid id, Guid requesterId, UpdateUserDto dto)
     {
-        var result = new PanelOperationResult<UserDto>();
+        var result = new ApiOperationResult<UserDto>();
         try
         {
             var validation = await _updateUserValidator.ValidateAsync(dto);
@@ -559,9 +574,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<UserDto>> GetByIdAsync(Guid id)
+    public async Task<ApiOperationResult<UserDto>> GetByIdAsync(Guid id)
     {
-        var result = new PanelOperationResult<UserDto>();
+        var result = new ApiOperationResult<UserDto>();
         try
         {
             var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted);
@@ -574,9 +589,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<UserDto>> GetPagedAsync(int take, int skip)
+    public async Task<ApiOperationResult<UserDto>> GetPagedAsync(int take, int skip)
     {
-        var result = new PanelOperationResult<UserDto>();
+        var result = new ApiOperationResult<UserDto>();
         try
         {
             var users = await _unitOfWork.Users.GetPagedListAsync(take, skip, u => !u.IsDeleted);
@@ -589,9 +604,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<UserDto>> DeleteAsync(Guid id)
+    public async Task<ApiOperationResult<UserDto>> DeleteAsync(Guid id)
     {
-        var result = new PanelOperationResult<UserDto>();
+        var result = new ApiOperationResult<UserDto>();
         try
         {
             var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted, false);
@@ -608,9 +623,9 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<PanelOperationResult<UserDto>> Profile(Guid id)
+    public async Task<ApiOperationResult<UserDto>> Profile(Guid id)
     {
-        var result = new PanelOperationResult<UserDto>();
+        var result = new ApiOperationResult<UserDto>();
         try
         {
             var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted, false);
@@ -624,8 +639,8 @@ public class UserService : IUserService
 
     private static UserDto MapToDto(User user) => user.Adapt<UserDto>();
 
-    private PanelOperationResult<LoginDto> BuildOtpFailure(
-        PanelOperationResult<LoginDto> result,
+    private ApiOperationResult<LoginDto> BuildOtpFailure(
+        ApiOperationResult<LoginDto> result,
         OtpValidationResult otpValidation)
     {
         if (otpValidation.Locked)

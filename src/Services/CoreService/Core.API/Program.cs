@@ -1,6 +1,10 @@
+using System.Net;
 using Asp.Versioning;
+using BuildingBlocks.Application.Results;
 using BuildingBlocks.Domain.Abstractions;
+using Core.API.Http;
 using BuildingBlocks.Observability.Correlation;
+using BuildingBlocks.Observability.Logging;
 using Core.Application.Abstractions;
 using Core.Application.Services;
 using Core.Infrastructure.DependencyInjection;
@@ -34,18 +38,10 @@ if (!string.IsNullOrWhiteSpace(coreUrls) && string.IsNullOrWhiteSpace(aspnetcore
     builder.WebHost.UseUrls(coreUrls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 }
 
-builder.Host.UseSerilog((ctx, services, cfg) =>
-{
-    cfg.ReadFrom.Configuration(ctx.Configuration)
-        .Enrich.FromLogContext()
-        .WriteTo.Console();
-
-    var seqUrl = ctx.Configuration["Serilog:SeqUrl"];
-    if (!string.IsNullOrWhiteSpace(seqUrl))
-        cfg.WriteTo.Seq(seqUrl);
-});
+builder.Host.UsePlatformSerilog();
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<CorrelationIdMiddleware>();
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<IUserContext, HttpUserContext>();
 
@@ -93,12 +89,18 @@ builder.Services.AddControllers()
     {
         options.InvalidModelStateResponseFactory = context =>
         {
-            var problem = new ValidationProblemDetails(context.ModelState)
-            {
-                Status = StatusCodes.Status400BadRequest,
-                Title = "Validation failed"
-            };
-            return new BadRequestObjectResult(problem);
+            var validationErrors = context.ModelState
+                .Where(entry => entry.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    entry => entry.Key,
+                    entry => entry.Value!.Errors.Select(error => error.ErrorMessage).ToArray());
+
+            var envelope = new ApiOperationResult<object?>().Failed(
+                "Validation failed.",
+                validationErrors,
+                HttpStatusCode.BadRequest);
+
+            return ApiResponse.Send(envelope);
         };
     });
 
@@ -195,43 +197,30 @@ app.UseExceptionHandler(errorApp =>
 
         if (ex is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
-            var conflict = new ProblemDetails
-            {
-                Title = "Concurrency conflict.",
-                Status = StatusCodes.Status409Conflict,
-                Detail = "The resource was modified by another request. Please reload and retry."
-            };
-            context.Response.StatusCode = conflict.Status.Value;
-            context.Response.ContentType = "application/problem+json";
-            await context.Response.WriteAsJsonAsync(conflict);
+            var envelope = new ApiOperationResult<object?>().Failed(
+                "The resource was modified by another request. Please reload and retry.",
+                HttpStatusCode.Conflict);
+
+            context.Response.StatusCode = (int)envelope.Status;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(envelope);
             return;
         }
 
-        var problem = new ProblemDetails
-        {
-            Title = "An unexpected error occurred.",
-            Status = StatusCodes.Status500InternalServerError,
-            Detail = app.Environment.IsDevelopment() ? ex?.Message : null
-        };
+        var failure = new ApiOperationResult<object?>().Failed(
+            "An unexpected error occurred.",
+            HttpStatusCode.InternalServerError,
+            exMessage: app.Environment.IsDevelopment() ? ex?.Message : null);
 
-        context.Response.StatusCode = problem.Status.Value;
-        context.Response.ContentType = "application/problem+json";
-        await context.Response.WriteAsJsonAsync(problem);
+        context.Response.StatusCode = (int)failure.Status;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(failure);
     });
 });
 
-app.Use(async (context, next) =>
-{
-    var correlationId = context.Request.Headers["X-Correlation-ID"].FirstOrDefault() ?? Guid.NewGuid().ToString();
-    var traceId = context.Request.Headers["X-Trace-ID"].FirstOrDefault() ?? Guid.NewGuid().ToString();
+app.UseMiddleware<CorrelationIdMiddleware>();
 
-    context.Items[CorrelationContext.ItemKey] = correlationId;
-    context.Response.Headers["X-Correlation-ID"] = correlationId;
-    context.Response.Headers["X-Trace-ID"] = traceId;
-    await next();
-});
-
-app.UseSerilogRequestLogging();
+app.UsePlatformRequestLogging();
 
 // In development, we allow swagger even if not explicitly in Dev env for now to fix user issue
 app.UseSwagger();

@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Maskan Panel - Backend Workflow Test Panel</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__left">
+        <div class="brand">Workflow Test Panel</div>
+        <div class="muted">Simple internal UI for end-to-end API verification</div>
+      </div>
+      <div class="topbar__right">
+        <div class="pill">
+          <span class="muted">Base URL:</span>
+          <span id="baseUrlLabel" class="mono"></span>
+          <button id="btnEditConfig" class="btn btn--small">Edit</button>
+        </div>
+        <div class="pill">
+          <span class="muted">Session:</span>
+          <span id="activeSessionLabel" class="mono"></span>
+          <button id="btnLogout" class="btn btn--small btn--warn">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <button class="navbtn is-active" data-tab="tabAuth">Auth</button>
+        <button class="navbtn" data-tab="tabUsers">Users & Roles</button>
+        <button class="navbtn" data-tab="tabCases">Cases</button>
+        <button class="navbtn" data-tab="tabWorkflow">Workflow</button>
+        <button class="navbtn" data-tab="tabAutomation">Automation</button>
+        <button class="navbtn" data-tab="tabDocs">Documents</button>
+        <button class="navbtn" data-tab="tabComments">Comments</button>
+        <button class="navbtn" data-tab="tabEval">Evaluations</button>
+        <button class="navbtn" data-tab="tabDebug">Debug Tools</button>
+      </aside>
+
+      <section class="content">
+        <div id="globalError" class="alert alert--error hidden"></div>
+
+        <div id="tabAuth" class="tab is-active">
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Send OTP</div>
+              <div class="formrow">
+                <label>Phone</label>
+                <input id="authPhone" placeholder="09xxxxxxxxx" />
+              </div>
+              <button id="btnSendOtp" class="btn">Send OTP</button>
+              <div class="hint">API: <span class="mono">POST /api/v1/panel/users/send-otp</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Verify OTP (Login)</div>
+              <div class="formrow">
+                <label>Phone</label>
+                <input id="verifyPhone" placeholder="09xxxxxxxxx" />
+              </div>
+              <div class="formrow">
+                <label>OTP</label>
+                <input id="verifyOtp" placeholder="123456" />
+              </div>
+              <div class="formrow">
+                <label>Save as</label>
+                <input id="sessionLabel" placeholder="e.g. Applicant - Ali" />
+              </div>
+              <button id="btnVerifyOtp" class="btn btn--primary">Verify & Save Session</button>
+              <div class="hint">API: <span class="mono">POST /api/v1/panel/users/verify-otp</span></div>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Refresh Token</div>
+              <div class="formrow">
+                <label>Refresh token</label>
+                <input id="refreshTokenInput" placeholder="uses active session if empty" />
+              </div>
+              <button id="btnRefresh" class="btn">Refresh</button>
+              <div class="hint">API: <span class="mono">POST /api/v1/panel/users/refresh-token</span> (uses Authorization bearer access token)</div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Profile & Sessions</div>
+              <div class="row">
+                <button id="btnProfile" class="btn">Get Profile</button>
+                <button id="btnSessions" class="btn">Active Sessions</button>
+              </div>
+              <div class="row">
+                <button id="btnRevokeSession" class="btn btn--warn">Revoke Session (sid)</button>
+                <input id="revokeSid" class="mono" placeholder="sessionId (sid)" />
+              </div>
+              <div class="row">
+                <button id="btnRevokeAll" class="btn btn--warn">Revoke All</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__title">Saved Sessions (Role Switching)</div>
+            <div class="hint">Switching role = switching saved JWT session. Backend permissions are enforced by token role/claims.</div>
+            <div id="sessionsList" class="list"></div>
+          </div>
+        </div>
+
+        <div id="tabUsers" class="tab">
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Create User</div>
+              <div class="formrow"><label>Phone</label><input id="createUserPhone" placeholder="09xxxxxxxxx" /></div>
+              <div class="formrow"><label>First name</label><input id="createUserFirst" /></div>
+              <div class="formrow"><label>Last name</label><input id="createUserLast" /></div>
+              <div class="formrow"><label>Email</label><input id="createUserEmail" /></div>
+              <div class="formrow"><label>National code</label><input id="createUserNat" /></div>
+              <button id="btnCreateUser" class="btn btn--primary">Create</button>
+              <div class="hint">API: <span class="mono">POST /api/v1/panel/users</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Update User (Admin)</div>
+              <div class="formrow"><label>User Id</label><input id="updateUserId" class="mono" placeholder="guid" /></div>
+              <div class="formrow">
+                <label>Role</label>
+                <select id="updateUserRole"></select>
+              </div>
+              <div class="formrow">
+                <label>Is Active</label>
+                <select id="updateUserActive">
+                  <option value="">(no change)</option>
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+              </div>
+              <button id="btnUpdateUser" class="btn">Update</button>
+              <div class="hint">API: <span class="mono">PUT /api/v1/panel/users/{id}</span></div>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Get User By Id</div>
+              <div class="row">
+                <input id="getUserId" class="mono" placeholder="guid" />
+                <button id="btnGetUser" class="btn">Get</button>
+              </div>
+              <div class="hint">API: <span class="mono">GET /api/v1/panel/users/{id}</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">List Users (Paged)</div>
+              <div class="row">
+                <input id="usersTake" placeholder="take" value="10" />
+                <input id="usersSkip" placeholder="skip" value="0" />
+                <button id="btnListUsers" class="btn">List</button>
+              </div>
+              <div class="hint">API: <span class="mono">GET /api/v1/panel/users?take=10&amp;skip=0</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tabCases" class="tab">
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Create Case (Applicant)</div>
+              <div class="formrow"><label>Applicant userId</label><input id="caseApplicantUserId" class="mono" placeholder="guid as string" /></div>
+              <div class="formrow">
+                <label>Applicant type</label>
+                <select id="caseApplicantType">
+                  <option value="1">Individual (1)</option>
+                  <option value="2">Company (2)</option>
+                </select>
+              </div>
+              <div class="formrow"><label>Company name</label><input id="caseCompanyName" placeholder="(optional)" /></div>
+              <div class="formrow"><label>Economic code</label><input id="caseCompanyEco" placeholder="(optional)" /></div>
+              <button id="btnCreateCase" class="btn btn--primary">Create Case</button>
+              <div class="hint">API: <span class="mono">POST /api/v1/cases</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Select Current Case</div>
+              <div class="formrow"><label>Case Id</label><input id="currentCaseId" class="mono" placeholder="guid" /></div>
+              <button id="btnSetCurrentCase" class="btn">Set Current Case</button>
+              <div class="hint">Used by workflow, docs, comments, evaluations.</div>
+              <div class="row">
+                <button id="btnGetCase" class="btn">Get Case</button>
+                <button id="btnGetHistory" class="btn">History</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__title">Search Cases</div>
+            <div class="grid3">
+              <div class="formrow"><label>Case number</label><input id="searchCaseNumber" /></div>
+              <div class="formrow"><label>Applicant userId</label><input id="searchApplicantUserId" class="mono" /></div>
+              <div class="formrow"><label>Status</label><select id="searchStatus"></select></div>
+              <div class="formrow"><label>Phase</label><select id="searchPhase"></select></div>
+              <div class="formrow"><label>From</label><input id="searchFrom" placeholder="2026-01-01T00:00:00Z" /></div>
+              <div class="formrow"><label>To</label><input id="searchTo" placeholder="2026-12-31T23:59:59Z" /></div>
+              <div class="formrow"><label>Page</label><input id="searchPage" value="1" /></div>
+              <div class="formrow"><label>PageSize</label><input id="searchPageSize" value="10" /></div>
+            </div>
+            <button id="btnSearchCases" class="btn">Search</button>
+            <div class="hint">API: <span class="mono">GET /api/v1/cases?...query</span></div>
+          </div>
+        </div>
+
+        <div id="tabAutomation" class="tab">
+          <div class="card">
+            <div class="card__title">Run Full Workflow</div>
+            <p class="hint">
+              Provisions test users, logs in with the configured dev OTP, creates a case, uploads contract files directly to presigned storage, and drives the case to completion.
+            </p>
+            <div class="row">
+              <button id="btnRunFullWorkflow" class="btn btn--primary">Run Full Workflow</button>
+              <button id="btnStopWorkflow" class="btn btn--warn" disabled>Stop</button>
+            </div>
+            <div class="row">
+              <span class="muted">Status:</span>
+              <span id="workflowRunStatus" class="mono">Idle</span>
+            </div>
+            <div id="workflowRunLog" class="workflow-log"></div>
+          </div>
+        </div>
+
+        <div id="tabWorkflow" class="tab">
+          <div class="card">
+            <div class="card__title">Current Case</div>
+            <div class="row">
+              <span class="muted">CaseId:</span> <span id="currentCaseLabel" class="mono"></span>
+              <button id="btnReloadCase" class="btn btn--small">Reload</button>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Data Entry 1 (Applicant)</div>
+              <textarea id="dataEntry1Json" class="code" spellcheck="false"></textarea>
+              <div class="row">
+                <button id="btnUpdateDE1" class="btn">Update</button>
+                <button id="btnSubmitDE1" class="btn btn--primary">Submit</button>
+              </div>
+              <div class="row">
+                <input id="de1Comment" placeholder="comment (optional)" />
+              </div>
+              <div class="hint mono">PUT /api/v1/cases/{id}/data-entry1 • POST /api/v1/cases/{id}/data-entry1/submit</div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Data Entry 1 Review (Internal)</div>
+              <div class="row">
+                <input id="de1ApproveComment" placeholder="approve comment (optional)" />
+                <button id="btnApproveDE1" class="btn btn--primary">Approve</button>
+              </div>
+              <div class="row">
+                <input id="de1RevisionMsg" placeholder="revision message" />
+                <button id="btnReviseDE1" class="btn btn--warn">Request Revision</button>
+              </div>
+              <div class="hint mono">POST /api/v1/cases/{id}/data-entry1/approve • /revision-request</div>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Data Entry 2 (Applicant)</div>
+              <textarea id="dataEntry2Json" class="code" spellcheck="false"></textarea>
+              <div class="row">
+                <button id="btnUpdateDE2" class="btn">Update</button>
+                <button id="btnSubmitDE2" class="btn btn--primary">Submit</button>
+              </div>
+              <div class="row">
+                <input id="de2Comment" placeholder="comment (optional)" />
+              </div>
+              <div class="hint mono">PUT /api/v1/cases/{id}/data-entry2 • POST /api/v1/cases/{id}/data-entry2/submit</div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Data Entry 2 Review (Internal)</div>
+              <div class="row">
+                <input id="de2ApproveComment" placeholder="approve comment (optional)" />
+                <button id="btnApproveDE2" class="btn btn--primary">Approve</button>
+              </div>
+              <div class="row">
+                <input id="de2RevisionMsg" placeholder="revision message" />
+                <button id="btnReviseDE2" class="btn btn--warn">Request Revision</button>
+              </div>
+              <div class="hint mono">POST /api/v1/cases/{id}/data-entry2/approve • /revision-request</div>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Valuation (Internal)</div>
+              <textarea id="valuationJson" class="code" spellcheck="false"></textarea>
+              <div class="row">
+                <button id="btnRecordValuation" class="btn">Record</button>
+              </div>
+              <div class="row">
+                <input id="valInitialComment" placeholder="initial approval comment" />
+                <button id="btnApproveValInitial" class="btn btn--primary">Initial Approve</button>
+              </div>
+              <div class="row">
+                <input id="valSecondaryComment" placeholder="secondary approval comment" />
+                <button id="btnApproveValSecondary" class="btn btn--primary">Secondary Approve</button>
+              </div>
+              <div class="hint mono">POST /api/v1/cases/{id}/valuations • /initial/approve • /secondary/approve</div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Contracts & Legal</div>
+              <div class="row">
+                <input id="preContractS3Key" class="mono" placeholder="s3Key for preliminary contract" />
+                <button id="btnUploadPreContract" class="btn">Upload Preliminary (Internal)</button>
+              </div>
+              <div class="row">
+                <input id="preContractApproveComment" placeholder="applicant approve comment" />
+                <button id="btnApprovePreContract" class="btn btn--primary">Applicant Approve</button>
+              </div>
+              <div class="row">
+                <input id="preContractRevisionMsg" placeholder="applicant revision message" />
+                <button id="btnRequestPreContractRevision" class="btn btn--warn">Applicant Revision</button>
+              </div>
+              <div class="row">
+                <input id="finalizeDraftComment" placeholder="finalize draft comment" />
+                <button id="btnFinalizeDraft" class="btn">Finalize Draft (Internal)</button>
+              </div>
+              <div class="row">
+                <input id="confirmSignatureComment" placeholder="confirm signature comment" />
+                <button id="btnConfirmSignature" class="btn">Confirm Signature (Internal)</button>
+              </div>
+              <div class="row">
+                <input id="signedContractS3Key" class="mono" placeholder="s3Key for signed contract" />
+                <button id="btnUploadSignedContract" class="btn">Upload Signed (Internal)</button>
+              </div>
+              <div class="hint mono">/contracts/* endpoints on current case</div>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Financial Worksheet (Internal)</div>
+              <textarea id="worksheetJson" class="code" spellcheck="false"></textarea>
+              <div class="row">
+                <button id="btnUpdateWorksheet" class="btn">Update</button>
+                <input id="worksheetComment" placeholder="comment (optional)" />
+                <button id="btnSubmitWorksheet" class="btn btn--primary">Submit</button>
+              </div>
+              <div class="row">
+                <input id="worksheetApproveComment" placeholder="approve comment (optional)" />
+                <button id="btnApproveWorksheet" class="btn btn--primary">Approve</button>
+              </div>
+              <div class="row">
+                <input id="worksheetRevisionMsg" placeholder="revision message" />
+                <button id="btnRevisionWorksheet" class="btn btn--warn">Request Revision</button>
+              </div>
+              <div class="hint mono">PUT /financial-worksheet • POST /submit • /approve • /revision-request</div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Payments (Internal)</div>
+              <textarea id="paymentJson" class="code" spellcheck="false"></textarea>
+              <div class="row">
+                <button id="btnRecordPayment" class="btn">Record Payment</button>
+              </div>
+              <div class="row">
+                <input id="paymentId" class="mono" placeholder="paymentId (guid)" />
+                <button id="btnConfirmPayment" class="btn btn--primary">Confirm</button>
+                <button id="btnCancelPayment" class="btn btn--warn">Cancel</button>
+              </div>
+              <div class="hint mono">POST /payments • POST /payments/{paymentId}/confirm • /cancel</div>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Reject / Cancel / Archive</div>
+              <div class="row">
+                <input id="rejectReason" placeholder="reject reason" />
+                <button id="btnRejectCase" class="btn btn--warn">Reject (Internal)</button>
+              </div>
+              <div class="row">
+                <input id="cancelReason" placeholder="cancel reason" />
+                <button id="btnCancelCase" class="btn btn--warn">Cancel</button>
+              </div>
+              <div class="row">
+                <input id="archiveReason" placeholder="archive reason" />
+                <button id="btnArchiveCase" class="btn">Archive</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tabDocs" class="tab">
+          <div class="card">
+            <div class="card__title">Presigned Upload (Case Documents)</div>
+            <div class="grid3">
+              <div class="formrow">
+                <label>DocumentType</label>
+                <select id="docType"></select>
+              </div>
+              <div class="formrow">
+                <label>File</label>
+                <input id="docFile" type="file" />
+              </div>
+              <div class="formrow">
+                <label>MimeType</label>
+                <input id="docMime" placeholder="auto from file" />
+              </div>
+            </div>
+            <div class="row">
+              <button id="btnPresign" class="btn">Presign</button>
+              <button id="btnUploadToPresignUrl" class="btn btn--primary" disabled>Upload To URL</button>
+              <button id="btnConfirmUpload" class="btn" disabled>Confirm Upload</button>
+            </div>
+            <div class="row">
+              <span class="muted">Last S3Key:</span> <span id="lastS3Key" class="mono"></span>
+            </div>
+            <div class="hint mono">POST /api/v1/cases/{id}/documents/presign → PUT Url → POST /documents/confirm?s3Key=...</div>
+          </div>
+
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">List Documents</div>
+              <button id="btnListDocs" class="btn">Get Documents</button>
+              <div class="hint mono">GET /api/v1/cases/{id}/documents</div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Presigned Download</div>
+              <div class="row">
+                <input id="downloadDocumentId" class="mono" placeholder="documentId (guid)" />
+                <button id="btnPresignDownload" class="btn">Get Download URL</button>
+              </div>
+              <div class="row">
+                <a id="downloadLink" class="mono" href="#" target="_blank" rel="noreferrer">download link</a>
+              </div>
+              <div class="hint mono">GET /api/v1/cases/{id}/documents/{documentId}/download</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__title">Generic File Tools</div>
+            <div class="grid2">
+              <div>
+                <div class="formrow"><label>PUT to URL (presigned)</label><input id="genericPutUrl" class="mono" placeholder="https://..." /></div>
+                <div class="formrow"><label>File</label><input id="genericPutFile" type="file" /></div>
+                <div class="formrow"><label>Content-Type</label><input id="genericPutContentType" placeholder="auto from file" /></div>
+                <button id="btnGenericPut" class="btn">PUT Upload</button>
+              </div>
+              <div>
+                <div class="formrow"><label>Multipart POST (FormData)</label><input id="multipartPath" class="mono" placeholder="/api/v1/attachment/..." /></div>
+                <div class="formrow"><label>File field name</label><input id="multipartField" value="file" /></div>
+                <div class="formrow"><label>File</label><input id="multipartFile" type="file" /></div>
+                <button id="btnMultipartPost" class="btn">POST Multipart</button>
+              </div>
+            </div>
+            <div class="hint">For multipart endpoints, set Path to a gateway path (relative to Base URL).</div>
+          </div>
+        </div>
+
+        <div id="tabComments" class="tab">
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Get Comments</div>
+              <div class="row">
+                <select id="includeInternal">
+                  <option value="false">includeInternal=false</option>
+                  <option value="true">includeInternal=true</option>
+                </select>
+                <button id="btnGetComments" class="btn">Fetch</button>
+              </div>
+              <div class="hint mono">GET /api/v1/cases/{id}/comments?includeInternal=...</div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Add Comment</div>
+              <textarea id="commentJson" class="code" spellcheck="false"></textarea>
+              <button id="btnAddComment" class="btn btn--primary">Add</button>
+              <div class="hint mono">POST /api/v1/cases/{id}/comments</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__title">Add Comment Attachment</div>
+            <div class="row">
+              <input id="commentId" class="mono" placeholder="commentId (guid)" />
+              <input id="commentAttachmentS3Key" class="mono" placeholder="s3Key" />
+              <input id="commentAttachmentFileName" placeholder="fileName" />
+              <button id="btnAddCommentAttachment" class="btn">Add Attachment</button>
+            </div>
+            <div class="hint mono">POST /api/v1/cases/{id}/comments/{commentId}/attachments?s3Key=...&fileName=...</div>
+          </div>
+        </div>
+
+        <div id="tabEval" class="tab">
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Upsert Evaluation (Internal)</div>
+              <textarea id="evalJson" class="code" spellcheck="false"></textarea>
+              <button id="btnUpsertEval" class="btn btn--primary">Upsert</button>
+              <div class="hint mono">POST /api/v1/cases/{id}/evaluations</div>
+            </div>
+            <div class="card">
+              <div class="card__title">Get Evaluations</div>
+              <button id="btnGetEvals" class="btn">Fetch</button>
+              <div class="hint mono">GET /api/v1/cases/{id}/evaluations</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tabDebug" class="tab">
+          <div class="grid2">
+            <div class="card">
+              <div class="card__title">Manual Request</div>
+              <div class="grid3">
+                <div class="formrow">
+                  <label>Method</label>
+                  <select id="manualMethod">
+                    <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
+                  </select>
+                </div>
+                <div class="formrow">
+                  <label>Path or URL</label>
+                  <input id="manualPath" class="mono" placeholder="/api/v1/..." />
+                </div>
+                <div class="formrow">
+                  <label>Auth</label>
+                  <select id="manualAuth">
+                    <option value="use">Use active token</option>
+                    <option value="none">No auth</option>
+                  </select>
+                </div>
+              </div>
+              <div class="formrow">
+                <label>Headers (JSON)</label>
+                <textarea id="manualHeaders" class="code" spellcheck="false">{}</textarea>
+              </div>
+              <div class="formrow">
+                <label>Body (JSON or text)</label>
+                <textarea id="manualBody" class="code" spellcheck="false"></textarea>
+              </div>
+              <button id="btnManualSend" class="btn btn--primary">Send</button>
+            </div>
+
+            <div class="card">
+              <div class="card__title">Auth State</div>
+              <div class="row">
+                <button id="btnShowTokens" class="btn">Show Token Payload</button>
+                <button id="btnClearStorage" class="btn btn--warn">Clear Local Storage</button>
+              </div>
+              <pre id="tokenViewer" class="code small"></pre>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__title">Request / Response Inspector</div>
+            <div class="grid2">
+              <div>
+                <div class="muted">Last Request</div>
+                <pre id="lastRequest" class="code"></pre>
+              </div>
+              <div>
+                <div class="muted">Last Response</div>
+                <pre id="lastResponse" class="code"></pre>
+              </div>
+            </div>
+            <div class="row">
+              <span class="muted">Status:</span> <span id="lastStatus" class="mono"></span>
+              <span class="muted">Time:</span> <span id="lastTime" class="mono"></span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__title">Request Log</div>
+            <div id="reqLog" class="list"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="configModal" class="modal hidden">
+      <div class="modal__body">
+        <div class="modal__title">Config</div>
+        <div class="formrow">
+          <label>API Gateway Base URL</label>
+          <input id="cfgBaseUrl" class="mono" />
+        </div>
+        <div class="formrow">
+          <label>Cases API version segment</label>
+          <input id="cfgCasesVersion" class="mono" placeholder="1 or 1.0" />
+        </div>
+        <div class="formrow">
+          <label>Dev OTP</label>
+          <input id="cfgDevOtp" class="mono" placeholder="123456" />
+        </div>
+        <div class="row right">
+          <button id="btnCloseConfig" class="btn">Close</button>
+          <button id="btnSaveConfig" class="btn btn--primary">Save</button>
+        </div>
+        <div class="hint">Saved in localStorage.</div>
+      </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="workflow-runner.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
+
