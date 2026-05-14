@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 
+
 namespace Core.Application.Identity.Events;
 
 public interface IAuthDomainEvent

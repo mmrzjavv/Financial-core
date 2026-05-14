@@ -2,6 +2,7 @@ using BuildingBlocks.Application.Results;
 using BuildingBlocks.Contracts.Paging;
 using Services.CoreService.Core.Application.Contracts.Cases;
 
+
 namespace Services.CoreService.Core.Application.Services;
 
 public interface ICaseService
@@ -11,4 +12,3 @@ public interface ICaseService
     Task<Result<PagedResult<CaseDto>>> ListMyCasesAsync(PagedRequest request, CancellationToken ct);
     Task<Result> SubmitAsync(Guid caseId, SubmitCaseRequest request, CancellationToken ct);
 }
-

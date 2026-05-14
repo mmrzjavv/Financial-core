@@ -1,3 +1,5 @@
+using BuildingBlocks.Application.Validation;
+using Core.Application.Common;
 using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
@@ -9,6 +11,8 @@ using Services.CoreService.Core.Application.Contracts.Evaluations;
 using Services.CoreService.Core.Domain.Constants;
 using Services.CoreService.Core.Domain.Entities;
 using Services.CoreService.Core.Domain.Enums;
+
+
 
 namespace Services.CoreService.Core.Application.Services.Implementations;
 
@@ -38,14 +42,14 @@ public sealed class EvaluationService : IEvaluationService
     {
         var validation = await _validator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         if (!_currentUser.Roles.Overlaps(AllowedRoles))
             return Result.Fail(Error.Forbidden());
 
         var caseExists = await _db.InvestmentCases.AsNoTracking().AnyAsync(x => x.Id == caseId, ct);
         if (!caseExists)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var evaluation = await _db.CaseEvaluations
             .Include(x => x.Items)
@@ -87,4 +91,3 @@ public sealed class EvaluationService : IEvaluationService
         return Result<PagedResult<CaseEvaluationUpsertRequest>>.Ok(new PagedResult<CaseEvaluationUpsertRequest>(dtos, request.Page, request.PageSize, total));
     }
 }
-

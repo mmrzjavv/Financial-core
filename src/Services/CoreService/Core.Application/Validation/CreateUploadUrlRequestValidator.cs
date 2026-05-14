@@ -1,6 +1,7 @@
 using FluentValidation;
 using Services.CoreService.Core.Application.Contracts.Documents;
 
+
 namespace Services.CoreService.Core.Application.Validation;
 
 public sealed class CreateUploadUrlRequestValidator : AbstractValidator<CreateUploadUrlRequest>
@@ -13,4 +14,3 @@ public sealed class CreateUploadUrlRequestValidator : AbstractValidator<CreateUp
         RuleFor(x => x.FileSize).GreaterThan(0).LessThanOrEqualTo(100 * 1024 * 1024);
     }
 }
-

@@ -1,4 +1,5 @@
 using BuildingBlocks.Application.Abstractions;
+using BuildingBlocks.Application.Common;
 using BuildingBlocks.Persistence.Db.DomainEvents;
 using BuildingBlocks.Persistence.Db.Interceptors;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SoftDeleteSaveChangesInterceptor>();
 
         var connectionString = configuration.GetConnectionString("Postgres")
-            ?? throw new InvalidOperationException("Missing connection string: ConnectionStrings:Postgres");
+            ?? throw new InvalidOperationException(SystemMessages.PostgresConnectionMissing);
 
         services.AddDbContext<CoreDbContext>((sp, options) =>
         {

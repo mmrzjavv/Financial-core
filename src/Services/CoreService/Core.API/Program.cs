@@ -3,12 +3,15 @@ using Asp.Versioning;
 using BuildingBlocks.Application.Results;
 using BuildingBlocks.Domain.Abstractions;
 using Core.API.Http;
+using BuildingBlocks.Application.Common;
+using Core.Application.Common;
 using BuildingBlocks.Observability.Correlation;
 using BuildingBlocks.Observability.Logging;
 using Core.Application.Abstractions;
 using Core.Application.Services;
 using Core.Infrastructure.DependencyInjection;
 using Core.Workflow.DependencyInjection;
+using BuildingBlocks.Application.Validation;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Mapster;
@@ -30,6 +33,8 @@ using Core.Application.Authorization;
 using Core.Infrastructure.Identity.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
+
+ValidationLocalization.ConfigurePersian();
 
 var coreUrls = Environment.GetEnvironmentVariable("CORE_URLS");
 var aspnetcoreUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
@@ -96,7 +101,7 @@ builder.Services.AddControllers()
                     entry => entry.Value!.Errors.Select(error => error.ErrorMessage).ToArray());
 
             var envelope = new ApiOperationResult<object?>().Failed(
-                "Validation failed.",
+                ApiMessages.ValidationFailed,
                 validationErrors,
                 HttpStatusCode.BadRequest);
 
@@ -170,8 +175,8 @@ builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
-    var jwtKey = builder.Configuration["JwtKey"] ?? throw new InvalidOperationException("JwtKey is missing.");
-    var encKey = builder.Configuration["ENCKey"] ?? throw new InvalidOperationException("ENCKey is missing.");
+    var jwtKey = builder.Configuration["JwtKey"] ?? throw new InvalidOperationException(SystemMessages.JwtKeyMissing);
+    var encKey = builder.Configuration["ENCKey"] ?? throw new InvalidOperationException(SystemMessages.EncKeyMissing);
     options.RequireHttpsMetadata = false;
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
@@ -198,7 +203,7 @@ app.UseExceptionHandler(errorApp =>
         if (ex is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
         {
             var envelope = new ApiOperationResult<object?>().Failed(
-                "The resource was modified by another request. Please reload and retry.",
+                ApiMessages.ConcurrencyConflict,
                 HttpStatusCode.Conflict);
 
             context.Response.StatusCode = (int)envelope.Status;
@@ -208,7 +213,7 @@ app.UseExceptionHandler(errorApp =>
         }
 
         var failure = new ApiOperationResult<object?>().Failed(
-            "An unexpected error occurred.",
+            ApiMessages.UnexpectedError,
             HttpStatusCode.InternalServerError,
             exMessage: app.Environment.IsDevelopment() ? ex?.Message : null);
 

@@ -1,4 +1,5 @@
 using BuildingBlocks.Observability.Correlation;
+using Core.Infrastructure.Common;
 using Microsoft.AspNetCore.Http;
 
 namespace Core.Infrastructure.Identity.Logging;
@@ -21,7 +22,7 @@ public sealed class HttpContextCorrelationIdProvider(IHttpContextAccessor httpCo
     public void SetCorrelationId(string correlationId)
     {
         if (string.IsNullOrWhiteSpace(correlationId))
-            throw new ArgumentException("Correlation ID cannot be null or empty.", nameof(correlationId));
+            throw new ArgumentException(InfrastructureMessages.CorrelationIdRequired, nameof(correlationId));
 
         if (httpContextAccessor.HttpContext is null)
             return;

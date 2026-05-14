@@ -12,7 +12,7 @@ public static class ValidationExtensions
         if (validation.IsValid)
             return Result.Ok();
 
-        var message = string.Join("; ", validation.Errors.Select(e => e.ErrorMessage));
+        var message = validation.ToErrorMessage();
         return Result.Fail(Error.Validation(message));
     }
 }

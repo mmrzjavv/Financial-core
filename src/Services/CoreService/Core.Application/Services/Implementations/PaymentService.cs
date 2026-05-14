@@ -1,3 +1,5 @@
+using BuildingBlocks.Application.Validation;
+using Core.Application.Common;
 using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
@@ -8,6 +10,8 @@ using Services.CoreService.Core.Application.Abstractions;
 using Services.CoreService.Core.Application.Contracts.Payments;
 using Services.CoreService.Core.Domain.Constants;
 using Services.CoreService.Core.Domain.Enums;
+
+
 
 namespace Services.CoreService.Core.Application.Services.Implementations;
 
@@ -34,7 +38,7 @@ public sealed class PaymentService : IPaymentService
     {
         var validation = await _validator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         if (!_currentUser.Roles.Contains(SystemRoles.FinancialExpert) && !_currentUser.Roles.Contains(SystemRoles.Admin))
             return Result.Fail(Error.Forbidden());
@@ -44,10 +48,10 @@ public sealed class PaymentService : IPaymentService
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);
 
         if (entity is null)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.CurrentPhase != CasePhase.PaymentProcessing)
-            return Result.Fail(Error.Conflict("Case is not in Payment Processing phase."));
+            return Result.Fail(Error.Conflict(ApiMessages.PaymentPhaseMismatch));
 
         entity.AddPayment(
             request.Amount,

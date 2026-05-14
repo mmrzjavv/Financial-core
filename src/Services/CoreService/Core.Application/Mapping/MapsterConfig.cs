@@ -2,6 +2,7 @@ using Mapster;
 using Services.CoreService.Core.Application.Contracts.Cases;
 using Services.CoreService.Core.Domain.Entities;
 
+
 namespace Services.CoreService.Core.Application.Mapping;
 
 public sealed class MapsterConfig : IRegister
@@ -11,4 +12,3 @@ public sealed class MapsterConfig : IRegister
         config.NewConfig<InvestmentCase, CaseDto>();
     }
 }
-

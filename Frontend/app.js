@@ -95,7 +95,7 @@
     if (Object.prototype.hasOwnProperty.call(body, "success")) {
       if (body.success === false) {
         const validation = Array.isArray(body.validationErrors) ? body.validationErrors.join(", ") : "";
-        const message = body.message || "Request failed";
+        const message = body.message || "درخواست ناموفق بود";
         throw new Error(validation ? message + ": " + validation : message);
       }
 
@@ -328,7 +328,7 @@
 
     if (parsed && typeof parsed === "object" && parsed.success === false) {
       const validation = Array.isArray(parsed.validationErrors) ? parsed.validationErrors.join(", ") : "";
-      const message = parsed.message || "Request failed";
+      const message = parsed.message || "درخواست ناموفق بود";
       throw new Error(validation ? message + ": " + validation : message);
     }
 
@@ -345,7 +345,7 @@
   function requireCaseId() {
     const st = loadState();
     const id = (st.currentCaseId || "").trim();
-    if (!id) throw new Error("No current caseId set.");
+    if (!id) throw new Error("شناسه پرونده جاری تنظیم نشده است.");
     return id;
   }
 
@@ -550,7 +550,7 @@
     };
 
     if (!session.accessToken || !session.refreshToken) {
-      throw new Error("Login response did not include tokens. Check Debug tab → Last Response.");
+      throw new Error("پاسخ ورود شامل توکن نیست. تب اشکال‌زدایی را بررسی کنید.");
     }
 
     const sessions = loadSessions();
@@ -574,7 +574,7 @@
     const raw = (qs(id).value || "").trim();
     if (!raw) return null;
     const v = safeJsonParse(raw, null);
-    if (v == null) throw new Error("Invalid JSON in " + id);
+    if (v == null) throw new Error("JSON نامعتبر در " + id);
     return v;
   }
 
@@ -617,7 +617,7 @@
     qs("#btnSendOtp").addEventListener("click", () =>
       withUiError(async () => {
         const phone = qs("#authPhone").value.trim();
-        if (!phone) throw new Error("Phone is required.");
+        if (!phone) throw new Error("شماره موبایل الزامی است.");
         await apiRequest({
           method: "POST",
           path: "/api/v1/panel/users/send-otp",
@@ -633,7 +633,7 @@
         const phone = qs("#verifyPhone").value.trim();
         const otp = qs("#verifyOtp").value.trim();
         const label = qs("#sessionLabel").value.trim();
-        if (!phone || !otp) throw new Error("Phone and OTP are required.");
+        if (!phone || !otp) throw new Error("شماره موبایل و کد تایید الزامی هستند.");
 
         const res = await apiRequest({
           method: "POST",
@@ -648,10 +648,10 @@
     qs("#btnRefresh").addEventListener("click", () =>
       withUiError(async () => {
         const session = getActiveSession();
-        if (!session) throw new Error("No active session.");
+        if (!session) throw new Error("نشست فعالی وجود ندارد.");
         const override = qs("#refreshTokenInput").value.trim();
         const refreshToken = override || session.refreshToken;
-        if (!refreshToken) throw new Error("No refresh token.");
+        if (!refreshToken) throw new Error("توکن تازه‌سازی موجود نیست.");
 
         const res = await apiRequest({
           method: "POST",
@@ -697,7 +697,7 @@
     qs("#btnRevokeSession").addEventListener("click", () =>
       withUiError(async () => {
         const sid = qs("#revokeSid").value.trim();
-        if (!sid) throw new Error("sessionId (sid) is required.");
+        if (!sid) throw new Error("شناسه نشست (sid) الزامی است.");
         await apiRequest({
           method: "POST",
           path: "/api/v1/panel/users/sessions/revoke",
@@ -723,8 +723,8 @@
           lastName: qs("#createUserLast").value.trim(),
           nationalCode: qs("#createUserNat").value.trim() || null,
         };
-        if (!dto.phoneNumber) throw new Error("Phone is required.");
-        if (!dto.firstName || !dto.lastName) throw new Error("First/Last name are required.");
+        if (!dto.phoneNumber) throw new Error("شماره موبایل الزامی است.");
+        if (!dto.firstName || !dto.lastName) throw new Error("نام و نام خانوادگی الزامی هستند.");
         await apiRequest({ method: "POST", path: "/api/v1/panel/users", useAuth: false, body: dto });
       })
     );
@@ -732,7 +732,7 @@
     qs("#btnUpdateUser").addEventListener("click", () =>
       withUiError(async () => {
         const id = qs("#updateUserId").value.trim();
-        if (!id) throw new Error("User Id is required.");
+        if (!id) throw new Error("شناسه کاربر الزامی است.");
         const roleRaw = qs("#updateUserRole").value;
         const isActiveRaw = qs("#updateUserActive").value;
         const dto = {};
@@ -745,7 +745,7 @@
     qs("#btnGetUser").addEventListener("click", () =>
       withUiError(async () => {
         const id = qs("#getUserId").value.trim();
-        if (!id) throw new Error("User Id is required.");
+        if (!id) throw new Error("شناسه کاربر الزامی است.");
         await apiRequest({ method: "GET", path: "/api/v1/panel/users/" + encodeURIComponent(id) });
       })
     );
@@ -768,14 +768,11 @@
 
     qs("#btnCreateCase").addEventListener("click", () =>
       withUiError(async () => {
-        const applicantUserId = qs("#caseApplicantUserId").value.trim();
-        if (!applicantUserId) throw new Error("Applicant userId is required.");
         const applicantType = Number(qs("#caseApplicantType").value);
         const companyName = qs("#caseCompanyName").value.trim();
         const eco = qs("#caseCompanyEco").value.trim();
 
         const payload = {
-          applicantUserId,
           applicantType,
           company: companyName || eco ? { name: companyName || "Company", economicCode: eco || "0" } : null,
         };
@@ -858,7 +855,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const msg = qs("#de1RevisionMsg").value.trim();
-        if (!msg) throw new Error("Revision message required.");
+        if (!msg) throw new Error("متن درخواست اصلاح الزامی است.");
         await apiRequest({
           method: "POST",
           path: casesBasePath() + "/" + id + "/data-entry1/revision-request",
@@ -899,7 +896,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const msg = qs("#de2RevisionMsg").value.trim();
-        if (!msg) throw new Error("Revision message required.");
+        if (!msg) throw new Error("متن درخواست اصلاح الزامی است.");
         await apiRequest({
           method: "POST",
           path: casesBasePath() + "/" + id + "/data-entry2/revision-request",
@@ -942,7 +939,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const s3Key = qs("#preContractS3Key").value.trim();
-        if (!s3Key) throw new Error("s3Key required.");
+        if (!s3Key) throw new Error("s3Key الزامی است.");
         await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/contracts/preliminary/upload?s3Key=" + encodeURIComponent(s3Key), body: null, json: false });
       })
     );
@@ -960,7 +957,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const msg = qs("#preContractRevisionMsg").value.trim();
-        if (!msg) throw new Error("revision message required.");
+        if (!msg) throw new Error("متن درخواست اصلاح الزامی است.");
         await apiRequest({
           method: "POST",
           path: casesBasePath() + "/" + id + "/contracts/preliminary/revision-request",
@@ -992,7 +989,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const s3Key = qs("#signedContractS3Key").value.trim();
-        if (!s3Key) throw new Error("s3Key required.");
+        if (!s3Key) throw new Error("s3Key الزامی است.");
         await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/contracts/signed/upload?s3Key=" + encodeURIComponent(s3Key), body: null, json: false });
       })
     );
@@ -1029,7 +1026,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const msg = qs("#worksheetRevisionMsg").value.trim();
-        if (!msg) throw new Error("revision message required.");
+        if (!msg) throw new Error("متن درخواست اصلاح الزامی است.");
         await apiRequest({
           method: "POST",
           path: casesBasePath() + "/" + id + "/financial-worksheet/revision-request",
@@ -1050,7 +1047,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const pid = qs("#paymentId").value.trim();
-        if (!pid) throw new Error("paymentId required.");
+        if (!pid) throw new Error("شناسه پرداخت الزامی است.");
         await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/payments/" + encodeURIComponent(pid) + "/confirm", body: null, json: false });
       })
     );
@@ -1058,7 +1055,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const pid = qs("#paymentId").value.trim();
-        if (!pid) throw new Error("paymentId required.");
+        if (!pid) throw new Error("شناسه پرداخت الزامی است.");
         await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/payments/" + encodeURIComponent(pid) + "/cancel", body: null, json: false });
       })
     );
@@ -1068,7 +1065,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const reason = qs("#rejectReason").value.trim();
-        if (!reason) throw new Error("reject reason required.");
+        if (!reason) throw new Error("دلیل رد الزامی است.");
         await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/reject", body: { reason } });
       })
     );
@@ -1076,7 +1073,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const reason = qs("#cancelReason").value.trim();
-        if (!reason) throw new Error("cancel reason required.");
+        if (!reason) throw new Error("دلیل لغو الزامی است.");
         await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/cancel", body: { reason } });
       })
     );
@@ -1084,7 +1081,7 @@
       withUiError(async () => {
         const id = requireCaseId();
         const reason = qs("#archiveReason").value.trim();
-        if (!reason) throw new Error("archive reason required.");
+        if (!reason) throw new Error("دلیل بایگانی الزامی است.");
         await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/archive", body: { reason } });
       })
     );
@@ -1101,7 +1098,7 @@
       withUiError(async () => {
         const caseId = requireCaseId();
         const file = pickFileMime(fileInput, mimeInput);
-        if (!file) throw new Error("Select a file first.");
+        if (!file) throw new Error("ابتدا یک فایل انتخاب کنید.");
         const docType = Number(qs("#docType").value);
         const payload = {
           documentType: docType,
@@ -1133,8 +1130,8 @@
     qs("#btnUploadToPresignUrl").addEventListener("click", () =>
       withUiError(async () => {
         const file = pickFileMime(fileInput, mimeInput);
-        if (!file) throw new Error("Select a file first.");
-        if (!lastPresign) throw new Error("Presign first.");
+        if (!file) throw new Error("ابتدا یک فایل انتخاب کنید.");
+        if (!lastPresign) throw new Error("ابتدا آدرس بارگذاری را دریافت کنید.");
         const url = lastPresign.url || lastPresign.Url;
         const ct = mimeInput.value.trim() || file.type || "application/octet-stream";
 
@@ -1175,16 +1172,16 @@
         inspector.log = inspector.log.slice(0, inspector.maxLog);
         renderInspector();
 
-        if (!res.ok) throw new Error("Upload failed with " + res.status);
+        if (!res.ok) throw new Error("بارگذاری با کد " + res.status + " ناموفق بود.");
       })
     );
 
     qs("#btnConfirmUpload").addEventListener("click", () =>
       withUiError(async () => {
         const caseId = requireCaseId();
-        if (!lastPresign) throw new Error("Presign first.");
+        if (!lastPresign) throw new Error("ابتدا آدرس بارگذاری را دریافت کنید.");
         const s3Key = lastPresign.s3Key || lastPresign.S3Key;
-        if (!s3Key) throw new Error("No s3Key found.");
+        if (!s3Key) throw new Error("s3Key یافت نشد.");
         await apiRequest({
           method: "POST",
           path: casesBasePath() + "/" + caseId + "/documents/confirm?s3Key=" + encodeURIComponent(s3Key),
@@ -1205,7 +1202,7 @@
       withUiError(async () => {
         const caseId = requireCaseId();
         const docId = qs("#downloadDocumentId").value.trim();
-        if (!docId) throw new Error("documentId required.");
+        if (!docId) throw new Error("شناسه سند الزامی است.");
         const res = await apiRequest({
           method: "GET",
           path: casesBasePath() + "/" + caseId + "/documents/" + encodeURIComponent(docId) + "/download",
@@ -1223,12 +1220,12 @@
     qs("#btnGenericPut").addEventListener("click", () =>
       withUiError(async () => {
         const url = qs("#genericPutUrl").value.trim();
-        if (!url) throw new Error("URL required.");
+        if (!url) throw new Error("آدرس الزامی است.");
         const file = pickFileMime(genericPutFile, genericPutCt);
-        if (!file) throw new Error("File required.");
+        if (!file) throw new Error("فایل الزامی است.");
         const ct = genericPutCt.value.trim() || file.type || "application/octet-stream";
         const res = await fetch(url, { method: "PUT", headers: { "Content-Type": ct }, body: file });
-        if (!res.ok) throw new Error("PUT failed with " + res.status);
+        if (!res.ok) throw new Error("درخواست PUT با کد " + res.status + " ناموفق بود.");
       })
     );
 
@@ -1239,8 +1236,8 @@
         const field = qs("#multipartField").value.trim() || "file";
         const fileInput = qs("#multipartFile");
         const file = fileInput.files && fileInput.files[0];
-        if (!path) throw new Error("Path required.");
-        if (!file) throw new Error("File required.");
+        if (!path) throw new Error("مسیر الزامی است.");
+        if (!file) throw new Error("فایل الزامی است.");
 
         const session = getActiveSession();
         const headers = {};
@@ -1285,7 +1282,7 @@
         });
         inspector.log = inspector.log.slice(0, inspector.maxLog);
         renderInspector();
-        if (!res.ok) throw new Error("Multipart POST failed with " + res.status);
+        if (!res.ok) throw new Error("درخواست چندبخشی با کد " + res.status + " ناموفق بود.");
       })
     );
   }
@@ -1313,7 +1310,7 @@
         const commentId = qs("#commentId").value.trim();
         const s3Key = qs("#commentAttachmentS3Key").value.trim();
         const fileName = qs("#commentAttachmentFileName").value.trim();
-        if (!commentId || !s3Key || !fileName) throw new Error("commentId, s3Key, fileName are required.");
+        if (!commentId || !s3Key || !fileName) throw new Error("commentId، s3Key و fileName الزامی هستند.");
         await apiRequest({
           method: "POST",
           path:

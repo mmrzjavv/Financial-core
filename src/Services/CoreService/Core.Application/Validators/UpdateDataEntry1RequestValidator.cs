@@ -1,6 +1,7 @@
 using FluentValidation;
 using Core.Application.Requests;
 
+
 namespace Core.Application.Validators;
 
 public sealed class UpdateDataEntry1RequestValidator : AbstractValidator<UpdateDataEntry1Request>
@@ -16,4 +17,3 @@ public sealed class UpdateDataEntry1RequestValidator : AbstractValidator<UpdateD
         RuleFor(x => x.City).MaximumLength(128);
     }
 }
-

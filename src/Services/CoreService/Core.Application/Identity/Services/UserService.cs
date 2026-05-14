@@ -12,7 +12,9 @@ using Services.CoreService.Core.Domain.Identity.Entities;
 using Services.CoreService.Core.Domain.Identity.Enums;
 using Microsoft.Extensions.Options;
 using Core.Application.Identity.Authorization;
+using Core.Application.Identity.Common;
 using Core.Application.Identity.Common.Options;
+
 
 namespace Core.Application.Identity.Services;
 
@@ -83,7 +85,7 @@ public class UserService : IUserService
                     { "PhoneNumber", dto.PhoneNumber },
                     { "Errors", errors }
                 });
-                return result.Failed("???? ??????????", errors, HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.ValidationFailed, errors, HttpStatusCode.BadRequest);
             }
 
             var user = await _unitOfWork.Users.GetAsync(u => u.PhoneNumber == dto.PhoneNumber, disableTracking: false);
@@ -93,7 +95,7 @@ public class UserService : IUserService
                 {
                     { "PhoneNumber", dto.PhoneNumber }
                 });
-                return result.Failed("??????? ?????? ??? ??? ???? ???", HttpStatusCode.NotFound);
+                return result.Failed(IdentityMessages.UserNotFoundByPhone, HttpStatusCode.NotFound);
             }
 
             var decision = await _otpCacheService.CanRequestOtpAsync(dto.PhoneNumber, CancellationToken.None);
@@ -103,7 +105,7 @@ public class UserService : IUserService
                 {
                     { "PhoneNumber", dto.PhoneNumber }
                 });
-                return result.Failed("??????? ??? ?? ??????? ????? ??. ???? ??? ??? ?????? ???? ????.", HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.OtpRateLimited, HttpStatusCode.BadRequest);
             }
 
             var otpCode = _otpOptions.Value.DevBypassEnabled && !string.IsNullOrWhiteSpace(_otpOptions.Value.DevCode)
@@ -119,7 +121,7 @@ public class UserService : IUserService
             await _unitOfWork.Users.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
 
-            return result.Succeed("?? ????? ????? ??");
+            return result.Succeed(IdentityMessages.OtpSent);
         }
         catch (Exception ex)
         {
@@ -127,7 +129,7 @@ public class UserService : IUserService
             {
                 { "PhoneNumber", dto.PhoneNumber }
             });
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -146,7 +148,7 @@ public class UserService : IUserService
                     { "PhoneNumber", dto.PhoneNumber },
                     { "Errors", errors }
                 });
-                return result.Failed("???? ??????????", errors, HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.ValidationFailed, errors, HttpStatusCode.BadRequest);
             }
 
             var user = await _unitOfWork.Users.GetAsync(user => user.PhoneNumber == dto.PhoneNumber, disableTracking: false);
@@ -156,7 +158,7 @@ public class UserService : IUserService
                 {
                     { "PhoneNumber", dto.PhoneNumber }
                 });
-                return result.Failed("????? ???? ???", HttpStatusCode.NotFound);
+                return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
             }
 
             var otpValidation = await _otpCacheService.ValidateOtpAsync(dto.PhoneNumber, dto.OtpCode, CancellationToken.None);
@@ -205,7 +207,7 @@ public class UserService : IUserService
                 User = user.Adapt<UserDto>()
             };
 
-            return result.Succeed("???? ?????????? ???", response);
+            return result.Succeed(IdentityMessages.LoginSucceeded, response);
         }
         catch (Exception ex)
         {
@@ -213,7 +215,7 @@ public class UserService : IUserService
             {
                 { "PhoneNumber", dto.PhoneNumber }
             });
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -224,15 +226,15 @@ public class UserService : IUserService
         try
         {
             if (string.IsNullOrWhiteSpace(accessToken))
-                return result.Failed("???? ?????? ??????? ???", HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.InvalidAccessToken, HttpStatusCode.BadRequest);
             if (dto is null || string.IsNullOrWhiteSpace(dto.RefreshToken))
-                return result.Failed("???? ???? ?????? ???", HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.RefreshTokenRequired, HttpStatusCode.BadRequest);
 
             var payload = _tokenHelper.ValidateAccessToken(accessToken);
             if (payload.UserId == Guid.Empty)
             {
                 _logger.LogWarning("Invalid access token presented for refresh");
-                return result.Failed("???? ?????? ??????? ???", HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.InvalidAccessToken, HttpStatusCode.BadRequest);
             }
 
             var user = await _unitOfWork.Users.GetAsync(u => u.Id == payload.UserId, disableTracking: false);
@@ -242,7 +244,7 @@ public class UserService : IUserService
                 {
                     { "UserId", payload.UserId }
                 });
-                return result.Failed("????? ???? ???", HttpStatusCode.NotFound);
+                return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
             }
 
             var presentedHash = _refreshTokenService.Hash(dto.RefreshToken);
@@ -250,7 +252,7 @@ public class UserService : IUserService
             if (stored is null || stored.UserId != user.Id)
             {
                 _logger.LogAuthEvent("RefreshToken", user.PhoneNumber, false, "InvalidRefreshToken");
-                return result.Failed("???? ???? ??????? ???", HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.InvalidRefreshToken, HttpStatusCode.BadRequest);
             }
 
             var now = DateTime.UtcNow;
@@ -274,13 +276,13 @@ public class UserService : IUserService
                         Reason: "reuse_detected"),
                     CancellationToken.None);
 
-                return result.Failed("???? ???? ??????? ???", HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.InvalidRefreshToken, HttpStatusCode.BadRequest);
             }
 
             if (stored.ExpiresAt <= now)
             {
                 _logger.LogAuthEvent("RefreshToken", user.PhoneNumber, false, "Expired");
-                return result.Failed("???? ???? ????? ??? ???", HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.RefreshTokenExpired, HttpStatusCode.BadRequest);
             }
 
             var sessionId = stored.SessionId;
@@ -337,11 +339,11 @@ public class UserService : IUserService
                 User = user.Adapt<UserDto>()
             };
 
-            return result.Succeed("?????? ????", response);
+            return result.Succeed(IdentityMessages.OperationSucceeded, response);
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -351,7 +353,7 @@ public class UserService : IUserService
         try
         {
             if (userId == Guid.Empty || sessionId == Guid.Empty)
-                return result.Failed("???? ??????? ???", HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.InvalidSessionIdentifiers, HttpStatusCode.BadRequest);
 
             var dbSession = await _unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
             if (dbSession is not null && dbSession.UserId == userId && dbSession.RevokedAt is null)
@@ -371,11 +373,11 @@ public class UserService : IUserService
             await _unitOfWork.SaveChangesAsync();
             await _sessionCacheService.RevokeSessionAsync(sessionId, CancellationToken.None);
 
-            return result.Succeed("???? ????? ??");
+            return result.Succeed(IdentityMessages.LogoutSucceeded);
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -386,10 +388,10 @@ public class UserService : IUserService
         {
             var dbSession = await _unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
             if (dbSession is null || dbSession.RevokedAt is not null)
-                return result.Succeed("?????? ????");
+                return result.Succeed(IdentityMessages.OperationSucceeded);
 
             if (dbSession.UserId != userId)
-                return result.Failed("?????? ???????", HttpStatusCode.Forbidden);
+                return result.Failed(IdentityMessages.SessionAccessDenied, HttpStatusCode.Forbidden);
 
             dbSession.RevokedAt = DateTime.UtcNow;
             dbSession.LastActivityAt = DateTime.UtcNow;
@@ -405,11 +407,11 @@ public class UserService : IUserService
             await _unitOfWork.SaveChangesAsync();
             await _sessionCacheService.RevokeSessionAsync(dbSession.SessionId, CancellationToken.None);
 
-            return result.Succeed("?????? ????");
+            return result.Succeed(IdentityMessages.OperationSucceeded);
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -436,11 +438,11 @@ public class UserService : IUserService
             await _unitOfWork.SaveChangesAsync();
             await _sessionCacheService.RevokeAllSessionsAsync(userId, CancellationToken.None);
 
-            return result.Succeed("?????? ????");
+            return result.Succeed(IdentityMessages.OperationSucceeded);
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -457,11 +459,11 @@ public class UserService : IUserService
                 return dto;
             }).ToList();
 
-            return result.Succeed("?????? ????", list, list.Count);
+            return result.Succeed(IdentityMessages.OperationSucceeded, list, list.Count);
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -474,22 +476,22 @@ public class UserService : IUserService
             if (!validation.IsValid)
             {
                 var errors = validation.Errors.Select(error => error.ErrorMessage).ToList();
-                return result.Failed("???? ??????????", errors, HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.ValidationFailed, errors, HttpStatusCode.BadRequest);
             }
 
             var existPhone = await _unitOfWork.Users.GetAsync(user => user.PhoneNumber == dto.PhoneNumber);
             if (existPhone is not null)
-                return result.Failed("????? ?????? ?????? ???", HttpStatusCode.Conflict);
+                return result.Failed(IdentityMessages.PhoneAlreadyRegistered, HttpStatusCode.Conflict);
 
             var existEmail = await _unitOfWork.Users.GetAsync(user => user.Email == dto.Email);
             if (existEmail is not null)
-                return result.Failed("????? ?????? ???", HttpStatusCode.Conflict);
+                return result.Failed(IdentityMessages.EmailAlreadyRegistered, HttpStatusCode.Conflict);
 
             var existNationalCode = string.IsNullOrWhiteSpace(dto.NationalCode)
                 ? null
                 : await _unitOfWork.Users.GetAsync(user => user.NationalCode == dto.NationalCode);
             if (existNationalCode is not null)
-                return result.Failed("?? ???  ?????? ???", HttpStatusCode.Conflict);
+                return result.Failed(IdentityMessages.NationalCodeAlreadyRegistered, HttpStatusCode.Conflict);
 
             var user = dto.Adapt<User>();
             user.CreatedAt = DateTime.UtcNow;
@@ -502,11 +504,11 @@ public class UserService : IUserService
             await _unitOfWork.Users.AddAsync(user);
             await _unitOfWork.SaveChangesAsync();
 
-            return result.Succeed("????? ????? ??", user.Adapt<UserDto>());
+            return result.Succeed(IdentityMessages.UserCreated, user.Adapt<UserDto>());
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -519,36 +521,36 @@ public class UserService : IUserService
             if (!validation.IsValid)
             {
                 var errors = validation.Errors.Select(e => e.ErrorMessage).ToList();
-                return result.Failed("???? ??????????", errors, HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.ValidationFailed, errors, HttpStatusCode.BadRequest);
             }
 
             var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted, false);
-            if (user == null) return result.Failed("????? ???? ???", HttpStatusCode.NotFound);
+            if (user == null) return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
 
             var requester = await _unitOfWork.Users.GetAsync(u => u.Id == requesterId && !u.IsDeleted, false);
             if (dto.Role.HasValue && user.Role != dto.Role.Value && requester != null && requester.Role != UserRole.Admin)
             {
-                return result.Failed("??? ?????? ??? ???? ??????? ????? ??????? ????? ???", HttpStatusCode.BadRequest);
+                return result.Failed(IdentityMessages.OnlyAdminCanChangeRole, HttpStatusCode.BadRequest);
             }
 
             if (!string.IsNullOrWhiteSpace(dto.PhoneNumber) && dto.PhoneNumber != user.PhoneNumber)
             {
                 var phoneExists = await _unitOfWork.Users.GetAsync(u => u.PhoneNumber == dto.PhoneNumber && u.Id != id);
-                if (phoneExists != null) return result.Failed("????? ?????? ?????? ???", HttpStatusCode.Conflict);
+                if (phoneExists != null) return result.Failed(IdentityMessages.PhoneAlreadyRegistered, HttpStatusCode.Conflict);
                 user.PhoneNumber = dto.PhoneNumber;
             }
 
             if (!string.IsNullOrWhiteSpace(dto.Email) && dto.Email != user.Email)
             {
                 var emailExists = await _unitOfWork.Users.GetAsync(u => u.Email == dto.Email && u.Id != id);
-                if (emailExists != null) return result.Failed("????? ?????? ???", HttpStatusCode.Conflict);
+                if (emailExists != null) return result.Failed(IdentityMessages.EmailAlreadyRegistered, HttpStatusCode.Conflict);
                 user.Email = dto.Email;
             }
 
             if (!string.IsNullOrWhiteSpace(dto.NationalCode) && dto.NationalCode != user.NationalCode)
             {
                 var nationalCodeExists = await _unitOfWork.Users.GetAsync(u => u.NationalCode == dto.NationalCode && u.Id != id);
-                if (nationalCodeExists != null) return result.Failed("?? ??? ?????? ???", HttpStatusCode.Conflict);
+                if (nationalCodeExists != null) return result.Failed(IdentityMessages.NationalCodeAlreadyRegistered, HttpStatusCode.Conflict);
                 user.NationalCode = dto.NationalCode;
             }
 
@@ -566,11 +568,11 @@ public class UserService : IUserService
             await _unitOfWork.Users.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
 
-            return result.Succeed("????? ????????? ??", MapToDto(user));
+            return result.Succeed(IdentityMessages.UserUpdated, MapToDto(user));
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -580,12 +582,12 @@ public class UserService : IUserService
         try
         {
             var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted);
-            if (user == null) return result.Failed("????? ???? ???", HttpStatusCode.NotFound);
-            return result.Succeed("?????? ????", MapToDto(user));
+            if (user == null) return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
+            return result.Succeed(IdentityMessages.OperationSucceeded, MapToDto(user));
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -596,11 +598,11 @@ public class UserService : IUserService
         {
             var users = await _unitOfWork.Users.GetPagedListAsync(take, skip, u => !u.IsDeleted);
             var total = await _unitOfWork.Users.CountAsync(u => !u.IsDeleted);
-            return result.Succeed("?????? ????", users.Select(MapToDto).ToList(), total);
+            return result.Succeed(IdentityMessages.OperationSucceeded, users.Select(MapToDto).ToList(), total);
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -610,16 +612,16 @@ public class UserService : IUserService
         try
         {
             var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted, false);
-            if (user == null) return result.Failed("????? ???? ???", HttpStatusCode.NotFound);
+            if (user == null) return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
 
             await _unitOfWork.Users.DeleteAsync(user);
             await _unitOfWork.SaveChangesAsync();
 
-            return result.Succeed("????? ??? ??");
+            return result.Succeed(IdentityMessages.UserDeleted);
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -629,11 +631,11 @@ public class UserService : IUserService
         try
         {
             var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted, false);
-            return result.Succeed("?????? ????", user is null ? new UserDto() : MapToDto(user));
+            return result.Succeed(IdentityMessages.OperationSucceeded, user is null ? new UserDto() : MapToDto(user));
         }
         catch (Exception ex)
         {
-            return result.Failed($"???? ????: {ex.Message}", HttpStatusCode.InternalServerError);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
@@ -644,12 +646,12 @@ public class UserService : IUserService
         OtpValidationResult otpValidation)
     {
         if (otpValidation.Locked)
-            return result.Failed("????? ??????? ?????? ??? ?? ?? ???? ???. ???? ???? ???? ????.", HttpStatusCode.BadRequest);
+            return result.Failed(IdentityMessages.OtpLocked, HttpStatusCode.BadRequest);
 
         if (otpValidation.Expired)
-            return result.Failed("?? ????? ????? ??? ???", HttpStatusCode.BadRequest);
+            return result.Failed(IdentityMessages.OtpExpired, HttpStatusCode.BadRequest);
 
-        return result.Failed("?? ????? ??????? ???", HttpStatusCode.BadRequest);
+        return result.Failed(IdentityMessages.InvalidOtp, HttpStatusCode.BadRequest);
     }
 
     private SessionDescriptor CreateSessionDescriptor(Guid userId, Guid sessionId)

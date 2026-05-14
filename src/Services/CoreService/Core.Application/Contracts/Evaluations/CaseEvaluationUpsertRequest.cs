@@ -1,5 +1,6 @@
 using Services.CoreService.Core.Domain.Enums;
 
+
 namespace Core.Application.Contracts.Evaluations;
 
 public sealed record CaseEvaluationUpsertRequest(
@@ -8,4 +9,3 @@ public sealed record CaseEvaluationUpsertRequest(
     IReadOnlyList<CaseEvaluationItemRequest> Items);
 
 public sealed record CaseEvaluationItemRequest(string Title, bool IsApproved, string? Comment);
-

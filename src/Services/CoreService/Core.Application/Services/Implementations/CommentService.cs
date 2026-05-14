@@ -1,3 +1,5 @@
+using BuildingBlocks.Application.Validation;
+using Core.Application.Common;
 using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
@@ -7,6 +9,8 @@ using Services.CoreService.Core.Application.Abstractions;
 using Services.CoreService.Core.Application.Contracts.Comments;
 using Services.CoreService.Core.Domain.Constants;
 using Services.CoreService.Core.Domain.Enums;
+
+
 
 namespace Services.CoreService.Core.Application.Services.Implementations;
 
@@ -33,18 +37,18 @@ public sealed class CommentService : ICommentService
     {
         var validation = await _validator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         var entity = await _db.InvestmentCases
             .Include(x => x.Comments)
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);
 
         if (entity is null)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var isApplicant = entity.ApplicantUserId == _currentUser.UserId;
         if (isApplicant && request.IsInternal)
-            return Result.Fail(Error.Forbidden("Applicants cannot create internal comments."));
+            return Result.Fail(Error.Forbidden(ApiMessages.ApplicantsCannotCreateInternalComments));
 
         if (!isApplicant && !_currentUser.Roles.Contains(SystemRoles.Admin))
             return Result.Fail(Error.Forbidden());
@@ -66,20 +70,20 @@ public sealed class CommentService : ICommentService
     {
         var validation = await _validator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         var entity = await _db.InvestmentCases
             .Include(x => x.Comments)
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);
 
         if (entity is null)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.CurrentPhase != request.Phase)
-            return Result.Fail(Error.Conflict("Revision requests must match current phase."));
+            return Result.Fail(Error.Conflict(ApiMessages.RevisionMustMatchPhase));
 
         if (_currentUser.Roles.Contains(SystemRoles.Applicant))
-            return Result.Fail(Error.Forbidden("Applicants cannot request revisions."));
+            return Result.Fail(Error.Forbidden(ApiMessages.ApplicantsCannotRequestRevisions));
 
         entity.RequestRevision(request.Phase, _currentUser.UserId, request.Message, request.IsInternal);
 

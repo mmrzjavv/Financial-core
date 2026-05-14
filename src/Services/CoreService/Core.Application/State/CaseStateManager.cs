@@ -1,7 +1,9 @@
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
+using Core.Application.Common;
 using Services.CoreService.Core.Application.Abstractions;
 using Services.CoreService.Core.Domain.Enums;
+
 
 namespace Services.CoreService.Core.Application.State;
 
@@ -49,7 +51,6 @@ public sealed class CaseStateManager : ICaseStateManager
         if (Allowed.Contains((fromPhase, fromStatus, toPhase, toStatus)))
             return Result.Ok();
 
-        return Result.Fail(Error.Conflict($"Invalid transition: {fromPhase}/{fromStatus} -> {toPhase}/{toStatus}."));
+        return Result.Fail(Error.Conflict($"{ApiMessages.InvalidTransition} ({fromPhase}/{fromStatus} -> {toPhase}/{toStatus})"));
     }
 }
-

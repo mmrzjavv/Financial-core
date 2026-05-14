@@ -1,6 +1,7 @@
 using FluentValidation;
 using Services.CoreService.Core.Application.Contracts.Reviews;
 
+
 namespace Services.CoreService.Core.Application.Validation;
 
 public sealed class ApprovePhaseRequestValidator : AbstractValidator<ApprovePhaseRequest>
@@ -11,4 +12,3 @@ public sealed class ApprovePhaseRequestValidator : AbstractValidator<ApprovePhas
         RuleFor(x => x.Comment).MaximumLength(4000);
     }
 }
-

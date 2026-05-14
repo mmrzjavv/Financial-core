@@ -1,33 +1,33 @@
-using FluentValidation;
+using Core.Application.Identity.Common;
 using Core.Application.Identity.DTOs.User;
+using FluentValidation;
 
-namespace Core.Application.Identity.Validators
+namespace Core.Application.Identity.Validators;
+
+public sealed class UpdateUserDtoValidator : AbstractValidator<UpdateUserDto>
 {
-    public class UpdateUserDtoValidator : AbstractValidator<UpdateUserDto>
+    public UpdateUserDtoValidator()
     {
-        public UpdateUserDtoValidator()
-        {
-            RuleFor(x => x.PhoneNumber)
-                .Matches(@"^09\d{9}$").WithMessage("ÝÑãÊ ÔãÇÑå ãæÈÇíá ÕÍíÍ äíÓÊ")
-                .When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber));
+        RuleFor(x => x.PhoneNumber)
+            .Matches(@"^09\d{9}$").WithMessage(IdentityMessages.InvalidPhoneFormat)
+            .When(x => !string.IsNullOrWhiteSpace(x.PhoneNumber));
 
-            RuleFor(x => x.Email)
-                .EmailAddress().WithMessage("ÝÑãÊ Çíãíá ÕÍíÍ äíÓÊ")
-                .MaximumLength(256)
-                .When(x => !string.IsNullOrWhiteSpace(x.Email));
+        RuleFor(x => x.Email)
+            .EmailAddress().WithMessage(IdentityMessages.InvalidEmailFormat)
+            .MaximumLength(256)
+            .When(x => !string.IsNullOrWhiteSpace(x.Email));
 
-            RuleFor(x => x.FirstName)
-                .MaximumLength(100).WithMessage("äÇã äÈÇíÏ ÈíÔÊÑ ÇÒ 100 ˜ÇÑÇ˜ÊÑ ÈÇÔÏ")
-                .When(x => !string.IsNullOrEmpty(x.FirstName));
+        RuleFor(x => x.FirstName)
+            .MaximumLength(100).WithMessage(IdentityMessages.FirstNameMaxLength)
+            .When(x => !string.IsNullOrEmpty(x.FirstName));
 
-            RuleFor(x => x.LastName)
-                .MaximumLength(100).WithMessage("äÇã ÎÇäæÇÏí äÈÇíÏ ÈíÔÊÑ ÇÒ 100 ˜ÇÑÇ˜ÊÑ ÈÇÔÏ")
-                .When(x => !string.IsNullOrEmpty(x.LastName));
+        RuleFor(x => x.LastName)
+            .MaximumLength(100).WithMessage(IdentityMessages.LastNameMaxLength)
+            .When(x => !string.IsNullOrEmpty(x.LastName));
 
-            RuleFor(x => x.NationalCode)
-                .Length(10).WithMessage("˜Ï ãáí ÈÇíÏ 10 ÑÞã ÈÇÔÏ")
-                .Matches(@"^\d{10}$").WithMessage("˜Ï ãáí ÝÞØ ÈÇíÏ ÔÇãá ÇÚÏÇÏ ÈÇÔÏ")
-                .When(x => !string.IsNullOrEmpty(x.NationalCode));
-        }
+        RuleFor(x => x.NationalCode)
+            .Length(10).WithMessage(IdentityMessages.NationalCodeLength)
+            .Matches(@"^\d{10}$").WithMessage(IdentityMessages.NationalCodeDigitsOnly)
+            .When(x => !string.IsNullOrEmpty(x.NationalCode));
     }
 }

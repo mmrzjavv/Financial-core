@@ -1,5 +1,6 @@
 using Services.CoreService.Core.Domain.Enums;
 
+
 namespace Core.Application.Contracts.Comments;
 
 public sealed record AddCommentRequest(
@@ -7,4 +8,3 @@ public sealed record AddCommentRequest(
     string Message,
     bool IsInternal,
     Guid? ParentId = null);
-

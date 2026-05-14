@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Services.CoreService.Core.Domain.Identity.Entities;
 
+
 namespace Core.Application.Identity.Abstractions;
 
 public interface IUserRepository

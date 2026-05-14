@@ -1,3 +1,5 @@
+using BuildingBlocks.Application.Validation;
+using Core.Application.Common;
 using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
@@ -6,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using Services.CoreService.Core.Application.Abstractions;
 using Services.CoreService.Core.Application.Contracts.Finance;
 using Services.CoreService.Core.Domain.Enums;
+
+
 
 namespace Services.CoreService.Core.Application.Services.Implementations;
 
@@ -29,20 +33,20 @@ public sealed class FinancialWorksheetService : IFinancialWorksheetService
     {
         var validation = await _validator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         var entity = await _db.InvestmentCases
             .Include(x => x.FinancialWorksheet)
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);
 
         if (entity is null)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.ApplicantUserId != _currentUser.UserId)
             return Result.Fail(Error.Forbidden());
 
         if (entity.CurrentPhase != CasePhase.FinancialWorksheet)
-            return Result.Fail(Error.Conflict("Financial Worksheet is not the current phase."));
+            return Result.Fail(Error.Conflict(ApiMessages.FinancialWorksheetNotCurrentPhase));
 
         var isNew = entity.FinancialWorksheet is null;
         var worksheet = entity.UpsertFinancialWorksheet(

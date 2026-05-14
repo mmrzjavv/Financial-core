@@ -1,0 +1,43 @@
+namespace Core.Application.Identity.Common;
+
+public static class IdentityMessages
+{
+    public const string ValidationFailed = "اطلاعات ارسالی نامعتبر است.";
+    public const string UserNotFoundByPhone = "کاربری با این شماره موبایل یافت نشد.";
+    public const string OtpRateLimited = "درخواست کد تایید بیش از حد مجاز است. لطفاً چند دقیقه بعد دوباره تلاش کنید.";
+    public const string OtpSent = "کد تایید ارسال شد.";
+    public const string InternalError = "خطای داخلی سرور";
+    public const string UserNotFound = "کاربر یافت نشد.";
+    public const string LoginSucceeded = "ورود با موفقیت انجام شد.";
+    public const string InvalidAccessToken = "توکن دسترسی نامعتبر است.";
+    public const string RefreshTokenRequired = "توکن تازه‌سازی ارسال نشده است.";
+    public const string InvalidRefreshToken = "توکن تازه‌سازی نامعتبر است.";
+    public const string RefreshTokenExpired = "توکن تازه‌سازی منقضی شده است.";
+    public const string OperationSucceeded = "عملیات با موفقیت انجام شد.";
+    public const string InvalidSessionIdentifiers = "شناسه‌های نشست نامعتبر هستند.";
+    public const string LogoutSucceeded = "خروج از حساب انجام شد.";
+    public const string SessionAccessDenied = "به این نشست دسترسی ندارید.";
+    public const string PhoneAlreadyRegistered = "این شماره موبایل قبلاً ثبت شده است.";
+    public const string EmailAlreadyRegistered = "این ایمیل قبلاً ثبت شده است.";
+    public const string NationalCodeAlreadyRegistered = "این کد ملی قبلاً ثبت شده است.";
+    public const string UserCreated = "کاربر با موفقیت ایجاد شد.";
+    public const string UserUpdated = "اطلاعات کاربر به‌روزرسانی شد.";
+    public const string UserDeleted = "کاربر حذف شد.";
+    public const string OnlyAdminCanChangeRole = "فقط مدیر سیستم می‌تواند نقش کاربر را تغییر دهد.";
+    public const string OtpLocked = "به دلیل چند تلاش اشتباه، ورود موقتاً غیرفعال شده است. بعداً دوباره تلاش کنید.";
+    public const string OtpExpired = "کد تایید منقضی شده است.";
+    public const string InvalidOtp = "کد تایید نامعتبر است.";
+    public const string UnknownSmsTemplate = "شناسه پیام انتخاب‌شده از فهرست پیام‌های مجاز نیست.";
+    public const string PhoneRequired = "شماره موبایل الزامی است";
+    public const string InvalidPhoneFormat = "فرمت شماره موبایل نامعتبر است";
+    public const string InvalidEmailFormat = "فرمت ایمیل نامعتبر است";
+    public const string FirstNameRequired = "نام الزامی است";
+    public const string LastNameRequired = "نام خانوادگی الزامی است";
+    public const string FirstNameMaxLength = "نام نباید بیشتر از 100 کاراکتر باشد";
+    public const string LastNameMaxLength = "نام خانوادگی نباید بیشتر از 100 کاراکتر باشد";
+    public const string NationalCodeLength = "کد ملی باید 10 رقم باشد";
+    public const string NationalCodeDigitsOnly = "کد ملی فقط باید شامل اعداد باشد";
+    public const string OtpCodeRequired = "کد تایید الزامی است";
+    public const string OtpCodeLength = "کد تایید باید 6 رقم باشد";
+    public const string OtpCodeDigitsOnly = "کد تایید فقط باید شامل اعداد باشد";
+}

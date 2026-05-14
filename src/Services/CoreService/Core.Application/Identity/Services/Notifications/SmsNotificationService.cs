@@ -4,6 +4,7 @@ using Core.Application.Identity.Notifications;
 using Microsoft.Extensions.Options;
 using Serilog;
 
+
 namespace Core.Application.Identity.Services.Notifications;
 
 public class SmsNotificationService : ISmsNotificationService

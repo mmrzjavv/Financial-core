@@ -1,6 +1,7 @@
 using FluentValidation;
 using Services.CoreService.Core.Application.Contracts.Finance;
 
+
 namespace Services.CoreService.Core.Application.Validation;
 
 public sealed class FinancialWorksheetUpsertRequestValidator : AbstractValidator<FinancialWorksheetUpsertRequest>
@@ -14,4 +15,3 @@ public sealed class FinancialWorksheetUpsertRequestValidator : AbstractValidator
         RuleFor(x => x.Notes).MaximumLength(4000);
     }
 }
-

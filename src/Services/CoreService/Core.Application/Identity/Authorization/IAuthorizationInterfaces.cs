@@ -1,5 +1,6 @@
 using Services.CoreService.Core.Domain.Identity.Entities;
 
+
 namespace Core.Application.Identity.Authorization;
 
 public interface IPermissionService

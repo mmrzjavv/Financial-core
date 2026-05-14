@@ -1,5 +1,6 @@
 using Core.Application.Abstractions;
 using Core.Workflow.Activities;
+using Core.Workflow.Common;
 using Core.Workflow.Workflows;
 using Elsa.Common.Models;
 using Elsa.Workflows.Management;
@@ -25,7 +26,7 @@ public sealed class ElsaCaseWorkflowOrchestrator(
             ct);
 
         if (definition is null)
-            throw new InvalidOperationException($"Workflow definition '{InvestmentCaseWorkflow.DefinitionId}' was not found.");
+            throw new InvalidOperationException(WorkflowMessages.DefinitionNotFound);
 
         var instanceId = caseId.ToString("D");
         var request = new DispatchWorkflowDefinitionRequest(definition.Id)
@@ -42,10 +43,10 @@ public sealed class ElsaCaseWorkflowOrchestrator(
     public async Task SignalAsync(Guid caseId, string signal, object? payload, CancellationToken ct)
     {
         var investmentCase = await investmentCaseRepository.GetAsync(caseId, ct)
-            ?? throw new InvalidOperationException($"Investment case '{caseId}' was not found.");
+            ?? throw new InvalidOperationException(WorkflowMessages.CaseNotFound);
 
         if (string.IsNullOrEmpty(investmentCase.WorkflowInstanceId))
-            throw new InvalidOperationException($"Case '{caseId}' has no workflow instance.");
+            throw new InvalidOperationException(WorkflowMessages.WorkflowInstanceMissing);
 
         var stimulus = new Dictionary<string, object>
         {
@@ -64,7 +65,6 @@ public sealed class ElsaCaseWorkflowOrchestrator(
             ct);
 
         if (!responses.Any())
-            throw new InvalidOperationException(
-                $"No workflow bookmark matched signal '{signal}' for case '{caseId}'.");
+            throw new InvalidOperationException(WorkflowMessages.SignalNotMatched);
     }
 }

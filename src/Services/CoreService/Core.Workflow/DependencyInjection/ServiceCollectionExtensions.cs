@@ -1,3 +1,4 @@
+using BuildingBlocks.Application.Common;
 using Elsa.Extensions;
 using Elsa.Persistence.EFCore.Extensions;
 using Elsa.Persistence.EFCore.Modules.Management;
@@ -20,7 +21,7 @@ public static class ServiceCollectionExtensions
             if (!environment.IsDevelopment())
             {
                 var connectionString = configuration.GetConnectionString("Postgres")
-                    ?? throw new InvalidOperationException("Missing connection string: ConnectionStrings:Postgres");
+                    ?? throw new InvalidOperationException(SystemMessages.PostgresConnectionMissing);
 
                 elsa.UseWorkflowManagement(management => management.UseEntityFrameworkCore(ef => ef.UsePostgreSql(connectionString)));
                 elsa.UseWorkflowRuntime(runtime => runtime.UseEntityFrameworkCore(ef => ef.UsePostgreSql(connectionString)));

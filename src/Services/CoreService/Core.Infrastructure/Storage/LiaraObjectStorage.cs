@@ -2,6 +2,7 @@ using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
 using BuildingBlocks.Domain.Abstractions;
+using Core.Infrastructure.Common;
 using Microsoft.Extensions.Configuration;
 
 namespace Core.Infrastructure.Storage;
@@ -18,13 +19,13 @@ public sealed class LiaraObjectStorage : ILiaraObjectStorage
         _clock = clock;
 
         _bucketName = configuration["LiaraStorage:BucketName"]
-                      ?? throw new InvalidOperationException("LiaraStorage:BucketName is not configured.");
+                      ?? throw new InvalidOperationException(InfrastructureMessages.StorageBucketMissing);
         var accessKey = configuration["LiaraStorage:AccessKey"]
-                        ?? throw new InvalidOperationException("LiaraStorage:AccessKey is not configured.");
+                        ?? throw new InvalidOperationException(InfrastructureMessages.StorageAccessKeyMissing);
         var secretKey = configuration["LiaraStorage:SecretKey"]
-                        ?? throw new InvalidOperationException("LiaraStorage:SecretKey is not configured.");
+                        ?? throw new InvalidOperationException(InfrastructureMessages.StorageSecretKeyMissing);
         _endpointUrl = configuration["LiaraStorage:EndpointUrl"]
-                       ?? throw new InvalidOperationException("LiaraStorage:EndpointUrl is not configured.");
+                       ?? throw new InvalidOperationException(InfrastructureMessages.StorageEndpointMissing);
 
         var credentials = new BasicAWSCredentials(accessKey, secretKey);
         var config = new AmazonS3Config

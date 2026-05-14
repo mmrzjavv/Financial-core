@@ -1,6 +1,7 @@
 using BuildingBlocks.Application.Results;
 using Core.Application.Identity.DTOs.User;
 
+
 namespace Core.Application.Identity.Interfaces;
 
 public interface IUserService

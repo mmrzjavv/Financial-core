@@ -1,8 +1,11 @@
 using System.Text.Json;
+using BuildingBlocks.Application.Common;
+using Core.Application.Identity.Common;
 using Core.Application.Identity.Common.Options;
 using Core.Application.Identity.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 
 namespace Core.Application.Identity.Services;
 
@@ -17,10 +20,10 @@ public class SmsService : ISmsService
 
     private readonly Dictionary<int, string> _smsMessages = new()
     {
-        { 1, "????? ?????? ?? ?????? ?? ??? ?????." },
-        { 2, "????? ??? ?? ?????? ??? ? ?? ??? ?????? ???." },
-        { 3, "???????? ????? ???? ??? ???? ??? ???. ??? ?????? ?? ??? ?????? ????." },
-        { 4, "??????? ??? ?? ?????? ????? ??." }
+        { 1, "ثبت‌نام شما با موفقیت انجام شد. از همراهی شما سپاسگزاریم." },
+        { 2, "حساب کاربری شما فعال شد و آماده استفاده است." },
+        { 3, "در صورت نیاز به راهنمایی با پشتیبانی تماس بگیرید. اطلاعات ورود شما محرمانه است." },
+        { 4, "وضعیت درخواست شما به‌روزرسانی شد." }
     };
 
     public SmsService(HttpClient httpClient, IOptions<SmsOptions> options, ILogger<SmsService> logger)
@@ -31,10 +34,10 @@ public class SmsService : ISmsService
             ? "https://api.kavenegar.com"
             : options.Value.ApiBaseUrl.TrimEnd('/');
         _apiKey = string.IsNullOrWhiteSpace(options.Value.ApiKey)
-            ? throw new InvalidOperationException("Sms:ApiKey is missing from configuration.")
+            ? throw new InvalidOperationException(SystemMessages.SmsApiKeyMissing)
             : options.Value.ApiKey;
         _senderNumber = string.IsNullOrWhiteSpace(options.Value.SenderNumber)
-            ? throw new InvalidOperationException("Sms:SenderNumber is missing from configuration.")
+            ? throw new InvalidOperationException(SystemMessages.SmsSenderMissing)
             : options.Value.SenderNumber;
     }
 
@@ -77,11 +80,10 @@ public class SmsService : ISmsService
         var validMinutes = (int)(validUntil - DateTime.UtcNow).TotalMinutes;
 
         return
-         
-            $"?? ????? ???? ???: {otpCode}\n\n" +
-            $"??? ?? ?? ??? {validMinutes} ????? ????? ???.\n" +
-            $"????? ?? ?? ?????? ???? ???? ?? ?? ????? ??????? ????.\n\n" +
-            $"????? ????? ? ?????? ??? ????? ????";
+            $"کد ورود شما: {otpCode}\n\n" +
+            $"این کد تا {validMinutes} دقیقه معتبر است.\n" +
+            $"کد را با کسی به اشتراک نگذارید.\n\n" +
+            $"تیم پشتیبانی";
     }
 
 
@@ -91,7 +93,7 @@ public class SmsService : ISmsService
         {
             if (!_smsMessages.TryGetValue(messageId, out var messageText))
             {
-                throw new ArgumentException("????? ????? ???? ??? ?? ??????? ????? ????.");
+                throw new ArgumentException(IdentityMessages.UnknownSmsTemplate);
             }
 
             string url = $"{_apiBaseUrl}/v1/{_apiKey}/sms/send.json";
@@ -120,7 +122,7 @@ public class SmsService : ISmsService
         {
             if (!_smsMessages.TryGetValue(messageId, out var messageText))
             {
-                throw new ArgumentException("????? ????? ???? ??? ?? ??????? ????? ????.");
+                throw new ArgumentException(IdentityMessages.UnknownSmsTemplate);
             }
 
 

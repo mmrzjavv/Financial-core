@@ -1,3 +1,5 @@
+using BuildingBlocks.Application.Validation;
+using Core.Application.Common;
 using System.Text.RegularExpressions;
 using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Application.Errors;
@@ -8,6 +10,8 @@ using Services.CoreService.Core.Application.Abstractions;
 using Services.CoreService.Core.Application.Contracts.Documents;
 using Services.CoreService.Core.Domain.Constants;
 using Services.CoreService.Core.Domain.Enums;
+
+
 
 namespace Services.CoreService.Core.Application.Services.Implementations;
 
@@ -39,11 +43,11 @@ public sealed class DocumentService : IDocumentService
     {
         var validation = await _createValidator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result<PresignedUrlResponse>.Fail(Error.Validation(validation.ToString()));
+            return Result<PresignedUrlResponse>.Fail(Error.Validation(validation.ToErrorMessage()));
 
         var entity = await _db.InvestmentCases.AsNoTracking().FirstOrDefaultAsync(x => x.Id == caseId, ct);
         if (entity is null)
-            return Result<PresignedUrlResponse>.Fail(Error.NotFound("Case not found."));
+            return Result<PresignedUrlResponse>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(SystemRoles.Admin))
             return Result<PresignedUrlResponse>.Fail(Error.Forbidden());
@@ -66,20 +70,20 @@ public sealed class DocumentService : IDocumentService
     {
         var validation = await _registerValidator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         var entity = await _db.InvestmentCases
             .Include(x => x.Documents)
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);
 
         if (entity is null)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(SystemRoles.Admin))
             return Result.Fail(Error.Forbidden());
 
         if (entity.Documents.Any(d => d.S3Key == request.S3Key))
-            return Result.Fail(Error.Conflict("Document already registered."));
+            return Result.Fail(Error.Conflict(ApiMessages.DocumentAlreadyRegistered));
 
         entity.AddDocument(
             s3Key: request.S3Key,

@@ -1,6 +1,7 @@
 using FluentValidation;
 using Services.CoreService.Core.Application.Contracts.Payments;
 
+
 namespace Services.CoreService.Core.Application.Validation;
 
 public sealed class RecordPaymentRequestValidator : AbstractValidator<RecordPaymentRequest>
@@ -13,4 +14,3 @@ public sealed class RecordPaymentRequestValidator : AbstractValidator<RecordPaym
         RuleFor(x => x.Notes).MaximumLength(4000);
     }
 }
-

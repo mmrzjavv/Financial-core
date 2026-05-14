@@ -1,6 +1,7 @@
 using FluentValidation;
 using Services.CoreService.Core.Application.Contracts.Evaluations;
 
+
 namespace Services.CoreService.Core.Application.Validation;
 
 public sealed class CaseEvaluationUpsertRequestValidator : AbstractValidator<CaseEvaluationUpsertRequest>
@@ -23,4 +24,3 @@ public sealed class CaseEvaluationUpsertRequestValidator : AbstractValidator<Cas
         }
     }
 }
-

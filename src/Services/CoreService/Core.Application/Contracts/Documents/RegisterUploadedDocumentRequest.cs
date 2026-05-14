@@ -1,5 +1,6 @@
 using Services.CoreService.Core.Domain.Enums;
 
+
 namespace Services.CoreService.Core.Application.Contracts.Documents;
 
 public sealed record RegisterUploadedDocumentRequest(
@@ -9,4 +10,3 @@ public sealed record RegisterUploadedDocumentRequest(
     string MimeType,
     long FileSize,
     int Version);
-

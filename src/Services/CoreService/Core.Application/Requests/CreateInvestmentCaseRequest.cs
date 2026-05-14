@@ -1,8 +1,9 @@
 using Services.CoreService.Core.Domain.Enums;
 
+
 namespace Core.Application.Requests;
 
-public sealed record CreateInvestmentCaseRequest(string ApplicantUserId, ApplicantType ApplicantType, CreateInvestmentCaseCompanyRequest? Company);
+public sealed record CreateInvestmentCaseRequest(ApplicantType ApplicantType, CreateInvestmentCaseCompanyRequest? Company);
 
 public sealed record CreateInvestmentCaseCompanyRequest(
     string Name,

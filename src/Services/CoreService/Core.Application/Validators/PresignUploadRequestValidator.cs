@@ -1,6 +1,7 @@
 using FluentValidation;
 using Core.Application.Requests;
 
+
 namespace Core.Application.Validators;
 
 public sealed class PresignUploadRequestValidator : AbstractValidator<PresignUploadRequest>
@@ -13,4 +14,3 @@ public sealed class PresignUploadRequestValidator : AbstractValidator<PresignUpl
         RuleFor(x => x.FileSize).GreaterThan(0).LessThanOrEqualTo(250L * 1024 * 1024);
     }
 }
-

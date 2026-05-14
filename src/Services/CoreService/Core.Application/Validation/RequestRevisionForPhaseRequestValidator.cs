@@ -1,6 +1,7 @@
 using FluentValidation;
 using Services.CoreService.Core.Application.Contracts.Reviews;
 
+
 namespace Services.CoreService.Core.Application.Validation;
 
 public sealed class RequestRevisionForPhaseRequestValidator : AbstractValidator<RequestRevisionForPhaseRequest>
@@ -11,4 +12,3 @@ public sealed class RequestRevisionForPhaseRequestValidator : AbstractValidator<
         RuleFor(x => x.Message).NotEmpty().MaximumLength(8000);
     }
 }
-

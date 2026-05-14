@@ -1,9 +1,11 @@
+using Core.Application.Common;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
 using Core.Application.Abstractions;
 using Services.CoreService.Core.Domain.Constants;
 using Services.CoreService.Core.Domain.Entities;
 using Services.CoreService.Core.Domain.Enums;
+
 
 namespace Core.Application.Services;
 
@@ -82,7 +84,7 @@ public sealed class CaseStateManager : ICaseStateManager
 
         if (IsTerminalState(currentStatus))
         {
-            errorMessage = "Cannot transition from terminal state";
+            errorMessage = ApiMessages.CannotTransitionFromTerminalState;
             return false;
         }
 
@@ -90,7 +92,7 @@ public sealed class CaseStateManager : ICaseStateManager
         {
             if (!string.Equals(userRole, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase))
             {
-                errorMessage = "Only admin can archive";
+                errorMessage = ApiMessages.OnlyAdminCanArchive;
                 return false;
             }
 
@@ -122,7 +124,7 @@ public sealed class CaseStateManager : ICaseStateManager
             }
         }
 
-        errorMessage = "Invalid transition";
+        errorMessage = ApiMessages.InvalidTransition;
         return false;
     }
 
@@ -135,7 +137,7 @@ public sealed class CaseStateManager : ICaseStateManager
         Guid? correlationId = null)
     {
         if (caseEntity is null)
-            return Task.FromResult(Result.Fail(Error.Unexpected("Case entity is null.")));
+            return Task.FromResult(Result.Fail(Error.Unexpected(ApiMessages.CaseEntityIsNull)));
 
         correlationId ??= Guid.NewGuid();
         if (caseEntity.WorkflowHistory.Any(x => x.CorrelationId == correlationId.Value))
@@ -146,10 +148,7 @@ public sealed class CaseStateManager : ICaseStateManager
 
         if (!CanTransition(caseEntity.CurrentStatus, action, actorRole, out var nextStatus, out var errorMessage))
         {
-            if (errorMessage.Contains("Only admin", StringComparison.OrdinalIgnoreCase))
-                return Task.FromResult(Result.Fail(Error.Forbidden(errorMessage)));
-
-            if (errorMessage.Contains("permission", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(errorMessage, ApiMessages.OnlyAdminCanArchive, StringComparison.Ordinal))
                 return Task.FromResult(Result.Fail(Error.Forbidden(errorMessage)));
 
             return Task.FromResult(Result.Fail(Error.Conflict(errorMessage)));
@@ -182,7 +181,7 @@ public sealed class CaseStateManager : ICaseStateManager
             case WorkflowAction.Submit when caseEntity.CurrentStatus == CaseStatus.DataEntry1:
                 if (caseEntity.DataEntry1 is null)
                 {
-                    errorMessage = "Cannot submit Data Entry 1 before saving it.";
+                    errorMessage = ApiMessages.CannotSubmitDataEntry1BeforeSave;
                     return false;
                 }
                 if (string.IsNullOrWhiteSpace(caseEntity.DataEntry1.StartupTitle) ||
@@ -190,7 +189,7 @@ public sealed class CaseStateManager : ICaseStateManager
                     caseEntity.DataEntry1.RequestedAmount <= 0 ||
                     caseEntity.DataEntry1.TeamSize <= 0)
                 {
-                    errorMessage = "Data Entry 1 is incomplete.";
+                    errorMessage = ApiMessages.DataEntry1Incomplete;
                     return false;
                 }
                 break;
@@ -198,7 +197,7 @@ public sealed class CaseStateManager : ICaseStateManager
             case WorkflowAction.Submit when caseEntity.CurrentStatus == CaseStatus.DataEntry2:
                 if (caseEntity.DataEntry2 is null)
                 {
-                    errorMessage = "Cannot submit Data Entry 2 before saving it.";
+                    errorMessage = ApiMessages.CannotSubmitDataEntry2BeforeSave;
                     return false;
                 }
                 if (string.IsNullOrWhiteSpace(caseEntity.DataEntry2.MarketAnalysis) ||
@@ -206,7 +205,7 @@ public sealed class CaseStateManager : ICaseStateManager
                     string.IsNullOrWhiteSpace(caseEntity.DataEntry2.CompetitiveAdvantage) ||
                     string.IsNullOrWhiteSpace(caseEntity.DataEntry2.FinancialProjection))
                 {
-                    errorMessage = "Data Entry 2 is incomplete.";
+                    errorMessage = ApiMessages.DataEntry2Incomplete;
                     return false;
                 }
                 break;
@@ -214,7 +213,7 @@ public sealed class CaseStateManager : ICaseStateManager
             case WorkflowAction.UploadPreliminaryContract when nextStatus == CaseStatus.WaitingUserReviewPreliminaryContract:
                 if (!caseEntity.Documents.Any(x => x.DocumentType == DocumentType.PreContract))
                 {
-                    errorMessage = "Cannot proceed: preliminary contract document is missing.";
+                    errorMessage = ApiMessages.PreliminaryContractMissing;
                     return false;
                 }
                 break;
@@ -222,7 +221,7 @@ public sealed class CaseStateManager : ICaseStateManager
             case WorkflowAction.UploadSignedContract when nextStatus == CaseStatus.WaitingFinancialWorksheet:
                 if (!caseEntity.Documents.Any(x => x.DocumentType == DocumentType.SignedContract))
                 {
-                    errorMessage = "Cannot proceed: signed contract document is missing.";
+                    errorMessage = ApiMessages.SignedContractMissing;
                     return false;
                 }
                 break;
@@ -231,7 +230,7 @@ public sealed class CaseStateManager : ICaseStateManager
             case WorkflowAction.ApproveFinancialWorksheet when nextStatus == CaseStatus.WaitingPayment:
                 if (caseEntity.FinancialWorksheet is null || caseEntity.FinancialWorksheet.ApprovedAmount <= 0)
                 {
-                    errorMessage = "Financial worksheet is missing or approved amount is invalid.";
+                    errorMessage = ApiMessages.FinancialWorksheetMissingOrInvalid;
                     return false;
                 }
                 break;
@@ -239,7 +238,7 @@ public sealed class CaseStateManager : ICaseStateManager
             case WorkflowAction.CompletePayment when nextStatus == CaseStatus.Completed:
                 if (caseEntity.FinancialWorksheet is null || caseEntity.FinancialWorksheet.ApprovedAmount <= 0)
                 {
-                    errorMessage = "Cannot complete case: approved amount is not set.";
+                    errorMessage = ApiMessages.ApprovedAmountNotSet;
                     return false;
                 }
                 var totalConfirmed = caseEntity.Payments
@@ -247,7 +246,7 @@ public sealed class CaseStateManager : ICaseStateManager
                     .Sum(p => p.Amount);
                 if (totalConfirmed < caseEntity.FinancialWorksheet.ApprovedAmount)
                 {
-                    errorMessage = "Cannot complete case: payments are incomplete.";
+                    errorMessage = ApiMessages.PaymentsIncomplete;
                     return false;
                 }
                 break;

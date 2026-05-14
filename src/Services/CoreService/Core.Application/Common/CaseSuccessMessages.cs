@@ -1,0 +1,45 @@
+namespace Core.Application.Common;
+
+public static class CaseSuccessMessages
+{
+    public const string InvestmentCaseCreated = "پرونده سرمایه‌گذاری ایجاد شد.";
+    public const string InvestmentCaseRetrieved = "پرونده سرمایه‌گذاری دریافت شد.";
+    public const string InvestmentCasesRetrieved = "فهرست پرونده‌ها دریافت شد.";
+    public const string CaseHistoryRetrieved = "تاریخچه پرونده دریافت شد.";
+    public const string DataEntry1Updated = "ورود اطلاعات ۱ به‌روزرسانی شد.";
+    public const string DataEntry1Submitted = "ورود اطلاعات ۱ ارسال شد.";
+    public const string DataEntry1Approved = "ورود اطلاعات ۱ تأیید شد.";
+    public const string DataEntry1RevisionRequested = "درخواست اصلاح ورود اطلاعات ۱ ثبت شد.";
+    public const string DataEntry2Updated = "ورود اطلاعات ۲ به‌روزرسانی شد.";
+    public const string DataEntry2Submitted = "ورود اطلاعات ۲ ارسال شد.";
+    public const string DataEntry2Approved = "ورود اطلاعات ۲ تأیید شد.";
+    public const string DataEntry2RevisionRequested = "درخواست اصلاح ورود اطلاعات ۲ ثبت شد.";
+    public const string ValuationRecorded = "ارزش‌گذاری ثبت شد.";
+    public const string InitialValuationApproved = "ارزش‌گذاری اولیه تأیید شد.";
+    public const string SecondaryValuationApproved = "ارزش‌گذاری ثانویه تأیید شد.";
+    public const string PreliminaryContractUploaded = "پیش‌قرارداد بارگذاری شد.";
+    public const string PreliminaryContractApproved = "پیش‌قرارداد تأیید شد.";
+    public const string PreliminaryContractRevisionRequested = "درخواست اصلاح پیش‌قرارداد ثبت شد.";
+    public const string ContractDraftFinalized = "پیش‌نویس قرارداد نهایی شد.";
+    public const string ContractSignatureConfirmed = "امضای قرارداد تأیید شد.";
+    public const string SignedContractUploaded = "قرارداد امضاشده بارگذاری شد.";
+    public const string FinancialWorksheetUpdated = "کاربرگ مالی به‌روزرسانی شد.";
+    public const string FinancialWorksheetSubmitted = "کاربرگ مالی ارسال شد.";
+    public const string FinancialWorksheetApproved = "کاربرگ مالی تأیید شد.";
+    public const string FinancialWorksheetRevisionRequested = "درخواست اصلاح کاربرگ مالی ثبت شد.";
+    public const string PaymentRecorded = "پرداخت ثبت شد.";
+    public const string PaymentConfirmed = "پرداخت تأیید شد.";
+    public const string PaymentCancelled = "پرداخت لغو شد.";
+    public const string InvestmentCaseRejected = "پرونده سرمایه‌گذاری رد شد.";
+    public const string InvestmentCaseCancelled = "پرونده سرمایه‌گذاری لغو شد.";
+    public const string InvestmentCaseArchived = "پرونده سرمایه‌گذاری بایگانی شد.";
+    public const string DocumentUploadPresigned = "آدرس بارگذاری سند آماده شد.";
+    public const string DocumentUploadConfirmed = "بارگذاری سند تأیید شد.";
+    public const string DocumentsRetrieved = "فهرست اسناد دریافت شد.";
+    public const string DocumentDownloadPresigned = "آدرس دریافت سند آماده شد.";
+    public const string EvaluationSaved = "ارزیابی ذخیره شد.";
+    public const string EvaluationsRetrieved = "فهرست ارزیابی‌ها دریافت شد.";
+    public const string CommentsRetrieved = "فهرست نظرات دریافت شد.";
+    public const string CommentAdded = "نظر ثبت شد.";
+    public const string CommentAttachmentAdded = "پیوست نظر ثبت شد.";
+}

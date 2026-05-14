@@ -1,5 +1,6 @@
 using BuildingBlocks.Application.Results;
 
+
 namespace Core.Application.Authorization;
 
 public interface ICaseAuthorizationService

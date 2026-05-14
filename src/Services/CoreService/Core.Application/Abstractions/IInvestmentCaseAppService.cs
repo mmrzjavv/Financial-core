@@ -3,6 +3,7 @@ using Core.Application.DTOs;
 using Core.Application.Requests;
 using Core.Application.Responses;
 
+
 namespace Core.Application.Abstractions;
 
 public interface IInvestmentCaseAppService

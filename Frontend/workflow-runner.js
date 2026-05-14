@@ -67,7 +67,7 @@
 
     async function usePersona(key) {
       const persona = personaByKey(key);
-      if (!persona) throw new Error("Unknown persona: " + key);
+      if (!persona) throw new Error("نقش ناشناخته: " + key);
       const existing = panel.findSessionByPhone(persona.phone);
       if (existing) {
         panel.setActiveSessionId(existing.id);
@@ -82,7 +82,7 @@
       const created = {};
       panel.setActiveSessionId(adminSession.id);
       for (const persona of personas) {
-        if (stopRequested) throw new Error("Workflow stopped by user.");
+        if (stopRequested) throw new Error("گردش‌کار توسط کاربر متوقف شد.");
         if (persona.key === "admin") {
           created.admin = { userId: adminSession.userId, persona };
           continue;
@@ -116,7 +116,7 @@
 
       panel.setActiveSessionId(adminSession.id);
       for (const persona of personas) {
-        if (stopRequested) throw new Error("Workflow stopped by user.");
+        if (stopRequested) throw new Error("گردش‌کار توسط کاربر متوقف شد.");
         if (persona.key === "admin") continue;
         const entry = created[persona.key];
         if (!entry || !entry.userId) continue;
@@ -146,14 +146,14 @@
       const presign = unwrap(presignRes.body).payload;
       const uploadUrl = presign.url || presign.Url;
       const s3Key = presign.s3Key || presign.S3Key;
-      if (!uploadUrl || !s3Key) throw new Error("Presign response missing url or s3Key.");
+      if (!uploadUrl || !s3Key) throw new Error("پاسخ presign فاقد url یا s3Key است.");
 
       const putRes = await fetch(uploadUrl, {
         method: "PUT",
         headers: { "Content-Type": mimeType },
         body: blob,
       });
-      if (!putRes.ok) throw new Error("Storage upload failed with status " + putRes.status);
+      if (!putRes.ok) throw new Error("بارگذاری در storage با وضعیت " + putRes.status + " ناموفق بود.");
 
       await panel.apiRequest({
         method: "POST",
@@ -166,7 +166,7 @@
     }
 
     async function runStep(title, fn) {
-      if (stopRequested) throw new Error("Workflow stopped by user.");
+      if (stopRequested) throw new Error("گردش‌کار توسط کاربر متوقف شد.");
       log(title, "info");
       await fn();
       log(title + " completed", "ok");
@@ -181,7 +181,7 @@
 
       try {
         const adminPersona = personaByKey("admin");
-        if (!adminPersona) throw new Error("Admin persona is missing from config.");
+        if (!adminPersona) throw new Error("نقش مدیر در پیکربندی تعریف نشده است.");
 
         let adminSession = panel.findSessionByPhone(adminPersona.phone);
         if (!adminSession) {
@@ -223,7 +223,7 @@
           });
           const created = unwrap(createRes.body).payload;
           caseId = pickId(created);
-          if (!caseId) throw new Error("Create case response did not include an id.");
+          if (!caseId) throw new Error("پاسخ ایجاد پرونده شامل شناسه نیست.");
           panel.setCurrentCaseId(caseId);
 
           await panel.apiRequest({

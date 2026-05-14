@@ -1,0 +1,51 @@
+namespace Core.Application.Common;
+
+public static class ApiMessages
+{
+    public const string ValidationFailed = "اطلاعات ارسالی نامعتبر است.";
+    public const string UnexpectedError = "خطای غیرمنتظره رخ داد.";
+    public const string ConcurrencyConflict = "این پرونده توسط کاربر دیگری تغییر کرده است. صفحه را بازخوانی کنید و دوباره تلاش کنید.";
+    public const string NotAllowed = "شما به این عملیات دسترسی ندارید.";
+    public const string AuthenticationRequired = "برای ادامه باید وارد شوید.";
+    public const string CaseNotFound = "پرونده سرمایه‌گذاری یافت نشد.";
+    public const string PaymentNotFound = "رکورد پرداخت یافت نشد.";
+    public const string CommentNotFound = "نظر یافت نشد.";
+    public const string DocumentNotFound = "سند یافت نشد.";
+    public const string UploadedFileNotFound = "فایل بارگذاری‌شده در سیستم یافت نشد.";
+    public const string DocumentAlreadyExists = "این سند قبلاً ثبت شده است.";
+    public const string DocumentAlreadyRegistered = "این سند قبلاً ثبت شده است.";
+    public const string InvalidFileName = "نام فایل نامعتبر است.";
+    public const string FileTypeNotAllowed = "نوع فایل مجاز نیست.";
+    public const string InvalidDocumentKey = "کلید سند نامعتبر است.";
+    public const string InvalidAttachmentKey = "کلید پیوست نامعتبر است.";
+    public const string CompanyRequiredForCompanyApplicant = "برای متقاضی حقوقی، انتخاب شرکت الزامی است.";
+    public const string DataEntry1NotEditable = "در وضعیت فعلی امکان ویرایش ورود اطلاعات ۱ وجود ندارد.";
+    public const string DataEntry2NotEditable = "در وضعیت فعلی امکان ویرایش ورود اطلاعات ۲ وجود ندارد.";
+    public const string FinancialWorksheetNotEditable = "در وضعیت فعلی امکان ویرایش کاربرگ مالی وجود ندارد.";
+    public const string DataEntry1NotCurrentPhase = "مرحله فعلی پرونده، ورود اطلاعات ۱ نیست.";
+    public const string DataEntry2NotCurrentPhase = "مرحله فعلی پرونده، ورود اطلاعات ۲ نیست.";
+    public const string FinancialWorksheetNotCurrentPhase = "مرحله فعلی پرونده، کاربرگ مالی نیست.";
+    public const string PaymentPhaseMismatch = "پرونده در مرحله پردازش پرداخت نیست.";
+    public const string PaymentsOnlyInWaitingPayment = "ثبت پرداخت فقط در وضعیت انتظار پرداخت امکان‌پذیر است.";
+    public const string ApprovalMustMatchPhase = "تأیید باید با مرحله فعلی پرونده هم‌خوان باشد.";
+    public const string RevisionMustMatchPhase = "درخواست اصلاح باید با مرحله فعلی پرونده هم‌خوان باشد.";
+    public const string ApplicantsCannotCreateInternalComments = "متقاضی نمی‌تواند نظر داخلی ثبت کند.";
+    public const string ApplicantsCannotRequestRevisions = "متقاضی نمی‌تواند درخواست اصلاح ثبت کند.";
+    public const string DocumentUploadNotAllowed = "در وضعیت فعلی امکان بارگذاری سند وجود ندارد.";
+    public const string DocumentConfirmationNotAllowed = "در وضعیت فعلی امکان تأیید سند وجود ندارد.";
+    public const string CannotTransitionFromTerminalState = "از وضعیت پایانی نمی‌توان به مرحله بعد رفت.";
+    public const string OnlyAdminCanArchive = "فقط مدیر سیستم می‌تواند پرونده را بایگانی کند.";
+    public const string InvalidTransition = "انتقال وضعیت درخواستی مجاز نیست.";
+    public const string CaseEntityIsNull = "پرونده برای پردازش در دسترس نیست.";
+    public const string CannotSubmitDataEntry1BeforeSave = "ابتدا ورود اطلاعات ۱ را ذخیره کنید.";
+    public const string DataEntry1Incomplete = "ورود اطلاعات ۱ ناقص است.";
+    public const string CannotSubmitDataEntry2BeforeSave = "ابتدا ورود اطلاعات ۲ را ذخیره کنید.";
+    public const string DataEntry2Incomplete = "ورود اطلاعات ۲ ناقص است.";
+    public const string PreliminaryContractMissing = "برای ادامه، سند پیش‌قرارداد بارگذاری نشده است.";
+    public const string SignedContractMissing = "برای ادامه، سند قرارداد امضاشده بارگذاری نشده است.";
+    public const string FinancialWorksheetMissingOrInvalid = "کاربرگ مالی ثبت نشده یا مبلغ تأییدشده نامعتبر است.";
+    public const string ApprovedAmountNotSet = "برای تکمیل پرونده، مبلغ تأییدشده مشخص نشده است.";
+    public const string PaymentsIncomplete = "برای تکمیل پرونده، پرداخت‌ها کامل نشده‌اند.";
+    public const string ValuationStatusMismatch = "ثبت ارزش‌گذاری فقط در وضعیت {0} امکان‌پذیر است.";
+    public const string CaseNumberAllocationFailed = "امکان تخصیص شماره یکتای پرونده وجود ندارد.";
+}

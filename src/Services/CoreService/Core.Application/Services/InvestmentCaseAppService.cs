@@ -1,3 +1,4 @@
+using Core.Application.Common;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
 using BuildingBlocks.Application.Abstractions;
@@ -13,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Services.CoreService.Core.Domain.Constants;
 using Services.CoreService.Core.Domain.Entities;
 using Services.CoreService.Core.Domain.Enums;
+
 
 namespace Core.Application.Services;
 
@@ -34,7 +36,7 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result<InvestmentCaseDto>.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.Create) || authorizationService.IsInternalUser)
-            return Result<InvestmentCaseDto>.Fail(Error.Forbidden("Not allowed."));
+            return Result<InvestmentCaseDto>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var now = clock.UtcNow;
         var caseNumber = await caseNumberGenerator.GenerateAsync(cancellationToken);
@@ -42,7 +44,7 @@ public sealed class InvestmentCaseAppService(
         if (request.ApplicantType == ApplicantType.Company)
         {
             if (request.Company is null)
-                return Result<InvestmentCaseDto>.Fail(Error.Validation("Company is required for ApplicantType=Company."));
+                return Result<InvestmentCaseDto>.Fail(Error.Validation(ApiMessages.CompanyRequiredForCompanyApplicant));
 
             entity.UpsertCompanyProfile(
                 request.Company.Name,
@@ -71,7 +73,7 @@ public sealed class InvestmentCaseAppService(
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
-            return Result<InvestmentCaseDto>.Fail(Error.NotFound("Investment case not found."));
+            return Result<InvestmentCaseDto>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         return Result<InvestmentCaseDto>.Ok(ToDto(entity, clock.UtcNow, authorizationService.IsInternalUser));
     }
@@ -82,14 +84,14 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!userContext.Roles.Contains(SystemRoles.Applicant))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: false, cancellationToken);
         if (entity is null)
-            return Result.Fail(Error.NotFound("Investment case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.CurrentStatus is not (CaseStatus.Draft or CaseStatus.DataEntry1))
-            return Result.Fail(Error.Conflict("Data Entry 1 cannot be edited in the current status."));
+            return Result.Fail(Error.Conflict(ApiMessages.DataEntry1NotEditable));
 
         entity.UpsertDataEntry1(
             request.StartupTitle,
@@ -111,14 +113,14 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!userContext.Roles.Contains(SystemRoles.Applicant))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: false, cancellationToken);
         if (entity is null)
-            return Result.Fail(Error.NotFound("Investment case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.CurrentStatus is not CaseStatus.DataEntry2)
-            return Result.Fail(Error.Conflict("Data Entry 2 cannot be edited in the current status."));
+            return Result.Fail(Error.Conflict(ApiMessages.DataEntry2NotEditable));
 
         entity.UpsertDataEntry2(
             request.MarketAnalysis,
@@ -138,14 +140,14 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.ManageFinancialWorksheet))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
-            return Result.Fail(Error.NotFound("Investment case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.CurrentStatus is not CaseStatus.WaitingFinancialWorksheet)
-            return Result.Fail(Error.Conflict("Financial worksheet cannot be edited in the current status."));
+            return Result.Fail(Error.Conflict(ApiMessages.FinancialWorksheetNotEditable));
 
         entity.UpsertFinancialWorksheet(
             request.BankName,
@@ -179,7 +181,7 @@ public sealed class InvestmentCaseAppService(
     public async Task<Result> ApproveInitialValuationAsync(Guid caseId, string? comment, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageValuations))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         return await ApplyTransitionAsync(caseId, WorkflowAction.Approve, comment, ct);
     }
@@ -187,7 +189,7 @@ public sealed class InvestmentCaseAppService(
     public async Task<Result> ApproveSecondaryValuationAsync(Guid caseId, string? comment, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageValuations))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         return await ApplyTransitionAsync(caseId, WorkflowAction.Approve, comment, ct);
     }
@@ -195,7 +197,7 @@ public sealed class InvestmentCaseAppService(
     public async Task<Result> UploadPreliminaryContractAsync(Guid caseId, string s3Key, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageContracts))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var result = await ConfirmDocumentUploadedAsync(caseId, s3Key, ct);
         if (result.IsFailure) return Result.Fail(result.Error!);
@@ -211,7 +213,7 @@ public sealed class InvestmentCaseAppService(
     public async Task<Result> FinalizeContractDraftAsync(Guid caseId, string? comment, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageContracts))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         return await ApplyTransitionAsync(caseId, WorkflowAction.FinalizeContractDraft, comment, ct);
     }
@@ -219,7 +221,7 @@ public sealed class InvestmentCaseAppService(
     public async Task<Result> ConfirmSignatureAsync(Guid caseId, string? comment, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageContracts))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         return await ApplyTransitionAsync(caseId, WorkflowAction.ConfirmSignature, comment, ct);
     }
@@ -227,7 +229,7 @@ public sealed class InvestmentCaseAppService(
     public async Task<Result> UploadSignedContractAsync(Guid caseId, string s3Key, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageContracts))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var result = await ConfirmDocumentUploadedAsync(caseId, s3Key, ct);
         if (result.IsFailure) return Result.Fail(result.Error!);
@@ -237,7 +239,7 @@ public sealed class InvestmentCaseAppService(
     public async Task<Result> SubmitFinancialWorksheetAsync(Guid caseId, string? comment, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageFinancialWorksheet))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         return await ApplyTransitionAsync(caseId, WorkflowAction.SubmitFinancialWorksheet, comment, ct);
     }
@@ -245,7 +247,7 @@ public sealed class InvestmentCaseAppService(
     public async Task<Result> ApproveFinancialWorksheetAsync(Guid caseId, string? comment, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageFinancialWorksheet))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         return await ApplyTransitionAsync(caseId, WorkflowAction.ApproveFinancialWorksheet, comment, ct);
     }
@@ -253,7 +255,7 @@ public sealed class InvestmentCaseAppService(
     public async Task<Result> RequestFinancialWorksheetRevisionAsync(Guid caseId, string message, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageFinancialWorksheet))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         return await ApplyTransitionAsync(caseId, WorkflowAction.RequestRevision, message, ct);
     }
@@ -264,13 +266,13 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, ct);
-        if (entity is null) return Result.Fail(Error.NotFound("Case not found"));
+        if (entity is null) return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var payment = entity.Payments.FirstOrDefault(x => x.Id == paymentId);
-        if (payment is null) return Result.Fail(Error.NotFound("Payment not found"));
+        if (payment is null) return Result.Fail(Error.NotFound(ApiMessages.PaymentNotFound));
 
         payment.Update(payment.Amount, payment.PaymentDate, payment.TransactionNumber, payment.ReceiptS3Key, payment.Notes, payment.Method, PaymentStatus.Completed);
 
@@ -285,13 +287,13 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, ct);
-        if (entity is null) return Result.Fail(Error.NotFound("Case not found"));
+        if (entity is null) return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var payment = entity.Payments.FirstOrDefault(x => x.Id == paymentId);
-        if (payment is null) return Result.Fail(Error.NotFound("Payment not found"));
+        if (payment is null) return Result.Fail(Error.NotFound(ApiMessages.PaymentNotFound));
 
         payment.Update(payment.Amount, payment.PaymentDate, payment.TransactionNumber, payment.ReceiptS3Key, payment.Notes, payment.Method, PaymentStatus.Cancelled);
         await unitOfWork.SaveChangesAsync(ct);
@@ -315,7 +317,7 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, ct);
-        if (entity is null) return Result.Fail(Error.NotFound("Case not found"));
+        if (entity is null) return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var actorRole = ResolveActorRole();
 
@@ -368,15 +370,15 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.ManageValuations))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
-            return Result.Fail(Error.NotFound("Investment case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var requiredStatus = request.Type == ValuationType.Primary ? CaseStatus.InitialValuation : CaseStatus.SecondaryValuation;
         if (entity.CurrentStatus != requiredStatus)
-            return Result.Fail(Error.Conflict($"Valuation can only be recorded during {requiredStatus} status."));
+        return Result.Fail(Error.Conflict(string.Format(ApiMessages.ValuationStatusMismatch, requiredStatus)));
 
         entity.AddValuation(request.Type, request.Amount, request.Notes, authResult.Value!);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -389,14 +391,14 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
-            return Result.Fail(Error.NotFound("Investment case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.CurrentStatus != CaseStatus.WaitingPayment)
-            return Result.Fail(Error.Conflict("Payments can only be recorded during WaitingPayment status."));
+            return Result.Fail(Error.Conflict(ApiMessages.PaymentsOnlyInWaitingPayment));
 
         entity.AddPayment(
             request.Amount,
@@ -418,15 +420,15 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
-            return Result.Fail(Error.NotFound("Investment case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var payment = entity.Payments.FirstOrDefault(x => x.Id == paymentId);
         if (payment is null)
-            return Result.Fail(Error.NotFound("Payment record not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.PaymentNotFound));
 
         payment.Update(
             request.Amount,
@@ -447,15 +449,15 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
-            return Result.Fail(Error.NotFound("Investment case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var payment = entity.Payments.FirstOrDefault(x => x.Id == paymentId);
         if (payment is null)
-            return Result.Fail(Error.NotFound("Payment record not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.PaymentNotFound));
 
         entity.Payments.Remove(payment);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -469,7 +471,7 @@ public sealed class InvestmentCaseAppService(
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
-            return Result<IEnumerable<CaseCommentDto>>.Fail(Error.NotFound("Investment case not found."));
+            return Result<IEnumerable<CaseCommentDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var canViewInternal = includeInternal && authorizationService.HasPermission(CasePermissions.ViewInternalComments);
         var isInternalView = authorizationService.IsInternalUser;
@@ -511,13 +513,13 @@ public sealed class InvestmentCaseAppService(
 
         var isInternalRequested = request.IsInternal;
         if (isInternalRequested && !authorizationService.HasPermission(CasePermissions.CreateInternalComment))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var isInternal = isInternalRequested && authorizationService.HasPermission(CasePermissions.CreateInternalComment);
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
-            return Result.Fail(Error.NotFound("Investment case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         entity.Comments.Add(new CaseComment(
             caseId,
@@ -539,21 +541,21 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.UploadCommentAttachments))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
-            return Result.Fail(Error.NotFound("Investment case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var comment = entity.Comments.FirstOrDefault(x => x.Id == commentId);
         if (comment is null)
-            return Result.Fail(Error.NotFound("Comment not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CommentNotFound));
 
         var attachmentValidation = ValidateCommentAttachmentKey(entity.CaseNumber, commentId, s3Key, fileName);
         if (attachmentValidation.IsFailure) return attachmentValidation;
 
         var exists = await documentStorage.ExistsAsync(s3Key, cancellationToken);
-        if (!exists) return Result.Fail(Error.Conflict("Uploaded file not found."));
+        if (!exists) return Result.Fail(Error.Conflict(ApiMessages.UploadedFileNotFound));
 
         comment.AddAttachment(s3Key, fileName);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -567,7 +569,7 @@ public sealed class InvestmentCaseAppService(
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
-            return Result<IEnumerable<CaseDocumentDto>>.Fail(Error.NotFound("Investment case not found."));
+            return Result<IEnumerable<CaseDocumentDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var isInternalView = authorizationService.IsInternalUser;
         var docs = entity.Documents
@@ -587,7 +589,7 @@ public sealed class InvestmentCaseAppService(
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
-            return Result<IEnumerable<CaseWorkflowHistoryDto>>.Fail(Error.NotFound("Investment case not found."));
+            return Result<IEnumerable<CaseWorkflowHistoryDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var isInternalView = authorizationService.IsInternalUser;
         var history = entity.WorkflowHistory
@@ -606,11 +608,11 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.UpsertEvaluations))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
-            return Result.Fail(Error.NotFound("Investment case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var evaluation = entity.Evaluations.FirstOrDefault(x => x.Phase == request.Phase && x.ReviewerUserId == userContext.UserId);
         if (evaluation is null)
@@ -636,11 +638,11 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result<IEnumerable<CaseEvaluationDto>>.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.ViewEvaluations))
-            return Result<IEnumerable<CaseEvaluationDto>>.Fail(Error.NotFound("Investment case not found."));
+            return Result<IEnumerable<CaseEvaluationDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
-            return Result<IEnumerable<CaseEvaluationDto>>.Fail(Error.NotFound("Investment case not found."));
+            return Result<IEnumerable<CaseEvaluationDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var evaluations = entity.Evaluations
             .Select(x => new CaseEvaluationDto(
@@ -686,7 +688,7 @@ public sealed class InvestmentCaseAppService(
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
-            return Result<PresignUploadResponse>.Fail(Error.NotFound("Investment case not found."));
+            return Result<PresignUploadResponse>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var validation = ValidatePresignRequest(entity, request);
         if (validation.IsFailure) return Result<PresignUploadResponse>.Fail(validation.Error!);
@@ -706,7 +708,7 @@ public sealed class InvestmentCaseAppService(
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
-            return Result<CaseDocumentDto>.Fail(Error.NotFound("Investment case not found."));
+            return Result<CaseDocumentDto>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var keyValidation = ValidateAndNormalizeDocumentKey(entity.CaseNumber, s3Key);
         if (keyValidation.IsFailure) return Result<CaseDocumentDto>.Fail(keyValidation.Error!);
@@ -714,20 +716,20 @@ public sealed class InvestmentCaseAppService(
         s3Key = keyValidation.Value!;
 
         if (entity.Documents.Any(x => string.Equals(x.S3Key, s3Key, StringComparison.Ordinal)))
-            return Result<CaseDocumentDto>.Fail(Error.Conflict("Document already exists."));
+            return Result<CaseDocumentDto>.Fail(Error.Conflict(ApiMessages.DocumentAlreadyExists));
 
         var docType = ExtractDocumentTypeFromKey(s3Key);
         var authorization = EnsureCanConfirmDocument(entity, docType);
         if (authorization.IsFailure) return Result<CaseDocumentDto>.Fail(authorization.Error!);
 
         var exists = await documentStorage.ExistsAsync(s3Key, cancellationToken);
-        if (!exists) return Result<CaseDocumentDto>.Fail(Error.Conflict("Uploaded file not found."));
+        if (!exists) return Result<CaseDocumentDto>.Fail(Error.Conflict(ApiMessages.UploadedFileNotFound));
 
         var ext = Path.GetExtension(s3Key);
         var expectedVersion = entity.Documents.Where(x => x.DocumentType == docType).Select(x => x.Version).DefaultIfEmpty(0).Max() + 1;
         var expectedKey = $"cases/{entity.CaseNumber}/{docType}/{expectedVersion}{ext}";
         if (!string.Equals(s3Key, expectedKey, StringComparison.Ordinal))
-            return Result<CaseDocumentDto>.Fail(Error.Forbidden("Not allowed."));
+            return Result<CaseDocumentDto>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var version = expectedVersion;
         var document = entity.AddDocument(
@@ -752,15 +754,15 @@ public sealed class InvestmentCaseAppService(
         if (authResult.IsFailure) return Result<PresignDownloadResponse>.Fail(authResult.Error!);
 
         if (!authorizationService.HasPermission(CasePermissions.DownloadDocuments))
-            return Result<PresignDownloadResponse>.Fail(Error.Forbidden("Not allowed."));
+            return Result<PresignDownloadResponse>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
-            return Result<PresignDownloadResponse>.Fail(Error.NotFound("Investment case not found."));
+            return Result<PresignDownloadResponse>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var document = entity.Documents.FirstOrDefault(x => x.Id == documentId);
         if (document is null)
-            return Result<PresignDownloadResponse>.Fail(Error.NotFound("Document not found."));
+            return Result<PresignDownloadResponse>.Fail(Error.NotFound(ApiMessages.DocumentNotFound));
 
         var (url, expiresAt) = await documentStorage.PresignDownloadAsync(document.S3Key, TimeSpan.FromMinutes(10), cancellationToken);
         return Result<PresignDownloadResponse>.Ok(new PresignDownloadResponse(url, expiresAt, document.FileName));
@@ -828,27 +830,27 @@ public sealed class InvestmentCaseAppService(
     private Result ValidatePresignRequest(InvestmentCase entity, PresignUploadRequest request)
     {
         if (!IsSafeClientFileName(request.FileName))
-            return Result.Fail(Error.Validation("Invalid file name."));
+            return Result.Fail(Error.Validation(ApiMessages.InvalidFileName));
 
         var ext = GetSafeExtension(request.FileName);
         if (!IsAllowedUpload(request.MimeType, ext))
-            return Result.Fail(Error.Validation("File type is not allowed."));
+            return Result.Fail(Error.Validation(ApiMessages.FileTypeNotAllowed));
 
         if (authorizationService.IsInternalUser)
         {
             if (request.DocumentType is DocumentType.PreContract or DocumentType.FinalContract or DocumentType.SignedContract)
             {
                 if (!authorizationService.HasPermission(CasePermissions.ManageContracts))
-                    return Result.Fail(Error.Forbidden("Not allowed."));
+                    return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
                 if (request.DocumentType is DocumentType.PreContract && entity.CurrentStatus != CaseStatus.WaitingPreliminaryContract)
-                    return Result.Fail(Error.Conflict("Document upload is not allowed in the current status."));
+                    return Result.Fail(Error.Conflict(ApiMessages.DocumentUploadNotAllowed));
 
                 if (request.DocumentType is DocumentType.FinalContract && entity.CurrentStatus is not (CaseStatus.ContractDrafting or CaseStatus.WaitingContractSignature))
-                    return Result.Fail(Error.Conflict("Document upload is not allowed in the current status."));
+                    return Result.Fail(Error.Conflict(ApiMessages.DocumentUploadNotAllowed));
 
                 if (request.DocumentType is DocumentType.SignedContract && entity.CurrentStatus != CaseStatus.WaitingSignedContractUpload)
-                    return Result.Fail(Error.Conflict("Document upload is not allowed in the current status."));
+                    return Result.Fail(Error.Conflict(ApiMessages.DocumentUploadNotAllowed));
 
                 return Result.Ok();
             }
@@ -856,28 +858,28 @@ public sealed class InvestmentCaseAppService(
             if (request.DocumentType is DocumentType.PaymentReceipt)
             {
                 if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
-                    return Result.Fail(Error.Forbidden("Not allowed."));
+                    return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
                 if (entity.CurrentStatus != CaseStatus.WaitingPayment)
-                    return Result.Fail(Error.Conflict("Document upload is not allowed in the current status."));
+                    return Result.Fail(Error.Conflict(ApiMessages.DocumentUploadNotAllowed));
 
                 return Result.Ok();
             }
 
             if (!authorizationService.HasPermission(CasePermissions.UploadDocuments))
-                return Result.Fail(Error.Forbidden("Not allowed."));
+                return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
             return Result.Ok();
         }
 
         if (!authorizationService.HasPermission(CasePermissions.UploadDocuments))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         if (request.DocumentType is DocumentType.PreContract or DocumentType.FinalContract or DocumentType.SignedContract or DocumentType.PaymentReceipt)
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         if (entity.CurrentStatus is not (CaseStatus.Draft or CaseStatus.DataEntry1 or CaseStatus.DataEntry2))
-            return Result.Fail(Error.Conflict("Document upload is not allowed in the current status."));
+            return Result.Fail(Error.Conflict(ApiMessages.DocumentUploadNotAllowed));
 
         return Result.Ok();
     }
@@ -887,10 +889,10 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.IsInternalUser)
         {
             if (documentType is DocumentType.PreContract or DocumentType.FinalContract or DocumentType.SignedContract or DocumentType.PaymentReceipt)
-                return Result.Fail(Error.Forbidden("Not allowed."));
+                return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
             if (entity.CurrentStatus is not (CaseStatus.Draft or CaseStatus.DataEntry1 or CaseStatus.DataEntry2))
-                return Result.Fail(Error.Conflict("Document confirmation is not allowed in the current status."));
+                return Result.Fail(Error.Conflict(ApiMessages.DocumentConfirmationNotAllowed));
 
             return Result.Ok();
         }
@@ -898,16 +900,16 @@ public sealed class InvestmentCaseAppService(
         if (documentType is DocumentType.PreContract or DocumentType.FinalContract or DocumentType.SignedContract)
         {
             if (!authorizationService.HasPermission(CasePermissions.ManageContracts))
-                return Result.Fail(Error.Forbidden("Not allowed."));
+                return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
             if (documentType is DocumentType.PreContract && entity.CurrentStatus != CaseStatus.WaitingPreliminaryContract)
-                return Result.Fail(Error.Conflict("Document confirmation is not allowed in the current status."));
+                return Result.Fail(Error.Conflict(ApiMessages.DocumentConfirmationNotAllowed));
 
             if (documentType is DocumentType.FinalContract && entity.CurrentStatus is not (CaseStatus.ContractDrafting or CaseStatus.WaitingContractSignature))
-                return Result.Fail(Error.Conflict("Document confirmation is not allowed in the current status."));
+                return Result.Fail(Error.Conflict(ApiMessages.DocumentConfirmationNotAllowed));
 
             if (documentType is DocumentType.SignedContract && entity.CurrentStatus != CaseStatus.WaitingSignedContractUpload)
-                return Result.Fail(Error.Conflict("Document confirmation is not allowed in the current status."));
+                return Result.Fail(Error.Conflict(ApiMessages.DocumentConfirmationNotAllowed));
 
             return Result.Ok();
         }
@@ -915,46 +917,46 @@ public sealed class InvestmentCaseAppService(
         if (documentType is DocumentType.PaymentReceipt)
         {
             if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
-                return Result.Fail(Error.Forbidden("Not allowed."));
+                return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
             if (entity.CurrentStatus != CaseStatus.WaitingPayment)
-                return Result.Fail(Error.Conflict("Document confirmation is not allowed in the current status."));
+                return Result.Fail(Error.Conflict(ApiMessages.DocumentConfirmationNotAllowed));
 
             return Result.Ok();
         }
 
-        return authorizationService.HasPermission(CasePermissions.UploadDocuments) ? Result.Ok() : Result.Fail(Error.Forbidden("Not allowed."));
+        return authorizationService.HasPermission(CasePermissions.UploadDocuments) ? Result.Ok() : Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
     }
 
     private static Result<string> ValidateAndNormalizeDocumentKey(string caseNumber, string s3Key)
     {
         if (string.IsNullOrWhiteSpace(s3Key))
-            return Result<string>.Fail(Error.Validation("Invalid document key."));
+            return Result<string>.Fail(Error.Validation(ApiMessages.InvalidDocumentKey));
 
         if (s3Key.Contains('\\') || s3Key.Contains("..", StringComparison.Ordinal))
-            return Result<string>.Fail(Error.Validation("Invalid document key."));
+            return Result<string>.Fail(Error.Validation(ApiMessages.InvalidDocumentKey));
 
         if (!s3Key.StartsWith($"cases/{caseNumber}/", StringComparison.Ordinal))
-            return Result<string>.Fail(Error.Forbidden("Not allowed."));
+            return Result<string>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var parts = s3Key.Split('/', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length != 4)
-            return Result<string>.Fail(Error.Validation("Invalid document key."));
+            return Result<string>.Fail(Error.Validation(ApiMessages.InvalidDocumentKey));
 
         if (!Enum.TryParse<DocumentType>(parts[2], ignoreCase: true, out _))
-            return Result<string>.Fail(Error.Validation("Invalid document key."));
+            return Result<string>.Fail(Error.Validation(ApiMessages.InvalidDocumentKey));
 
         var file = parts[3];
         if (file.Length > 128)
-            return Result<string>.Fail(Error.Validation("Invalid document key."));
+            return Result<string>.Fail(Error.Validation(ApiMessages.InvalidDocumentKey));
 
         var ext = Path.GetExtension(file);
         if (string.IsNullOrWhiteSpace(ext) || ext.Length > 10)
-            return Result<string>.Fail(Error.Validation("Invalid document key."));
+            return Result<string>.Fail(Error.Validation(ApiMessages.InvalidDocumentKey));
 
         var fileNameWithoutExt = Path.GetFileNameWithoutExtension(file);
         if (!int.TryParse(fileNameWithoutExt, out _))
-            return Result<string>.Fail(Error.Validation("Invalid document key."));
+            return Result<string>.Fail(Error.Validation(ApiMessages.InvalidDocumentKey));
 
         return Result<string>.Ok(s3Key);
     }
@@ -987,17 +989,17 @@ public sealed class InvestmentCaseAppService(
     private static Result ValidateCommentAttachmentKey(string caseNumber, Guid commentId, string s3Key, string fileName)
     {
         if (string.IsNullOrWhiteSpace(s3Key))
-            return Result.Fail(Error.Validation("Invalid attachment key."));
+            return Result.Fail(Error.Validation(ApiMessages.InvalidAttachmentKey));
 
         if (!IsSafeClientFileName(fileName))
-            return Result.Fail(Error.Validation("Invalid file name."));
+            return Result.Fail(Error.Validation(ApiMessages.InvalidFileName));
 
         if (s3Key.Contains('\\') || s3Key.Contains("..", StringComparison.Ordinal))
-            return Result.Fail(Error.Validation("Invalid attachment key."));
+            return Result.Fail(Error.Validation(ApiMessages.InvalidAttachmentKey));
 
         var prefix = $"cases/{caseNumber}/comments/{commentId:D}/";
         if (!s3Key.StartsWith(prefix, StringComparison.Ordinal))
-            return Result.Fail(Error.Forbidden("Not allowed."));
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         return Result.Ok();
     }

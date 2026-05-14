@@ -1,44 +1,33 @@
-// Modules/Panel/Validators/CreateUserDtoValidator.cs
-
-using FluentValidation;
+using Core.Application.Identity.Common;
 using Core.Application.Identity.DTOs.User;
+using FluentValidation;
 
-namespace Core.Application.Identity.Validators
+namespace Core.Application.Identity.Validators;
+
+public sealed class CreateUserDtoValidator : AbstractValidator<CreateUserDto>
 {
-    public class CreateUserDtoValidator : AbstractValidator<CreateUserDto>
+    public CreateUserDtoValidator()
     {
-        public CreateUserDtoValidator()
-        {
-            RuleFor(x => x.PhoneNumber)
-                .NotEmpty()
-                .Matches(@"^09\d{9}$").WithMessage("ÝÑãÊ ÔãÇÑå ãæÈÇíá ÕÍíÍ äíÓÊ");
+        RuleFor(x => x.PhoneNumber)
+            .NotEmpty().WithMessage(IdentityMessages.PhoneRequired)
+            .Matches(@"^09\d{9}$").WithMessage(IdentityMessages.InvalidPhoneFormat);
 
-            RuleFor(x => x.FirstName).NotEmpty().MaximumLength(100);
-            RuleFor(x => x.LastName).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Email)
+            .EmailAddress().WithMessage(IdentityMessages.InvalidEmailFormat)
+            .MaximumLength(256)
+            .When(x => !string.IsNullOrWhiteSpace(x.Email));
 
-            RuleFor(x => x.Email)
-                .NotEmpty()
-                .EmailAddress().WithMessage("ÝÑãÊ Çíãíá ÕÍíÍ äíÓÊ")
-                .MaximumLength(256);
+        RuleFor(x => x.FirstName)
+            .NotEmpty().WithMessage(IdentityMessages.FirstNameRequired)
+            .MaximumLength(100).WithMessage(IdentityMessages.FirstNameMaxLength);
 
-            RuleFor(x => x.NationalCode)
-                .Length(10)
-                .Must(BeValidNationalCode).WithMessage("˜Ï ãáí äÇãÚÊÈÑ ÇÓÊ")
-                .When(x => !string.IsNullOrWhiteSpace(x.NationalCode));
-        }
+        RuleFor(x => x.LastName)
+            .NotEmpty().WithMessage(IdentityMessages.LastNameRequired)
+            .MaximumLength(100).WithMessage(IdentityMessages.LastNameMaxLength);
 
-        private bool BeValidNationalCode(string nationalCode)
-        {
-            if (string.IsNullOrEmpty(nationalCode) || nationalCode.Length != 10 || !nationalCode.All(char.IsDigit))
-                return false;
-
-            var check = int.Parse(nationalCode[9].ToString());
-            var sum = 0;
-            for (int i = 0; i < 9; i++)
-                sum += int.Parse(nationalCode[i].ToString()) * (10 - i);
-
-            var remainder = sum % 11;
-            return (remainder < 2 && check == remainder) || (remainder >= 2 && check == 11 - remainder);
-        }
+        RuleFor(x => x.NationalCode)
+            .Length(10).WithMessage(IdentityMessages.NationalCodeLength)
+            .Matches(@"^\d{10}$").WithMessage(IdentityMessages.NationalCodeDigitsOnly)
+            .When(x => !string.IsNullOrWhiteSpace(x.NationalCode));
     }
 }

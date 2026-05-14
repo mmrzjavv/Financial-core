@@ -1,3 +1,5 @@
+using BuildingBlocks.Application.Validation;
+using Core.Application.Common;
 using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
@@ -10,6 +12,8 @@ using Services.CoreService.Core.Application.Contracts.Cases;
 using Services.CoreService.Core.Domain.Entities;
 using Services.CoreService.Core.Domain.Constants;
 using Services.CoreService.Core.Domain.Enums;
+
+
 
 namespace Services.CoreService.Core.Application.Services.Implementations;
 
@@ -42,7 +46,7 @@ public sealed class CaseService : ICaseService
     {
         var validation = await _createValidator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result<CaseDto>.Fail(Error.Validation(validation.ToString()));
+            return Result<CaseDto>.Fail(Error.Validation(validation.ToErrorMessage()));
 
         for (var attempt = 0; attempt < 5; attempt++)
         {
@@ -64,14 +68,14 @@ public sealed class CaseService : ICaseService
             }
         }
 
-        return Result<CaseDto>.Fail(Error.Unexpected("Failed to allocate a unique case number."));
+        return Result<CaseDto>.Fail(Error.Unexpected(ApiMessages.CaseNumberAllocationFailed));
     }
 
     public async Task<Result<CaseDto>> GetAsync(Guid caseId, CancellationToken ct)
     {
         var entity = await _db.InvestmentCases.AsNoTracking().FirstOrDefaultAsync(x => x.Id == caseId, ct);
         if (entity is null)
-            return Result<CaseDto>.Fail(Error.NotFound("Case not found."));
+            return Result<CaseDto>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(SystemRoles.Admin))
             return Result<CaseDto>.Fail(Error.Forbidden());
@@ -105,14 +109,14 @@ public sealed class CaseService : ICaseService
     {
         var validation = await _submitValidator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         var entity = await _db.InvestmentCases
             .Include(x => x.WorkflowHistory)
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);
 
         if (entity is null)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.ApplicantUserId != _currentUser.UserId)
             return Result.Fail(Error.Forbidden());

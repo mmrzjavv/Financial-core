@@ -1,7 +1,9 @@
+using Core.Application.Common;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
 using BuildingBlocks.Domain.Abstractions;
 using Services.CoreService.Core.Domain.Constants;
+
 
 namespace Core.Application.Authorization;
 
@@ -67,7 +69,7 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
     public Result EnsureAuthenticated()
     {
         if (string.IsNullOrWhiteSpace(UserId))
-            return Result.Fail(Error.Unauthorized("Authentication required."));
+            return Result.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
 
         return Result.Ok();
     }

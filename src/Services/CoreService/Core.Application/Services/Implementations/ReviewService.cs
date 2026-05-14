@@ -1,3 +1,5 @@
+using BuildingBlocks.Application.Validation;
+using Core.Application.Common;
 using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
@@ -7,6 +9,8 @@ using Services.CoreService.Core.Application.Abstractions;
 using Services.CoreService.Core.Application.Contracts.Reviews;
 using Services.CoreService.Core.Domain.Constants;
 using Services.CoreService.Core.Domain.Enums;
+
+
 
 namespace Services.CoreService.Core.Application.Services.Implementations;
 
@@ -39,7 +43,7 @@ public sealed class ReviewService : IReviewService
     {
         var validation = await _approveValidator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         if (_currentUser.Roles.Contains(SystemRoles.Applicant))
             return Result.Fail(Error.Forbidden());
@@ -49,10 +53,10 @@ public sealed class ReviewService : IReviewService
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);
 
         if (entity is null)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.CurrentPhase != request.Phase)
-            return Result.Fail(Error.Conflict("Approval must match current phase."));
+            return Result.Fail(Error.Conflict(ApiMessages.ApprovalMustMatchPhase));
 
         var (nextPhase, nextStatus) = GetNext(request.Phase);
         var transition = _stateManager.ValidateTransition(entity.CurrentPhase, entity.CurrentStatus, nextPhase, nextStatus);
@@ -69,7 +73,7 @@ public sealed class ReviewService : IReviewService
     {
         var validation = await _revisionValidator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         if (_currentUser.Roles.Contains(SystemRoles.Applicant))
             return Result.Fail(Error.Forbidden());
@@ -79,10 +83,10 @@ public sealed class ReviewService : IReviewService
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);
 
         if (entity is null)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.CurrentPhase != request.Phase)
-            return Result.Fail(Error.Conflict("Revision request must match current phase."));
+            return Result.Fail(Error.Conflict(ApiMessages.RevisionMustMatchPhase));
 
         entity.RequestRevision(request.Phase, _currentUser.UserId, request.Message, request.IsInternal);
         await _workflowOrchestrator.SignalAsync(caseId, WorkflowSignals.StatusChanged, new { caseId, request.Phase }, ct);

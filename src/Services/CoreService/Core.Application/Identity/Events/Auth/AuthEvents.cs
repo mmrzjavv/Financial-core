@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Services.CoreService.Core.Domain.Identity.Enums;
 
+
 namespace Core.Application.Identity.Events.Auth;
 
 [JsonDerivedType(typeof(UserRegisteredEvent), "UserRegistered")]

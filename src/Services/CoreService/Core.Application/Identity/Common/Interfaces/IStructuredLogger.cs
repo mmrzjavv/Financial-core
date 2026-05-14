@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 
+
 namespace Core.Application.Identity.Common.Interfaces;
 
 /// <summary>

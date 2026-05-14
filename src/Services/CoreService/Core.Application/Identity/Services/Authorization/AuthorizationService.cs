@@ -2,6 +2,7 @@ using Core.Application.Identity.Abstractions;
 using Core.Application.Identity.Authorization;
 using Services.CoreService.Core.Domain.Identity.Entities;
 
+
 namespace Core.Application.Identity.Services.Authorization;
 
 public class AuthorizationService : IAuthorizationService

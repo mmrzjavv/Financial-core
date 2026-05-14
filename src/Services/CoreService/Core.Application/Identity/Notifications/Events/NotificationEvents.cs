@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Core.Application.Identity.Events;
 
+
 namespace Core.Application.Identity.Notifications.Events;
 
 public interface INotificationEvent : IAuthDomainEvent;

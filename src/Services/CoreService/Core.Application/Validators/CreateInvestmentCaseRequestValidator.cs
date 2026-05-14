@@ -2,13 +2,13 @@ using FluentValidation;
 using Core.Application.Requests;
 using Services.CoreService.Core.Domain.Enums;
 
+
 namespace Core.Application.Validators;
 
 public sealed class CreateInvestmentCaseRequestValidator : AbstractValidator<CreateInvestmentCaseRequest>
 {
     public CreateInvestmentCaseRequestValidator()
     {
-        RuleFor(x => x.ApplicantUserId).NotEmpty().MaximumLength(128);
         RuleFor(x => x.ApplicantType).IsInEnum();
 
         When(x => x.ApplicantType == ApplicantType.Company, () =>
@@ -26,4 +26,3 @@ public sealed class CreateInvestmentCaseRequestValidator : AbstractValidator<Cre
         });
     }
 }
-

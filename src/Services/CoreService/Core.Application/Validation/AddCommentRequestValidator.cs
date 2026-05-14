@@ -1,6 +1,7 @@
 using FluentValidation;
 using Services.CoreService.Core.Application.Contracts.Comments;
 
+
 namespace Services.CoreService.Core.Application.Validation;
 
 public sealed class AddCommentRequestValidator : AbstractValidator<AddCommentRequest>
@@ -11,4 +12,3 @@ public sealed class AddCommentRequestValidator : AbstractValidator<AddCommentReq
         RuleFor(x => x.Message).NotEmpty().MaximumLength(8000);
     }
 }
-

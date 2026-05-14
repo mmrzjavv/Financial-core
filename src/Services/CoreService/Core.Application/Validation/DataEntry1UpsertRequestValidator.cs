@@ -1,6 +1,7 @@
 using FluentValidation;
 using Services.CoreService.Core.Application.Contracts.DataEntry;
 
+
 namespace Services.CoreService.Core.Application.Validation;
 
 public sealed class DataEntry1UpsertRequestValidator : AbstractValidator<DataEntry1UpsertRequest>
@@ -17,4 +18,3 @@ public sealed class DataEntry1UpsertRequestValidator : AbstractValidator<DataEnt
         RuleFor(x => x.Industry).MaximumLength(128);
     }
 }
-

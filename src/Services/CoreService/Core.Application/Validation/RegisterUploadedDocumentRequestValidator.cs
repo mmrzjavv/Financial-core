@@ -1,6 +1,7 @@
 using FluentValidation;
 using Services.CoreService.Core.Application.Contracts.Documents;
 
+
 namespace Services.CoreService.Core.Application.Validation;
 
 public sealed class RegisterUploadedDocumentRequestValidator : AbstractValidator<RegisterUploadedDocumentRequest>
@@ -15,4 +16,3 @@ public sealed class RegisterUploadedDocumentRequestValidator : AbstractValidator
         RuleFor(x => x.Version).GreaterThan(0);
     }
 }
-

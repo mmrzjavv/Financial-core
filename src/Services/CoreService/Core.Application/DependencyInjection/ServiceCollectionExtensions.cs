@@ -8,6 +8,7 @@ using Services.CoreService.Core.Application.Services;
 using Services.CoreService.Core.Application.Services.Implementations;
 using Services.CoreService.Core.Application.State;
 
+
 namespace Services.CoreService.Core.Application.DependencyInjection;
 
 public static class ServiceCollectionExtensions

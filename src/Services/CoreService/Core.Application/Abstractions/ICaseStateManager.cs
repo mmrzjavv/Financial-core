@@ -2,6 +2,7 @@ using BuildingBlocks.Application.Results;
 using Services.CoreService.Core.Domain.Entities;
 using Services.CoreService.Core.Domain.Enums;
 
+
 namespace Core.Application.Abstractions;
 
 public interface ICaseStateManager

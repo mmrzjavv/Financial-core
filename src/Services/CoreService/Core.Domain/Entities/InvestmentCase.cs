@@ -1,5 +1,6 @@
 using BuildingBlocks.Domain.Abstractions;
 using BuildingBlocks.Domain.Entities;
+using Services.CoreService.Core.Domain.Common;
 using Services.CoreService.Core.Domain.Enums;
 using Services.CoreService.Core.Domain.Events;
 
@@ -121,7 +122,7 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
         string? postalCode)
     {
         if (ApplicantType != ApplicantType.Company)
-            throw new InvalidOperationException("Company profile can only be set when ApplicantType is Company.");
+            throw new InvalidOperationException(DomainMessages.CompanyProfileOnlyForCompanyApplicant);
 
         Company = new CompanyProfile(
             name,
@@ -182,7 +183,7 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
     {
         // Explicit submission logic for Data Entry 1
         if (CurrentStatus != CaseStatus.Draft)
-            throw new InvalidOperationException($"Cannot submit from {CurrentStatus}");
+            throw new InvalidOperationException(string.Format(DomainMessages.CannotSubmitFromStatus, CurrentStatus));
 
         TransitionTo(CaseStatus.DataEntry1, submittedByUserId, actorRole: null, action: WorkflowAction.Submit, correlationId: null, comment: comment);
     }

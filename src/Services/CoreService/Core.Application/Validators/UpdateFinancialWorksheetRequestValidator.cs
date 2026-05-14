@@ -1,6 +1,7 @@
 using FluentValidation;
 using Core.Application.Requests;
 
+
 namespace Core.Application.Validators;
 
 public sealed class UpdateFinancialWorksheetRequestValidator : AbstractValidator<UpdateFinancialWorksheetRequest>
@@ -13,4 +14,3 @@ public sealed class UpdateFinancialWorksheetRequestValidator : AbstractValidator
         RuleFor(x => x.Notes).MaximumLength(4000);
     }
 }
-

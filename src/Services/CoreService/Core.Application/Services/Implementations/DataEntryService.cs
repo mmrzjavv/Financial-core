@@ -1,3 +1,5 @@
+using BuildingBlocks.Application.Validation;
+using Core.Application.Common;
 using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
@@ -6,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using Services.CoreService.Core.Application.Abstractions;
 using Services.CoreService.Core.Application.Contracts.DataEntry;
 using Services.CoreService.Core.Domain.Enums;
+
+
 
 namespace Services.CoreService.Core.Application.Services.Implementations;
 
@@ -32,20 +36,20 @@ public sealed class DataEntryService : IDataEntryService
     {
         var validation = await _de1Validator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         var entity = await _db.InvestmentCases
             .Include(x => x.DataEntry1)
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);
 
         if (entity is null)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.ApplicantUserId != _currentUser.UserId)
             return Result.Fail(Error.Forbidden());
 
         if (entity.CurrentPhase != CasePhase.DataEntry1)
-            return Result.Fail(Error.Conflict("Data Entry 1 is not the current phase."));
+            return Result.Fail(Error.Conflict(ApiMessages.DataEntry1NotCurrentPhase));
 
         var isNew = entity.DataEntry1 is null;
         var entry = entity.UpsertDataEntry1(
@@ -68,20 +72,20 @@ public sealed class DataEntryService : IDataEntryService
     {
         var validation = await _de2Validator.ValidateAsync(request, ct);
         if (!validation.IsValid)
-            return Result.Fail(Error.Validation(validation.ToString()));
+            return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
         var entity = await _db.InvestmentCases
             .Include(x => x.DataEntry2)
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);
 
         if (entity is null)
-            return Result.Fail(Error.NotFound("Case not found."));
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         if (entity.ApplicantUserId != _currentUser.UserId)
             return Result.Fail(Error.Forbidden());
 
         if (entity.CurrentPhase != CasePhase.DataEntry2)
-            return Result.Fail(Error.Conflict("Data Entry 2 is not the current phase."));
+            return Result.Fail(Error.Conflict(ApiMessages.DataEntry2NotCurrentPhase));
 
         var isNew = entity.DataEntry2 is null;
         var entry = entity.UpsertDataEntry2(

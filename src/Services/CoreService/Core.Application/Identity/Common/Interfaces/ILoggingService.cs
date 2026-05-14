@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 
+
 namespace Core.Application.Identity.Common.Interfaces;
 public interface ILoggingService
 {

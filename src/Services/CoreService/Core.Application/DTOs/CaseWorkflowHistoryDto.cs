@@ -1,5 +1,6 @@
 using Services.CoreService.Core.Domain.Enums;
 
+
 namespace Core.Application.DTOs;
 
 public abstract record CaseWorkflowHistoryDto(

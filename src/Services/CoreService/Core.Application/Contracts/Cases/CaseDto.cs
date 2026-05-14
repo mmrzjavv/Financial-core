@@ -1,5 +1,6 @@
 using Services.CoreService.Core.Domain.Enums;
 
+
 namespace Services.CoreService.Core.Application.Contracts.Cases;
 
 public sealed record CaseDto(
@@ -13,4 +14,3 @@ public sealed record CaseDto(
     DateTimeOffset? UpdatedAt,
     DateTimeOffset? CompletedAt,
     uint RowVersion);
-

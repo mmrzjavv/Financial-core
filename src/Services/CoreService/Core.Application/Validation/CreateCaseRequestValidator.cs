@@ -1,6 +1,7 @@
 using FluentValidation;
 using Services.CoreService.Core.Application.Contracts.Cases;
 
+
 namespace Services.CoreService.Core.Application.Validation;
 
 public sealed class CreateCaseRequestValidator : AbstractValidator<CreateCaseRequest>
@@ -10,4 +11,3 @@ public sealed class CreateCaseRequestValidator : AbstractValidator<CreateCaseReq
         RuleFor(x => x.ApplicantType).IsInEnum();
     }
 }
-
