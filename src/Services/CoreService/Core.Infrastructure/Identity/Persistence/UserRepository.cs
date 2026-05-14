@@ -1,12 +1,12 @@
 using System.Linq.Expressions;
 using Core.Application.Identity.Abstractions;
 using Services.CoreService.Core.Domain.Identity.Entities;
-using Services.CoreService.Core.Persistence.Identity;
+using Services.CoreService.Core.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Core.Infrastructure.Identity.Persistence;
 
-public sealed class UserRepository(PanelContext context) : IUserRepository
+public sealed class UserRepository(CoreDbContext context) : IUserRepository
 {
     public async Task<User?> GetByIdAsync(Guid id, bool disableTracking = true)
     {

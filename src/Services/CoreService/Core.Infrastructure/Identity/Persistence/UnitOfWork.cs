@@ -1,9 +1,9 @@
 using Core.Application.Identity.Abstractions;
-using Services.CoreService.Core.Persistence.Identity;
+using Services.CoreService.Core.Persistence;
 
 namespace Core.Infrastructure.Identity.Persistence;
 
-public sealed class UnitOfWork(PanelContext context) : IUnitOfWork
+public sealed class UnitOfWork(CoreDbContext context) : IUnitOfWork
 {
     private IUserRepository? _users;
     private IRefreshTokenRepository? _refreshTokens;

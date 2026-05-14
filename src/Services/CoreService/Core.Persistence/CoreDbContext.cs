@@ -4,6 +4,7 @@ using BuildingBlocks.Persistence.Db.Interceptors;
 using Core.Application.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Services.CoreService.Core.Domain.Entities;
+using Services.CoreService.Core.Domain.Identity.Entities;
 
 namespace Services.CoreService.Core.Persistence;
 
@@ -28,6 +29,10 @@ public sealed class CoreDbContext : DbContextBase, ICoreDbContext
     public DbSet<CaseValuation> CaseValuations => Set<CaseValuation>();
     public DbSet<PaymentRecord> PaymentRecords => Set<PaymentRecord>();
     public DbSet<CaseWorkflowHistory> CaseWorkflowHistories => Set<CaseWorkflowHistory>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Company> Companies => Set<Company>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,12 +1,12 @@
 using System.Linq.Expressions;
 using Core.Application.Identity.Abstractions;
 using Services.CoreService.Core.Domain.Identity.Entities;
-using Services.CoreService.Core.Persistence.Identity;
+using Services.CoreService.Core.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Core.Infrastructure.Identity.Persistence;
 
-public sealed class RefreshTokenRepository(PanelContext context) : IRefreshTokenRepository
+public sealed class RefreshTokenRepository(CoreDbContext context) : IRefreshTokenRepository
 {
     public async Task<RefreshToken?> GetByIdAsync(Guid id, bool disableTracking = true)
     {

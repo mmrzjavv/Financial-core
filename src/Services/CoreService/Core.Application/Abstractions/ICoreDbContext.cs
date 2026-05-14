@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Services.CoreService.Core.Domain.Entities;
+using Services.CoreService.Core.Domain.Identity.Entities;
 
 namespace Core.Application.Abstractions;
 
@@ -17,6 +18,10 @@ public interface ICoreDbContext
     DbSet<CaseValuation> CaseValuations { get; }
     DbSet<PaymentRecord> PaymentRecords { get; }
     DbSet<CaseWorkflowHistory> CaseWorkflowHistories { get; }
+    DbSet<User> Users { get; }
+    DbSet<Company> Companies { get; }
+    DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<UserSession> UserSessions { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct);
 }

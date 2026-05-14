@@ -20,7 +20,6 @@ using Core.Infrastructure.Identity.Services;
 using Core.Infrastructure.Identity.Services.Authorization;
 using Core.Infrastructure.Identity.Services.Otp;
 using Core.Infrastructure.Identity.Services.Session;
-using Services.CoreService.Core.Persistence.Identity.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
@@ -77,7 +76,6 @@ public static class IdentityServiceCollectionExtensions
 
     public static IServiceCollection AddIdentityInfrastructure(this WebApplicationBuilder builder)
     {
-        builder.Services.AddIdentityPersistence(builder.Configuration);
         builder.Services.AddScoped<IHasher, HasherService>();
         builder.Services.AddScoped<Core.Application.Identity.Abstractions.ITokenHelper, TokenHelper>();
         builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
