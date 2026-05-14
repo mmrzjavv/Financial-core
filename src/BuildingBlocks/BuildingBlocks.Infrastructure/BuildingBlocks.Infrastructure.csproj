@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>BuildingBlocks.Infrastructure</AssemblyName>
+    <RootNamespace>BuildingBlocks.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../BuildingBlocks.Application/BuildingBlocks.Application.csproj" />
+    <ProjectReference Include="../BuildingBlocks.Contracts/BuildingBlocks.Contracts.csproj" />
+  </ItemGroup>
+</Project>

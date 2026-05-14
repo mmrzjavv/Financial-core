@@ -1,0 +1,71 @@
+using Core.Application.Identity.Tokens;
+using Services.CoreService.Core.Domain.Identity.Enums;
+
+namespace Core.Application.Identity.DTOs.User;
+
+public class SendOtpDto
+{
+    public string PhoneNumber { get; set; } = string.Empty;
+}
+
+public class VerifyOtpDto
+{
+    public string PhoneNumber { get; set; } = string.Empty;
+    public string OtpCode { get; set; } = string.Empty;
+}
+
+public class UserDto
+{
+    public Guid Id { get; set; }
+    public string PhoneNumber { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string? NationalCode { get; set; }
+    public UserRole Role { get; set; }
+    public int RoleNumber { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsPhoneVerified { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+}
+
+public class LoginDto
+{
+    public required GeneratedTokenModel TokenModel { get; set; }
+    public required UserDto User { get; set; }
+}
+
+public class CreateUserDto
+{
+    public string PhoneNumber { get; set; } = string.Empty;
+    public string? Email { get; set; } = string.Empty;
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string? NationalCode { get; set; }
+   
+}
+
+public class UpdateUserDto
+{
+    public string? PhoneNumber { get; set; }
+    public string? Email { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? NationalCode { get; set; }
+    public UserRole? Role { get; set; }
+    public bool? IsActive { get; set; }
+    public bool? IsPhoneVerified { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+}
+
+public class RegisterDto
+{
+    public string PhoneNumber { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string NationalCode { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public UserRole Role { get; set; } = UserRole.User;
+}

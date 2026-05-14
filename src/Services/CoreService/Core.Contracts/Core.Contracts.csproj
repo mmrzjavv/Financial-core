@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Core.Contracts</AssemblyName>
+    <RootNamespace>Core.Contracts</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../BuildingBlocks/BuildingBlocks.Contracts/BuildingBlocks.Contracts.csproj" />
+    <ProjectReference Include="../Core.Domain/Core.Domain.csproj" />
+  </ItemGroup>
+</Project>

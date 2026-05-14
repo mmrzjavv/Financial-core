@@ -1,0 +1,35 @@
+using Elsa.Extensions;
+using Elsa.Persistence.EFCore.Extensions;
+using Elsa.Persistence.EFCore.Modules.Management;
+using Elsa.Persistence.EFCore.Modules.Runtime;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Core.Application.Abstractions;
+using Core.Workflow.Orchestration;
+using Core.Workflow.Workflows;
+
+namespace Core.Workflow.DependencyInjection;
+
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddCoreWorkflow(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
+    {
+        services.AddElsa(elsa =>
+        {
+            if (!environment.IsDevelopment())
+            {
+                var connectionString = configuration.GetConnectionString("Postgres")
+                    ?? throw new InvalidOperationException("Missing connection string: ConnectionStrings:Postgres");
+
+                elsa.UseWorkflowManagement(management => management.UseEntityFrameworkCore(ef => ef.UsePostgreSql(connectionString)));
+                elsa.UseWorkflowRuntime(runtime => runtime.UseEntityFrameworkCore(ef => ef.UsePostgreSql(connectionString)));
+            }
+
+            elsa.AddWorkflow<InvestmentCaseWorkflow>();
+        });
+
+        services.AddScoped<ICaseWorkflowOrchestrator, ElsaCaseWorkflowOrchestrator>();
+        return services;
+    }
+}

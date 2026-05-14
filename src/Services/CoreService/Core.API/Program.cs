@@ -1,0 +1,278 @@
+using Asp.Versioning;
+using BuildingBlocks.Domain.Abstractions;
+using BuildingBlocks.Observability.Correlation;
+using Core.Application.Abstractions;
+using Core.Application.Services;
+using Core.Infrastructure.DependencyInjection;
+using Core.Workflow.DependencyInjection;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using Mapster;
+using MapsterMapper;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Serilog;
+using System.Security.Claims;
+using System.Text;
+using Core.API.Authorization;
+using Microsoft.AspNetCore.Authorization;
+using Services.CoreService.Core.Domain.Constants;
+using Core.Application.Authorization;
+using Core.Infrastructure.Identity.DependencyInjection;
+
+var builder = WebApplication.CreateBuilder(args);
+
+var coreUrls = Environment.GetEnvironmentVariable("CORE_URLS");
+var aspnetcoreUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+if (!string.IsNullOrWhiteSpace(coreUrls) && string.IsNullOrWhiteSpace(aspnetcoreUrls))
+{
+    builder.WebHost.UseUrls(coreUrls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+}
+
+builder.Host.UseSerilog((ctx, services, cfg) =>
+{
+    cfg.ReadFrom.Configuration(ctx.Configuration)
+        .Enrich.FromLogContext()
+        .WriteTo.Console();
+
+    var seqUrl = ctx.Configuration["Serilog:SeqUrl"];
+    if (!string.IsNullOrWhiteSpace(seqUrl))
+        cfg.WriteTo.Seq(seqUrl);
+});
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IClock, SystemClock>();
+builder.Services.AddScoped<IUserContext, HttpUserContext>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
+builder.Services.AddValidatorsFromAssemblyContaining<InvestmentCaseAppService>();
+builder.Services.AddFluentValidationAutoValidation();
+
+builder.Services.AddScoped<ICaseStateManager, CaseStateManager>();
+builder.Services.AddScoped<IInvestmentCaseAppService, InvestmentCaseAppService>();
+builder.Services.AddScoped<ICaseAuthorizationService, CaseAuthorizationService>();
+builder.Services.AddScoped<ICaseNumberGenerator, CaseNumberGenerator>();
+
+builder.AddIdentityApplication();
+builder.AddIdentityInfrastructure();
+
+builder.Services.AddCoreInfrastructure(builder.Configuration);
+builder.Services.AddCoreWorkflow(builder.Configuration, builder.Environment);
+
+builder.Services.AddProblemDetails();
+
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = ApiVersionReader.Combine(new UrlSegmentApiVersionReader(), new HeaderApiVersionReader("X-Api-Version"));
+}).AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var problem = new ValidationProblemDetails(context.ModelState)
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Validation failed"
+            };
+            return new BadRequestObjectResult(problem);
+        };
+    });
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "JWT Authorization header using the Bearer scheme."
+    });
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService(serviceName: "core-service"))
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter();
+    });
+
+builder.Services.AddHealthChecks();
+builder.Services.Configure<FormOptions>(o => { o.MultipartBodyLengthLimit = 250L * 1024 * 1024; });
+
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+});
+
+TypeAdapterConfig.GlobalSettings.Scan(typeof(Program).Assembly);
+builder.Services.AddSingleton(TypeAdapterConfig.GlobalSettings);
+builder.Services.AddScoped<IMapper, ServiceMapper>();
+
+builder.Services.AddAuthorization(options =>
+{
+    // IdentityService issues ClaimTypes.Role = UserRole.ToString(): Applicant, InvestmentExpert, InvestmentManager, LegalExpert, FinancialExpert, Admin, ...
+    options.AddPolicy("ApplicantOnly", p => p.RequireRole(SystemRoles.Applicant));
+    options.AddPolicy("InternalOnly", p => p.RequireRole(SystemRoles.InvestmentExpert, SystemRoles.InvestmentManager, SystemRoles.FinancialExpert, SystemRoles.LegalExpert, SystemRoles.Admin));
+
+    options.AddPolicy("InvestmentCases.Review", p => p.Requirements.Add(new PermissionRequirement("investment_cases:review")));
+    options.AddPolicy("InvestmentCases.FinanceReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:finance_review")));
+    options.AddPolicy("InvestmentCases.LegalReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:legal_review")));
+    options.AddPolicy("InvestmentCases.CeoApprove", p => p.Requirements.Add(new PermissionRequirement("investment_cases:ceo_approve")));
+});
+
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+{
+    var jwtKey = builder.Configuration["JwtKey"] ?? throw new InvalidOperationException("JwtKey is missing.");
+    var encKey = builder.Configuration["ENCKey"] ?? throw new InvalidOperationException("ENCKey is missing.");
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        TokenDecryptionKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(encKey)),
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+var app = builder.Build();
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
+        var ex = exceptionFeature?.Error;
+
+        if (ex is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            var conflict = new ProblemDetails
+            {
+                Title = "Concurrency conflict.",
+                Status = StatusCodes.Status409Conflict,
+                Detail = "The resource was modified by another request. Please reload and retry."
+            };
+            context.Response.StatusCode = conflict.Status.Value;
+            context.Response.ContentType = "application/problem+json";
+            await context.Response.WriteAsJsonAsync(conflict);
+            return;
+        }
+
+        var problem = new ProblemDetails
+        {
+            Title = "An unexpected error occurred.",
+            Status = StatusCodes.Status500InternalServerError,
+            Detail = app.Environment.IsDevelopment() ? ex?.Message : null
+        };
+
+        context.Response.StatusCode = problem.Status.Value;
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(problem);
+    });
+});
+
+app.Use(async (context, next) =>
+{
+    var correlationId = context.Request.Headers["X-Correlation-ID"].FirstOrDefault() ?? Guid.NewGuid().ToString();
+    var traceId = context.Request.Headers["X-Trace-ID"].FirstOrDefault() ?? Guid.NewGuid().ToString();
+
+    context.Items[CorrelationContext.ItemKey] = correlationId;
+    context.Response.Headers["X-Correlation-ID"] = correlationId;
+    context.Response.Headers["X-Trace-ID"] = traceId;
+    await next();
+});
+
+app.UseSerilogRequestLogging();
+
+// In development, we allow swagger even if not explicitly in Dev env for now to fix user issue
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    var descriptions = app.DescribeApiVersions();
+    foreach (var description in descriptions)
+    {
+        var url = $"/swagger/{description.GroupName}/swagger.json";
+        var name = description.GroupName.ToUpperInvariant();
+        options.SwaggerEndpoint(url, name);
+    }
+    options.RoutePrefix = "swagger"; // Explicitly set route prefix
+});
+
+app.UseCors("CorsPolicy");
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+app.MapHealthChecks("/health");
+
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+var addresses = app.Urls;
+foreach (var address in addresses)
+{
+    logger.LogInformation("Application is running on: {Address}", address);
+    logger.LogInformation("Swagger UI available at: {Address}/swagger", address);
+}
+
+app.Run();
+
+public sealed class SystemClock : IClock
+{
+    public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
+}
+
+public sealed class HttpUserContext(IHttpContextAccessor accessor) : IUserContext
+{
+    public string? UserId => accessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    public string? UserName => accessor.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value;
+    public IReadOnlyCollection<string> Roles => accessor.HttpContext?.User?.Claims.Where(x => x.Type == ClaimTypes.Role).Select(x => x.Value).Distinct().ToArray()
+        ?? Array.Empty<string>();
+}

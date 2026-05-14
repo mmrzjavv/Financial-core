@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>BuildingBlocks.Contracts</AssemblyName>
+    <RootNamespace>BuildingBlocks.Contracts</RootNamespace>
+  </PropertyGroup>
+</Project>
+

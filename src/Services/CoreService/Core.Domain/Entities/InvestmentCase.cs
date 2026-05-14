@@ -1,0 +1,387 @@
+using BuildingBlocks.Domain.Abstractions;
+using BuildingBlocks.Domain.Entities;
+using Services.CoreService.Core.Domain.Enums;
+using Services.CoreService.Core.Domain.Events;
+
+namespace Services.CoreService.Core.Domain.Entities;
+
+public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISoftDelete
+{
+    private InvestmentCase()
+    {
+        CaseNumber = default!;
+        ApplicantUserId = default!;
+    }
+
+    public InvestmentCase(string caseNumber, string applicantUserId, ApplicantType applicantType, CompanyProfile? company = null)
+    {
+        Id = Guid.NewGuid();
+        CaseNumber = caseNumber;
+        ApplicantUserId = applicantUserId;
+        ApplicantType = applicantType;
+
+        Company = applicantType == ApplicantType.Company ? company : null;
+
+        CurrentPhase = CasePhase.Application;
+        CurrentStatus = CaseStatus.Draft;
+        CreatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public string CaseNumber { get; private set; }
+    public string ApplicantUserId { get; private set; }
+    public ApplicantType ApplicantType { get; private set; }
+    public CompanyProfile? Company { get; private set; }
+
+    public CasePhase CurrentPhase { get; private set; }
+    public CaseStatus CurrentStatus { get; private set; }
+    public string? WorkflowInstanceId { get; private set; }
+
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset? UpdatedAt { get; private set; }
+    public DateTimeOffset? CompletedAt { get; private set; }
+
+    public bool IsDeleted { get; private set; }
+    public DateTimeOffset? DeletedAt { get; private set; }
+
+    public uint RowVersion { get; private set; }
+
+    public InvestmentCaseDataEntry1? DataEntry1 { get; private set; }
+    public InvestmentCaseDataEntry2? DataEntry2 { get; private set; }
+    public FinancialWorksheet? FinancialWorksheet { get; private set; }
+
+    public List<CaseDocument> Documents { get; private set; } = [];
+    public List<CaseComment> Comments { get; private set; } = [];
+    public List<CaseRevision> Revisions { get; private set; } = [];
+    public List<CaseEvaluation> Evaluations { get; private set; } = [];
+    public List<CaseValuation> Valuations { get; private set; } = [];
+    public List<PaymentRecord> Payments { get; private set; } = [];
+    public List<CaseWorkflowHistory> WorkflowHistory { get; private set; } = [];
+
+    public void TransitionTo(
+        CaseStatus nextStatus,
+        string changedByUserId,
+        string? actorRole = null,
+        WorkflowAction? action = null,
+        Guid? correlationId = null,
+        string? comment = null)
+    {
+        if (CurrentStatus == nextStatus)
+            return;
+
+        var fromStatus = CurrentStatus;
+        var fromPhase = CurrentPhase;
+
+        CurrentStatus = nextStatus;
+        CurrentPhase = DerivePhaseFromStatus(nextStatus);
+        UpdatedAt = DateTimeOffset.UtcNow;
+
+        if (nextStatus == CaseStatus.Completed)
+            CompletedAt = DateTimeOffset.UtcNow;
+
+        AddDomainEvent(new CasePhaseChangedDomainEvent(Id, fromPhase, CurrentPhase));
+
+        WorkflowHistory.Add(new CaseWorkflowHistory(
+            Id,
+            fromPhase,
+            CurrentPhase,
+            fromStatus,
+            nextStatus,
+            changedByUserId,
+            action?.ToString() ?? string.Empty,
+            actorRole ?? string.Empty,
+            correlationId ?? Guid.NewGuid(),
+            comment));
+    }
+
+    private static CasePhase DerivePhaseFromStatus(CaseStatus status) => status switch
+    {
+        CaseStatus.Draft or CaseStatus.DataEntry1 or CaseStatus.ReviewDataEntry1 or CaseStatus.DataEntry2 or CaseStatus.ReviewDataEntry2 => CasePhase.Application,
+        CaseStatus.InitialValuation or CaseStatus.SecondaryValuation => CasePhase.Valuation,
+        CaseStatus.WaitingPreliminaryContract or CaseStatus.WaitingUserReviewPreliminaryContract or CaseStatus.ContractDrafting or CaseStatus.WaitingContractSignature or CaseStatus.WaitingSignedContractUpload => CasePhase.Legal,
+        CaseStatus.WaitingFinancialWorksheet or CaseStatus.FinancialWorksheetReview or CaseStatus.WaitingPayment => CasePhase.Finance,
+        CaseStatus.Completed or CaseStatus.Rejected or CaseStatus.Cancelled or CaseStatus.Archived => CasePhase.Closing,
+        _ => CasePhase.Application
+    };
+
+    public void AttachWorkflowInstance(string workflowInstanceId)
+    {
+        WorkflowInstanceId = workflowInstanceId;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void UpsertCompanyProfile(
+        string name,
+        string economicCode,
+        string? registrationNumber,
+        string? nationalId,
+        string? phoneNumber,
+        string? address,
+        string? city,
+        string? province,
+        string? postalCode)
+    {
+        if (ApplicantType != ApplicantType.Company)
+            throw new InvalidOperationException("Company profile can only be set when ApplicantType is Company.");
+
+        Company = new CompanyProfile(
+            name,
+            economicCode,
+            registrationNumber,
+            nationalId,
+            phoneNumber,
+            address,
+            city,
+            province,
+            postalCode);
+
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public sealed class CompanyProfile
+    {
+        private CompanyProfile()
+        {
+            Name = default!;
+            EconomicCode = default!;
+        }
+
+        public CompanyProfile(
+            string name,
+            string economicCode,
+            string? registrationNumber,
+            string? nationalId,
+            string? phoneNumber,
+            string? address,
+            string? city,
+            string? province,
+            string? postalCode)
+        {
+            Name = name;
+            EconomicCode = economicCode;
+            RegistrationNumber = registrationNumber;
+            NationalId = nationalId;
+            PhoneNumber = phoneNumber;
+            Address = address;
+            City = city;
+            Province = province;
+            PostalCode = postalCode;
+        }
+
+        public string Name { get; private set; }
+        public string EconomicCode { get; private set; }
+        public string? RegistrationNumber { get; private set; }
+        public string? NationalId { get; private set; }
+        public string? PhoneNumber { get; private set; }
+        public string? Address { get; private set; }
+        public string? City { get; private set; }
+        public string? Province { get; private set; }
+        public string? PostalCode { get; private set; }
+    }
+
+    public void Submit(string submittedByUserId, string? comment = null)
+    {
+        // Explicit submission logic for Data Entry 1
+        if (CurrentStatus != CaseStatus.Draft)
+            throw new InvalidOperationException($"Cannot submit from {CurrentStatus}");
+
+        TransitionTo(CaseStatus.DataEntry1, submittedByUserId, actorRole: null, action: WorkflowAction.Submit, correlationId: null, comment: comment);
+    }
+
+    public CaseRevision CreateNewRevision(CasePhase phase, string submittedByUserId, DateTimeOffset submittedAt)
+    {
+        var currentRevisionNumber = Revisions
+            .Where(r => r.Phase == phase)
+            .Select(r => r.RevisionNumber)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        var revision = new CaseRevision(
+            caseId: Id,
+            phase: phase,
+            revisionNumber: currentRevisionNumber + 1,
+            submittedByUserId: submittedByUserId,
+            submittedAt: submittedAt);
+
+        Revisions.Add(revision);
+        UpdatedAt = DateTimeOffset.UtcNow;
+        return revision;
+    }
+
+    public InvestmentCaseDataEntry1 UpsertDataEntry1(
+        string startupTitle,
+        string businessDescription,
+        decimal requestedAmount,
+        int teamSize,
+        string? website,
+        string? country,
+        string? city,
+        string? industry)
+    {
+        if (DataEntry1 is null)
+            DataEntry1 = new InvestmentCaseDataEntry1(Id, startupTitle, businessDescription, requestedAmount, teamSize, website);
+
+        DataEntry1.Update(startupTitle, businessDescription, requestedAmount, teamSize, website, country, city, industry);
+        UpdatedAt = DateTimeOffset.UtcNow;
+        return DataEntry1;
+    }
+
+    public InvestmentCaseDataEntry2 UpsertDataEntry2(
+        string marketAnalysis,
+        string revenueModel,
+        string competitiveAdvantage,
+        string financialProjection,
+        string? risks,
+        string? goToMarketStrategy)
+    {
+        if (DataEntry2 is null)
+            DataEntry2 = new InvestmentCaseDataEntry2(Id, marketAnalysis, revenueModel, competitiveAdvantage, financialProjection);
+
+        DataEntry2.Update(marketAnalysis, revenueModel, competitiveAdvantage, financialProjection, risks, goToMarketStrategy);
+        UpdatedAt = DateTimeOffset.UtcNow;
+        return DataEntry2;
+    }
+
+    public FinancialWorksheet UpsertFinancialWorksheet(
+        string bankName,
+        string iban,
+        decimal approvedAmount,
+        string paymentSchedule,
+        string? notes)
+    {
+        if (FinancialWorksheet is null)
+            FinancialWorksheet = new FinancialWorksheet(Id, bankName, iban, approvedAmount, paymentSchedule, notes);
+        else
+            FinancialWorksheet.Update(bankName, iban, approvedAmount, paymentSchedule, notes);
+
+        UpdatedAt = DateTimeOffset.UtcNow;
+        return FinancialWorksheet;
+    }
+
+    public void RequestRevision(
+        CaseStatus targetStatus,
+        string requestedByUserId,
+        string? actorRole,
+        WorkflowAction? action,
+        Guid? correlationId,
+        string message,
+        bool isInternal)
+    {
+        var fromStatus = CurrentStatus;
+        var fromPhase = CurrentPhase;
+
+        CurrentStatus = targetStatus;
+        CurrentPhase = DerivePhaseFromStatus(targetStatus);
+        UpdatedAt = DateTimeOffset.UtcNow;
+
+        Comments.Add(new CaseComment(
+            caseId: Id,
+            phase: fromPhase, // Use current phase for comment context
+            senderUserId: requestedByUserId,
+            senderRole: null,
+            message: message,
+            isRevisionRequest: true,
+            isInternal: isInternal));
+
+        WorkflowHistory.Add(new CaseWorkflowHistory(
+            Id,
+            fromPhase,
+            CurrentPhase,
+            fromStatus,
+            targetStatus,
+            requestedByUserId,
+            action?.ToString() ?? string.Empty,
+            actorRole ?? string.Empty,
+            correlationId ?? Guid.NewGuid(),
+            $"Revision requested: {message}"));
+
+        AddDomainEvent(new RevisionRequestedDomainEvent(Id, fromPhase, requestedByUserId));
+    }
+
+    public CaseDocument AddDocument(
+        string s3Key,
+        string fileName,
+        string mimeType,
+        long fileSize,
+        int version,
+        DocumentType documentType,
+        string uploadedByUserId)
+    {
+        var doc = new CaseDocument(
+            caseId: Id,
+            s3Key: s3Key,
+            fileName: fileName,
+            mimeType: mimeType,
+            fileSize: fileSize,
+            version: version,
+            documentType: documentType,
+            uploadedByUserId: uploadedByUserId,
+            uploadedAt: DateTimeOffset.UtcNow);
+
+        Documents.Add(doc);
+        UpdatedAt = DateTimeOffset.UtcNow;
+        return doc;
+    }
+
+    public PaymentRecord AddPayment(
+        decimal amount,
+        DateOnly paymentDate,
+        string transactionNumber,
+        string? receiptS3Key,
+        string? notes,
+        PaymentMethod method,
+        PaymentStatus status,
+        string createdByUserId)
+    {
+        var payment = new PaymentRecord(
+            caseId: Id,
+            amount: amount,
+            paymentDate: paymentDate,
+            transactionNumber: transactionNumber,
+            receiptS3Key: receiptS3Key,
+            notes: notes,
+            method: method,
+            status: status,
+            createdByUserId: createdByUserId);
+
+        Payments.Add(payment);
+        UpdatedAt = DateTimeOffset.UtcNow;
+
+        AddDomainEvent(new PaymentRecordedDomainEvent(Id, payment.Id, amount));
+
+        CheckPaymentCompletion(createdByUserId);
+
+        return payment;
+    }
+
+    public CaseValuation AddValuation(ValuationType type, decimal amount, string? notes, string createdByUserId)
+    {
+        var valuation = new CaseValuation(
+            caseId: Id,
+            type: type,
+            amount: amount,
+            notes: notes ?? string.Empty,
+            createdByUserId: createdByUserId);
+
+        Valuations.Add(valuation);
+        UpdatedAt = DateTimeOffset.UtcNow;
+        return valuation;
+    }
+
+    public void CheckPaymentCompletion(string userId)
+    {
+        if (CurrentStatus != CaseStatus.WaitingPayment)
+            return;
+
+        if (FinancialWorksheet == null || FinancialWorksheet.ApprovedAmount <= 0)
+            return;
+
+        var totalConfirmed = Payments
+            .Where(p => p.Status == PaymentStatus.Completed)
+            .Sum(p => p.Amount);
+
+        if (totalConfirmed >= FinancialWorksheet.ApprovedAmount)
+        {
+            TransitionTo(CaseStatus.Completed, userId, actorRole: null, action: WorkflowAction.CompletePayment, correlationId: null, comment: "Automatic completion based on full payment confirmation.");
+        }
+    }
+}

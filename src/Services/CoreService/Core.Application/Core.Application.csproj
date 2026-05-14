@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Core.Application</AssemblyName>
+    <RootNamespace>Core.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Mapster" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Serilog" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../BuildingBlocks/BuildingBlocks.Application/BuildingBlocks.Application.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/BuildingBlocks.Contracts/BuildingBlocks.Contracts.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/BuildingBlocks.Observability/BuildingBlocks.Observability.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/BuildingBlocks.Persistence/BuildingBlocks.Persistence.csproj" />
+    <ProjectReference Include="../Core.Contracts/Core.Contracts.csproj" />
+    <ProjectReference Include="../Core.Domain/Core.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Contracts/**/*.cs" />
+    <Compile Remove="DependencyInjection/**/*.cs" />
+    <Compile Remove="DomainEventHandlers/**/*.cs" />
+    <Compile Remove="Mapping/**/*.cs" />
+    <Compile Remove="Services/Implementations/**/*.cs" />
+    <Compile Remove="Services/ICaseService.cs" />
+    <Compile Remove="Services/ICommentService.cs" />
+    <Compile Remove="Services/IDataEntryService.cs" />
+    <Compile Remove="Services/IDocumentService.cs" />
+    <Compile Remove="Services/IEvaluationService.cs" />
+    <Compile Remove="Services/IFinancialWorksheetService.cs" />
+    <Compile Remove="Services/IPaymentService.cs" />
+    <Compile Remove="Services/IReviewService.cs" />
+    <Compile Remove="State/**/*.cs" />
+    <Compile Remove="Validation/**/*.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Core.Domain</AssemblyName>
+    <RootNamespace>Core.Domain</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../BuildingBlocks/BuildingBlocks.Domain/BuildingBlocks.Domain.csproj" />
+  </ItemGroup>
+</Project>
+
