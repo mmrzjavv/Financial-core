@@ -8,7 +8,7 @@ public sealed class CaseRevisionConfiguration : IEntityTypeConfiguration<CaseRev
 {
     public void Configure(EntityTypeBuilder<CaseRevision> builder)
     {
-        builder.ToTable("case_revisions");
+        builder.ToTable("case_revisions", DbSchemas.Cases);
         builder.HasKey(x => x.Id);
 
         builder.HasIndex(x => new { x.CaseId, x.Phase, x.RevisionNumber }).IsUnique();

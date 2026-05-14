@@ -13,7 +13,7 @@ namespace Core.Persistence.Migrations
 {
     [DbContext(typeof(CoreDbContext))]
     [Migration("20260514063621_init")]
-    partial class init
+    partial class Init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

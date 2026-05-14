@@ -1,5 +1,6 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Core.Application.Abstractions;
 using Core.Application.Identity.Abstractions;
 using Core.Application.Identity.Authorization;
 using Core.Application.Identity.Common.Interfaces;
@@ -72,6 +73,7 @@ public static class IdentityServiceCollectionExtensions
         builder.Services.AddScoped<IPermissionService, PermissionService>();
         builder.Services.AddScoped<IAuthorizationService, AuthorizationService>();
         builder.Services.AddScoped<IPermissionCacheService, DistributedPermissionCacheService>();
+        builder.Services.AddScoped<IIdentityClient, LocalIdentityClient>();
 
         builder.Services.AddTransient<IValidator<CreateUserDto>, CreateUserDtoValidator>();
         builder.Services.AddTransient<IValidator<UpdateUserDto>, UpdateUserDtoValidator>();

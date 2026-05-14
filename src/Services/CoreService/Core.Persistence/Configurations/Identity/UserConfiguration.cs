@@ -8,7 +8,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 {
     public void Configure(EntityTypeBuilder<User> builder)
     {
-        builder.ToTable("User", "Identity");
+        builder.ToTable("User", DbSchemas.Identity);
         builder.HasKey(e => e.Id);
         builder.HasQueryFilter(e => !e.IsDeleted);
 

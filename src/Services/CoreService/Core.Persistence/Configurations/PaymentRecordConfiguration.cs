@@ -8,7 +8,7 @@ public sealed class PaymentRecordConfiguration : IEntityTypeConfiguration<Paymen
 {
     public void Configure(EntityTypeBuilder<PaymentRecord> builder)
     {
-        builder.ToTable("payment_records");
+        builder.ToTable("payment_records", DbSchemas.Cases);
         builder.HasKey(x => x.Id);
 
         builder.HasIndex(x => new { x.CaseId, x.PaymentDate });

@@ -8,7 +8,7 @@ public sealed class CaseCommentConfiguration : IEntityTypeConfiguration<CaseComm
 {
     public void Configure(EntityTypeBuilder<CaseComment> builder)
     {
-        builder.ToTable("case_comments");
+        builder.ToTable("case_comments", DbSchemas.Cases);
         builder.HasKey(x => x.Id);
 
         builder.HasIndex(x => new { x.CaseId, x.Phase, x.CreatedAt });
