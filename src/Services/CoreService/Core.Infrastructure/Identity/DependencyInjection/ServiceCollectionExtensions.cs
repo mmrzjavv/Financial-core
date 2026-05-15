@@ -19,7 +19,6 @@ using BuildingBlocks.Observability.Logging;
 using Core.Infrastructure.Identity.Logging;
 using Core.Infrastructure.Identity.Logging.DependencyInjection;
 using Serilog;
-using Core.Infrastructure.Identity.Persistence;
 using Core.Infrastructure.Identity.Services;
 using Core.Infrastructure.Identity.Services.Authorization;
 using Core.Infrastructure.Identity.Services.Otp;
@@ -51,11 +50,8 @@ public static class IdentityServiceCollectionExtensions
 
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<ICurrentRequestContext, HttpCurrentRequestContext>();
+        builder.Services.AddScoped<ICurrentUserAccessor, HttpCurrentUserAccessor>();
 
-        builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-        builder.Services.AddScoped<IUserRepository, UserRepository>();
-        builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-        builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
         builder.Services.AddScoped<IUserService, UserService>();
         builder.Services.AddScoped<ISmsService, SmsService>();
         builder.Services.AddHttpClient();

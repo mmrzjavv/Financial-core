@@ -27,6 +27,8 @@ using Serilog;
 using System.Security.Claims;
 using System.Text;
 using Core.API.Authorization;
+using Core.API.Filters;
+using Core.Application;
 using Microsoft.AspNetCore.Authorization;
 using Services.CoreService.Core.Domain.Constants;
 using Core.Application.Authorization;
@@ -66,6 +68,7 @@ builder.Services.AddFluentValidationAutoValidation();
 
 builder.Services.AddScoped<ICaseStateManager, CaseStateManager>();
 builder.Services.AddScoped<IInvestmentCaseAppService, InvestmentCaseAppService>();
+builder.Services.AddScoped<IKanbanAppService, KanbanAppService>();
 builder.Services.AddScoped<ICompanyAppService, CompanyAppService>();
 builder.Services.AddScoped<ICaseAuthorizationService, CaseAuthorizationService>();
 builder.Services.AddScoped<ICaseNumberGenerator, CaseNumberGenerator>();
@@ -90,7 +93,7 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(options => options.Filters.Add<ApiRequestLoggingFilter>())
     .ConfigureApiBehaviorOptions(options =>
     {
         options.InvalidModelStateResponseFactory = context =>
@@ -156,7 +159,7 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
 });
 
-TypeAdapterConfig.GlobalSettings.Scan(typeof(Program).Assembly);
+TypeAdapterConfig.GlobalSettings.Scan(typeof(Program).Assembly, typeof(ApplicationMapsterConfig).Assembly);
 builder.Services.AddSingleton(TypeAdapterConfig.GlobalSettings);
 builder.Services.AddScoped<IMapper, ServiceMapper>();
 

@@ -3,8 +3,7 @@ using Core.Application.Common;
 using Core.Application.Requests;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
-using BuildingBlocks.Domain.Abstractions;
-using Microsoft.EntityFrameworkCore;
+using MapsterMapper;
 using Services.CoreService.Core.Domain.Identity.Entities;
 
 namespace Core.Application.Services;
@@ -17,21 +16,17 @@ public interface ICompanyAppService
 }
 
 public sealed class CompanyAppService(
-    ICoreDbContext dbContext,
-    IUserContext userContext) : ICompanyAppService
+    ICoreUnitOfWork unitOfWork,
+    ICurrentUserAccessor currentUser,
+    IMapper mapper) : ICompanyAppService
 {
     public async Task<Result<IReadOnlyList<CompanyDto>>> GetMyCompaniesAsync(CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var userId))
             return Result<IReadOnlyList<CompanyDto>>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
 
-        var companies = await dbContext.Companies
-            .AsNoTracking()
-            .Where(company => company.OwnerUserId == userId)
-            .OrderBy(company => company.Name)
-            .ToListAsync(cancellationToken);
-
-        return Result<IReadOnlyList<CompanyDto>>.Ok(companies.Select(Map).ToArray());
+        var companies = await unitOfWork.Companies.GetOwnedByUserAsync(userId, cancellationToken);
+        return Result<IReadOnlyList<CompanyDto>>.Ok(companies.Select(c => mapper.Map<CompanyDto>(c)).ToArray());
     }
 
     public async Task<Result<CompanyDto>> CreateAsync(SaveCompanyRequest request, CancellationToken cancellationToken)
@@ -53,14 +48,17 @@ public sealed class CompanyAppService(
             PostalCode = request.PostalCode
         };
 
-        dbContext.Companies.Add(company);
+        await unitOfWork.Companies.AddAsync(company, cancellationToken);
 
-        var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        var user = await unitOfWork.Users.GetByIdAsync(userId, disableTracking: false);
         if (user is not null && user.CompanyId is null)
+        {
             user.CompanyId = company.Id;
+            await unitOfWork.Users.UpdateAsync(user);
+        }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return Result<CompanyDto>.Ok(Map(company));
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return Result<CompanyDto>.Ok(mapper.Map<CompanyDto>(company));
     }
 
     public async Task<Result<CompanyDto>> UpdateAsync(Guid companyId, SaveCompanyRequest request, CancellationToken cancellationToken)
@@ -68,7 +66,7 @@ public sealed class CompanyAppService(
         if (!TryGetCurrentUserId(out var userId))
             return Result<CompanyDto>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
 
-        var company = await dbContext.Companies.FirstOrDefaultAsync(c => c.Id == companyId, cancellationToken);
+        var company = await unitOfWork.Companies.GetByIdAsync(companyId, asNoTracking: false, cancellationToken);
         if (company is null)
             return Result<CompanyDto>.Fail(Error.NotFound(ApiMessages.CompanyNotFound));
 
@@ -85,26 +83,14 @@ public sealed class CompanyAppService(
         company.Province = request.Province;
         company.PostalCode = request.PostalCode;
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return Result<CompanyDto>.Ok(Map(company));
+        unitOfWork.Companies.Update(company);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return Result<CompanyDto>.Ok(mapper.Map<CompanyDto>(company));
     }
 
     private bool TryGetCurrentUserId(out Guid userId)
     {
-        userId = Guid.Empty;
-        return Guid.TryParse(userContext.UserId, out userId);
+        userId = currentUser.UserId ?? Guid.Empty;
+        return userId != Guid.Empty;
     }
-
-    private static CompanyDto Map(Company company) =>
-        new(
-            company.Id,
-            company.Name,
-            company.EconomicCode,
-            company.RegistrationNumber,
-            company.NationalId,
-            company.PhoneNumber,
-            company.Address,
-            company.City,
-            company.Province,
-            company.PostalCode);
 }

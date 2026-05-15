@@ -1,6 +1,10 @@
 using BuildingBlocks.Domain.Abstractions;
 using BuildingBlocks.Application.Abstractions;
 using Core.Application.Abstractions;
+using Core.Application.Abstractions.Persistence;
+using Core.Application.Identity.Abstractions;
+using Core.Application.Mappers;
+using Core.Infrastructure.Identity.Persistence;
 using Core.Infrastructure.Persistence;
 using Core.Infrastructure.Storage;
 
@@ -23,8 +27,13 @@ public static class ServiceCollectionExtensions
         services.AddBuildingBlocksInfrastructure(configuration);
         services.AddCorePersistence(configuration);
 
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IUserSessionRepository, UserSessionRepository>();
+        services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<IInvestmentCaseRepository, InvestmentCaseRepository>();
-        services.AddScoped<BuildingBlocks.Persistence.Abstractions.IUnitOfWork, CoreUnitOfWork>();
+        services.AddScoped<ICoreUnitOfWork, CoreUnitOfWork>();
+        services.AddScoped<ICaseDtoMapper, CaseDtoMapper>();
 
         services.AddSingleton<ILiaraObjectStorage, LiaraObjectStorage>();
         services.AddScoped<IDocumentStorage, LiaraDocumentStorage>();

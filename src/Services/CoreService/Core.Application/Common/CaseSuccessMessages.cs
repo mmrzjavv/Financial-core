@@ -5,6 +5,8 @@ public static class CaseSuccessMessages
     public const string InvestmentCaseCreated = "پرونده سرمایه‌گذاری ایجاد شد.";
     public const string InvestmentCaseRetrieved = "پرونده سرمایه‌گذاری دریافت شد.";
     public const string InvestmentCasesRetrieved = "فهرست پرونده‌ها دریافت شد.";
+    public const string KanbanActionRequiredRetrieved = "کارتابل «منتظر اقدام من» دریافت شد.";
+    public const string KanbanWatchingRetrieved = "کارتابل «پیگیری» دریافت شد.";
     public const string CaseHistoryRetrieved = "تاریخچه پرونده دریافت شد.";
     public const string DataEntry1Updated = "ورود اطلاعات ۱ به‌روزرسانی شد.";
     public const string DataEntry1Submitted = "ورود اطلاعات ۱ ارسال شد.";
@@ -34,6 +36,7 @@ public static class CaseSuccessMessages
     public const string InvestmentCaseCancelled = "پرونده سرمایه‌گذاری لغو شد.";
     public const string InvestmentCaseArchived = "پرونده سرمایه‌گذاری بایگانی شد.";
     public const string DocumentUploadPresigned = "آدرس بارگذاری سند آماده شد.";
+    public const string DocumentUploaded = "سند با موفقیت بارگذاری شد.";
     public const string DocumentUploadConfirmed = "بارگذاری سند تأیید شد.";
     public const string DocumentsRetrieved = "فهرست اسناد دریافت شد.";
     public const string DocumentDownloadPresigned = "آدرس دریافت سند آماده شد.";

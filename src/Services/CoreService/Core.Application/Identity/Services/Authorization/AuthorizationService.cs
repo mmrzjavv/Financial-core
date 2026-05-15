@@ -1,4 +1,4 @@
-using Core.Application.Identity.Abstractions;
+using Core.Application.Abstractions;
 using Core.Application.Identity.Authorization;
 using Services.CoreService.Core.Domain.Identity.Entities;
 
@@ -8,11 +8,11 @@ namespace Core.Application.Identity.Services.Authorization;
 public class AuthorizationService : IAuthorizationService
 {
     private readonly IPermissionService _permissionService;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly ICoreUnitOfWork _unitOfWork;
 
     public AuthorizationService(
         IPermissionService permissionService,
-        IUnitOfWork unitOfWork)
+        ICoreUnitOfWork unitOfWork)
     {
         _permissionService = permissionService;
         _unitOfWork = unitOfWork;

@@ -1,5 +1,4 @@
 using Core.Application.Abstractions;
-using Core.Application.Identity.Abstractions;
 using Core.Application.Identity.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Services.CoreService.Core.Domain.Identity.Entities;
@@ -9,7 +8,7 @@ using IdentityAuthorizationService = Core.Application.Identity.Authorization.IAu
 namespace Core.Infrastructure.Identity.Services;
 
 public sealed class LocalIdentityClient(
-    IUnitOfWork unitOfWork,
+    ICoreUnitOfWork unitOfWork,
     IdentityAuthorizationService authorizationService,
     IPermissionService permissionService,
     CoreDbContext dbContext) : IIdentityClient

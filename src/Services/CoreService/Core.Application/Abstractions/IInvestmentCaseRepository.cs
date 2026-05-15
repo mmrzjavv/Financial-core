@@ -8,6 +8,9 @@ public interface IInvestmentCaseRepository
 {
     Task<InvestmentCase?> GetAsync(Guid id, CancellationToken cancellationToken);
     Task<InvestmentCase?> GetScopedAsync(Guid id, string userId, bool isInternalUser, CancellationToken cancellationToken);
+
+    /// <summary>Scoped load with documents only (presign/upload/confirm).</summary>
+    Task<InvestmentCase?> GetScopedWithDocumentsAsync(Guid id, string userId, bool isInternalUser, CancellationToken cancellationToken);
     Task<InvestmentCase?> GetByCaseNumberAsync(string caseNumber, CancellationToken cancellationToken);
     Task AddAsync(InvestmentCase investmentCase, CancellationToken cancellationToken);
     Task<bool> ExistsCaseNumberAsync(string caseNumber, CancellationToken cancellationToken);
@@ -31,6 +34,11 @@ public interface IInvestmentCaseRepository
         DateTimeOffset? toDate,
         int page,
         int pageSize,
+        string userId,
+        bool isInternalUser,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<KanbanCaseProjection>> ListActiveKanbanProjectionsAsync(
         string userId,
         bool isInternalUser,
         CancellationToken cancellationToken);

@@ -4,9 +4,9 @@ using BuildingBlocks.Application.Results;
 using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Domain.Abstractions;
 using BuildingBlocks.Observability.Correlation;
-using BuildingBlocks.Persistence.Abstractions;
 using Core.Application.Authorization;
 using Core.Application.Abstractions;
+using Core.Application.Mappers;
 using Microsoft.EntityFrameworkCore;
 using Core.Application.DTOs;
 using Core.Application.Requests;
@@ -21,8 +21,7 @@ using Services.CoreService.Core.Domain.Identity.Entities;
 namespace Core.Application.Services;
 
 public sealed class InvestmentCaseAppService(
-    IInvestmentCaseRepository repository,
-    IUnitOfWork unitOfWork,
+    ICoreUnitOfWork unitOfWork,
     ICoreDbContext dbContext,
     ICaseStateManager stateManager,
     ICaseWorkflowOrchestrator workflowOrchestrator,
@@ -31,6 +30,7 @@ public sealed class InvestmentCaseAppService(
     BuildingBlocks.Domain.Abstractions.IClock clock,
     IUserContext userContext,
     ICaseAuthorizationService authorizationService,
+    ICaseDtoMapper caseDtoMapper,
     IHttpContextAccessor httpContextAccessor) : IInvestmentCaseAppService
 {
     public async Task<Result<InvestmentCaseDto>> CreateAsync(CreateInvestmentCaseRequest request, CancellationToken cancellationToken)
@@ -54,9 +54,10 @@ public sealed class InvestmentCaseAppService(
             if (!Guid.TryParse(authResult.Value, out var userId))
                 return Result<InvestmentCaseDto>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
 
-            linkedCompany = await dbContext.Companies
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == request.CompanyId.Value, cancellationToken);
+            linkedCompany = await unitOfWork.Companies.FirstOrDefaultAsync(
+                c => c.Id == request.CompanyId.Value,
+                asNoTracking: true,
+                cancellationToken);
 
             if (linkedCompany is null)
                 return Result<InvestmentCaseDto>.Fail(Error.NotFound(ApiMessages.CompanyNotFound));
@@ -70,10 +71,10 @@ public sealed class InvestmentCaseAppService(
         var workflowInstanceId = await workflowOrchestrator.StartAsync(entity.Id, cancellationToken);
         entity.AttachWorkflowInstance(workflowInstanceId);
 
-        await repository.AddAsync(entity, cancellationToken);
+        await unitOfWork.InvestmentCases.AddAsync(entity, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Result<InvestmentCaseDto>.Ok(ToApplicantDto(entity, now, linkedCompany));
+        return Result<InvestmentCaseDto>.Ok(caseDtoMapper.MapCase(entity, now, isInternalView: false, linkedCompany));
     }
 
     public async Task<Result<InvestmentCaseDto>> GetAsync(Guid caseId, CancellationToken cancellationToken)
@@ -81,11 +82,11 @@ public sealed class InvestmentCaseAppService(
         var authResult = RequireUserId();
         if (authResult.IsFailure) return Result<InvestmentCaseDto>.Fail(authResult.Error!);
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
             return Result<InvestmentCaseDto>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
-        return Result<InvestmentCaseDto>.Ok(ToDto(entity, clock.UtcNow, authorizationService.IsInternalUser));
+        return Result<InvestmentCaseDto>.Ok(caseDtoMapper.MapCase(entity, clock.UtcNow, authorizationService.IsInternalUser));
     }
 
     public async Task<Result> UpdateDataEntry1Async(Guid caseId, UpdateDataEntry1Request request, CancellationToken cancellationToken)
@@ -205,7 +206,7 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.ManageFinancialWorksheet))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -331,7 +332,7 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, ct);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, ct);
         if (entity is null) return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var payment = entity.Payments.FirstOrDefault(x => x.Id == paymentId);
@@ -352,7 +353,7 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, ct);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, ct);
         if (entity is null) return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var payment = entity.Payments.FirstOrDefault(x => x.Id == paymentId);
@@ -379,7 +380,7 @@ public sealed class InvestmentCaseAppService(
         var authResult = RequireUserId();
         if (authResult.IsFailure) return Result.Fail(authResult.Error!);
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, ct);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, ct);
         if (entity is null) return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var actorRole = ResolveActorRole();
@@ -435,7 +436,7 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.ManageValuations))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -456,7 +457,7 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -485,7 +486,7 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -514,7 +515,7 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.ManagePayments))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -532,7 +533,7 @@ public sealed class InvestmentCaseAppService(
         var authResult = RequireUserId();
         if (authResult.IsFailure) return Result<IEnumerable<CaseCommentDto>>.Fail(authResult.Error!);
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
             return Result<IEnumerable<CaseCommentDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -541,29 +542,7 @@ public sealed class InvestmentCaseAppService(
 
         var comments = entity.Comments
             .Where(x => (isInternalView && canViewInternal) || !x.IsInternal)
-            .Select(x =>
-                isInternalView
-                    ? (CaseCommentDto)new CaseCommentInternalDto(
-                        x.Id,
-                        x.CaseId,
-                        x.Phase,
-                        x.SenderUserId,
-                        x.SenderRole,
-                        x.Message,
-                        x.IsRevisionRequest,
-                        x.IsInternal,
-                        x.ParentId,
-                        x.Attachments.Select(a => new CaseCommentAttachmentInternalDto(a.Id, a.S3Key, a.FileName)),
-                        x.CreatedAt)
-                    : (CaseCommentDto)new CaseCommentApplicantDto(
-                        x.Id,
-                        x.CaseId,
-                        x.Phase,
-                        x.Message,
-                        x.IsRevisionRequest,
-                        x.ParentId,
-                        x.Attachments.Select(a => new CaseCommentAttachmentApplicantDto(a.Id, a.FileName)),
-                        x.CreatedAt))
+            .Select(caseDtoMapper.MapComment)
             .OrderBy(x => x.CreatedAt);
 
         return Result<IEnumerable<CaseCommentDto>>.Ok(comments);
@@ -580,7 +559,7 @@ public sealed class InvestmentCaseAppService(
 
         var isInternal = isInternalRequested && authorizationService.HasPermission(CasePermissions.CreateInternalComment);
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -606,7 +585,7 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.UploadCommentAttachments))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -630,16 +609,12 @@ public sealed class InvestmentCaseAppService(
         var authResult = RequireUserId();
         if (authResult.IsFailure) return Result<IEnumerable<CaseDocumentDto>>.Fail(authResult.Error!);
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
             return Result<IEnumerable<CaseDocumentDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
-        var isInternalView = authorizationService.IsInternalUser;
         var docs = entity.Documents
-            .Select(x =>
-                isInternalView
-                    ? (CaseDocumentDto)new CaseDocumentInternalDto(x.Id, x.CaseId, x.S3Key, x.FileName, x.MimeType, x.FileSize, x.Version, x.DocumentType, x.UploadedByUserId, x.UploadedAt)
-                    : (CaseDocumentDto)new CaseDocumentApplicantDto(x.Id, x.CaseId, x.FileName, x.MimeType, x.FileSize, x.Version, x.DocumentType, x.UploadedAt))
+            .Select(caseDtoMapper.MapDocument)
             .OrderByDescending(x => x.UploadedAt);
 
         return Result<IEnumerable<CaseDocumentDto>>.Ok(docs);
@@ -650,16 +625,12 @@ public sealed class InvestmentCaseAppService(
         var authResult = RequireUserId();
         if (authResult.IsFailure) return Result<IEnumerable<CaseWorkflowHistoryDto>>.Fail(authResult.Error!);
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
             return Result<IEnumerable<CaseWorkflowHistoryDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
-        var isInternalView = authorizationService.IsInternalUser;
         var history = entity.WorkflowHistory
-            .Select(x =>
-                isInternalView
-                    ? (CaseWorkflowHistoryDto)new CaseWorkflowHistoryInternalDto(x.Id, x.CaseId, x.FromPhase, x.ToPhase, x.FromStatus, x.ToStatus, x.ChangedByUserId, x.ActorRole, x.Action, x.CorrelationId, x.Comment, x.CreatedAt)
-                    : (CaseWorkflowHistoryDto)new CaseWorkflowHistoryApplicantDto(x.Id, x.CaseId, x.FromPhase, x.ToPhase, x.FromStatus, x.ToStatus, x.CreatedAt))
+            .Select(caseDtoMapper.MapHistory)
             .OrderBy(x => x.CreatedAt);
 
         return Result<IEnumerable<CaseWorkflowHistoryDto>>.Ok(history);
@@ -673,7 +644,7 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.UpsertEvaluations))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -703,20 +674,12 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.ViewEvaluations))
             return Result<IEnumerable<CaseEvaluationDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
             return Result<IEnumerable<CaseEvaluationDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
         var evaluations = entity.Evaluations
-            .Select(x => new CaseEvaluationDto(
-                x.Id,
-                x.CaseId,
-                x.Phase,
-                x.ReviewerUserId,
-                x.ReviewerRole,
-                x.Notes,
-                x.Items.Select(i => new CaseEvaluationItemDto(i.Id, i.Title, i.IsApproved, i.Comment)),
-                x.CreatedAt))
+            .Select(caseDtoMapper.MapEvaluation)
             .OrderByDescending(x => x.CreatedAt);
 
         return Result<IEnumerable<CaseEvaluationDto>>.Ok(evaluations);
@@ -727,7 +690,7 @@ public sealed class InvestmentCaseAppService(
         var authResult = RequireUserId();
         if (authResult.IsFailure) return Result<IEnumerable<InvestmentCaseDto>>.Fail(authResult.Error!);
 
-        var results = await repository.SearchScopedAsync(
+        var results = await unitOfWork.InvestmentCases.SearchScopedAsync(
             request.CaseNumber,
             request.ApplicantUserId,
             request.Phase,
@@ -740,7 +703,7 @@ public sealed class InvestmentCaseAppService(
             authorizationService.IsInternalUser,
             cancellationToken);
 
-        var dtos = results.Select(x => ToDto(x, clock.UtcNow, authorizationService.IsInternalUser));
+        var dtos = results.Select(x => caseDtoMapper.MapCase(x, clock.UtcNow, authorizationService.IsInternalUser));
         return Result<IEnumerable<InvestmentCaseDto>>.Ok(dtos);
     }
 
@@ -749,7 +712,7 @@ public sealed class InvestmentCaseAppService(
         var authResult = RequireUserId();
         if (authResult.IsFailure) return Result<PresignUploadResponse>.Fail(authResult.Error!);
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedWithDocumentsAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
             return Result<PresignUploadResponse>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -764,12 +727,51 @@ public sealed class InvestmentCaseAppService(
         return Result<PresignUploadResponse>.Ok(new PresignUploadResponse(s3Key, url, expiresAt, version));
     }
 
+    public async Task<Result<CaseDocumentDto>> UploadDocumentAsync(
+        Guid caseId,
+        PresignUploadRequest request,
+        Stream content,
+        CancellationToken cancellationToken)
+    {
+        var authResult = RequireUserId();
+        if (authResult.IsFailure) return Result<CaseDocumentDto>.Fail(authResult.Error!);
+
+        var entity = await unitOfWork.InvestmentCases.GetScopedWithDocumentsAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        if (entity is null)
+            return Result<CaseDocumentDto>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
+
+        var normalized = NormalizePresignRequest(request);
+        var keyResult = TryBuildDocumentUploadKey(entity, normalized);
+        if (keyResult.IsFailure) return Result<CaseDocumentDto>.Fail(keyResult.Error!);
+
+        var (s3Key, version) = keyResult.Value!;
+        if (entity.Documents.Any(x => string.Equals(x.S3Key, s3Key, StringComparison.Ordinal)))
+            return Result<CaseDocumentDto>.Fail(Error.Conflict(ApiMessages.DocumentAlreadyExists));
+
+        var authorization = EnsureCanConfirmDocument(entity, normalized.DocumentType);
+        if (authorization.IsFailure) return Result<CaseDocumentDto>.Fail(authorization.Error!);
+
+        await documentStorage.UploadAsync(s3Key, content, normalized.MimeType, cancellationToken);
+
+        var document = entity.AddDocument(
+            s3Key,
+            Path.GetFileName(normalized.FileName),
+            normalized.MimeType,
+            normalized.FileSize,
+            version,
+            normalized.DocumentType,
+            authResult.Value!);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result<CaseDocumentDto>.Ok(caseDtoMapper.MapDocument(document));
+    }
+
     public async Task<Result<CaseDocumentDto>> ConfirmDocumentUploadedAsync(Guid caseId, string s3Key, CancellationToken cancellationToken)
     {
         var authResult = RequireUserId();
         if (authResult.IsFailure) return Result<CaseDocumentDto>.Fail(authResult.Error!);
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedWithDocumentsAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
             return Result<CaseDocumentDto>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -805,10 +807,7 @@ public sealed class InvestmentCaseAppService(
             authResult.Value!);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Result<CaseDocumentDto>.Ok(
-            authorizationService.IsInternalUser
-                ? new CaseDocumentInternalDto(document.Id, document.CaseId, document.S3Key, document.FileName, document.MimeType, document.FileSize, document.Version, document.DocumentType, document.UploadedByUserId, document.UploadedAt)
-                : new CaseDocumentApplicantDto(document.Id, document.CaseId, document.FileName, document.MimeType, document.FileSize, document.Version, document.DocumentType, document.UploadedAt));
+        return Result<CaseDocumentDto>.Ok(caseDtoMapper.MapDocument(document));
     }
 
     public async Task<Result<PresignDownloadResponse>> PresignDocumentDownloadAsync(Guid caseId, Guid documentId, CancellationToken cancellationToken)
@@ -819,7 +818,7 @@ public sealed class InvestmentCaseAppService(
         if (!authorizationService.HasPermission(CasePermissions.DownloadDocuments))
             return Result<PresignDownloadResponse>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedWithDocumentsAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
             return Result<PresignDownloadResponse>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
@@ -838,52 +837,22 @@ public sealed class InvestmentCaseAppService(
         return Result<string>.Ok(authorizationService.UserId!);
     }
 
-    private static InvestmentCaseDto ToDto(InvestmentCase entity, DateTimeOffset now, bool isInternalView)
-        => isInternalView ? ToInternalDto(entity, now) : ToApplicantDto(entity, now);
+    private static PresignUploadRequest NormalizePresignRequest(PresignUploadRequest request)
+    {
+        var mimeType = NormalizeMimeType(request.FileName, request.MimeType);
+        return request with { MimeType = mimeType };
+    }
 
-    private static InvestmentCaseApplicantDto ToApplicantDto(
-        InvestmentCase entity,
-        DateTimeOffset now,
-        Company? company = null)
-        => new(
-            entity.Id,
-            entity.CaseNumber,
-            entity.ApplicantType,
-            entity.CurrentPhase,
-            entity.CurrentStatus,
-            entity.CreatedAt,
-            entity.UpdatedAt ?? now,
-            entity.CompletedAt,
-            ToCompanyDto(company ?? entity.ApplicantCompany));
+    private Result<(string S3Key, int Version)> TryBuildDocumentUploadKey(InvestmentCase entity, PresignUploadRequest request)
+    {
+        var validation = ValidatePresignRequest(entity, request);
+        if (validation.IsFailure) return Result<(string, int)>.Fail(validation.Error!);
 
-    private static InvestmentCaseInternalDto ToInternalDto(InvestmentCase entity, DateTimeOffset now)
-        => new(
-            entity.Id,
-            entity.CaseNumber,
-            entity.ApplicantUserId,
-            entity.ApplicantType,
-            entity.CurrentPhase,
-            entity.CurrentStatus,
-            entity.WorkflowInstanceId,
-            entity.CreatedAt,
-            entity.UpdatedAt ?? now,
-            entity.CompletedAt,
-            ToCompanyDto(entity.ApplicantCompany));
-
-    private static CompanyDto? ToCompanyDto(Company? company)
-        => company is null
-            ? null
-            : new CompanyDto(
-                company.Id,
-                company.Name,
-                company.EconomicCode,
-                company.RegistrationNumber,
-                company.NationalId,
-                company.PhoneNumber,
-                company.Address,
-                company.City,
-                company.Province,
-                company.PostalCode);
+        var version = entity.Documents.Where(x => x.DocumentType == request.DocumentType).Select(x => x.Version).DefaultIfEmpty(0).Max() + 1;
+        var ext = GetSafeExtension(request.FileName);
+        var s3Key = $"cases/{entity.CaseNumber}/{request.DocumentType}/{version}{ext}";
+        return Result<(string, int)>.Ok((s3Key, version));
+    }
 
     private Result ValidatePresignRequest(InvestmentCase entity, PresignUploadRequest request)
     {
@@ -1032,6 +1001,17 @@ public sealed class InvestmentCaseAppService(
     {
         var ext = Path.GetExtension(Path.GetFileName(fileName));
         return string.IsNullOrWhiteSpace(ext) ? string.Empty : ext.ToLowerInvariant();
+    }
+
+    private static string NormalizeMimeType(string fileName, string mimeType)
+    {
+        return GetSafeExtension(fileName) switch
+        {
+            ".pdf" => "application/pdf",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            _ => string.IsNullOrWhiteSpace(mimeType) ? "application/octet-stream" : mimeType.Trim()
+        };
     }
 
     private static bool IsAllowedUpload(string mimeType, string ext)

@@ -17,6 +17,9 @@ public sealed class S3DocumentStorage(IS3Presigner presigner) : IDocumentStorage
         return (presigned.Url, presigned.ExpiresAtUtc);
     }
 
+    public Task UploadAsync(string s3Key, Stream content, string mimeType, CancellationToken cancellationToken)
+        => throw new NotSupportedException("Server-side document upload requires Liara object storage.");
+
     public Task<bool> ExistsAsync(string s3Key, CancellationToken cancellationToken)
         => presigner.ExistsAsync(s3Key, cancellationToken);
 }

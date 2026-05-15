@@ -10,6 +10,9 @@ public sealed class LiaraDocumentStorage(ILiaraObjectStorage objectStorage) : ID
     public Task<(string Url, DateTimeOffset ExpiresAtUtc)> PresignDownloadAsync(string s3Key, TimeSpan expiresIn, CancellationToken cancellationToken)
         => objectStorage.PresignGetAsync(s3Key, expiresIn, cancellationToken);
 
+    public Task UploadAsync(string s3Key, Stream content, string mimeType, CancellationToken cancellationToken)
+        => objectStorage.UploadAsync(s3Key, content, mimeType, cancellationToken);
+
     public Task<bool> ExistsAsync(string s3Key, CancellationToken cancellationToken)
         => objectStorage.ExistsAsync(s3Key, cancellationToken);
 }

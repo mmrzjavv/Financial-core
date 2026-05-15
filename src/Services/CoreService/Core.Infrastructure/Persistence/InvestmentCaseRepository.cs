@@ -10,6 +10,7 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
 {
     public Task<InvestmentCase?> GetAsync(Guid id, CancellationToken cancellationToken)
         => dbContext.InvestmentCases
+            .AsSplitQuery()
             .Include(x => x.ApplicantCompany)
             .Include(x => x.DataEntry1)
             .Include(x => x.DataEntry2)
@@ -24,25 +25,41 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
     public Task<InvestmentCase?> GetScopedAsync(Guid id, string userId, bool isInternalUser, CancellationToken cancellationToken)
-    {
-        var query = dbContext.InvestmentCases
-            .Include(x => x.ApplicantCompany)
-            .Include(x => x.DataEntry1)
-            .Include(x => x.DataEntry2)
-            .Include(x => x.FinancialWorksheet)
-            .Include(x => x.Documents)
-            .Include(x => x.Comments)
-            .Include(x => x.Revisions)
-            .Include(x => x.Evaluations).ThenInclude(x => x.Items)
-            .Include(x => x.Valuations)
-            .Include(x => x.Payments)
-            .Include(x => x.WorkflowHistory)
-            .AsQueryable();
+        => ApplyScopedFilter(
+                dbContext.InvestmentCases
+                    .AsSplitQuery()
+                    .Include(x => x.ApplicantCompany)
+                    .Include(x => x.DataEntry1)
+                    .Include(x => x.DataEntry2)
+                    .Include(x => x.FinancialWorksheet)
+                    .Include(x => x.Documents)
+                    .Include(x => x.Comments)
+                    .Include(x => x.Revisions)
+                    .Include(x => x.Evaluations).ThenInclude(x => x.Items)
+                    .Include(x => x.Valuations)
+                    .Include(x => x.Payments)
+                    .Include(x => x.WorkflowHistory),
+                userId,
+                isInternalUser)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
+    public Task<InvestmentCase?> GetScopedWithDocumentsAsync(Guid id, string userId, bool isInternalUser, CancellationToken cancellationToken)
+        => ApplyScopedFilter(
+                dbContext.InvestmentCases
+                    .Include(x => x.Documents),
+                userId,
+                isInternalUser)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    private static IQueryable<InvestmentCase> ApplyScopedFilter(
+        IQueryable<InvestmentCase> query,
+        string userId,
+        bool isInternalUser)
+    {
         if (!isInternalUser)
             query = query.Where(x => x.ApplicantUserId == userId);
 
-        return query.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return query;
     }
 
     public Task<InvestmentCase?> GetByCaseNumberAsync(string caseNumber, CancellationToken cancellationToken)
@@ -138,6 +155,41 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
             .OrderByDescending(x => x.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<KanbanCaseProjection>> ListActiveKanbanProjectionsAsync(
+        string userId,
+        bool isInternalUser,
+        CancellationToken cancellationToken)
+    {
+        var terminalStatuses = new[]
+        {
+            CaseStatus.Completed,
+            CaseStatus.Rejected,
+            CaseStatus.Cancelled,
+            CaseStatus.Archived
+        };
+
+        var query = dbContext.InvestmentCases
+            .AsNoTracking()
+            .Where(x => !terminalStatuses.Contains(x.CurrentStatus));
+
+        if (!isInternalUser)
+            query = query.Where(x => x.ApplicantUserId == userId);
+
+        return await query
+            .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+            .Select(x => new KanbanCaseProjection(
+                x.Id,
+                x.CaseNumber,
+                x.ApplicantType,
+                x.CurrentPhase,
+                x.CurrentStatus,
+                x.CreatedAt,
+                x.UpdatedAt,
+                x.DataEntry1 != null ? x.DataEntry1.StartupTitle : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.Name : null))
             .ToListAsync(cancellationToken);
     }
 }

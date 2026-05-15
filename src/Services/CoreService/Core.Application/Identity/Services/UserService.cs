@@ -5,6 +5,7 @@ using Mapster;
 using BuildingBlocks.Application.Results;
 using Core.Application.Identity.DTOs.User;
 using Core.Application.Identity.Notifications;
+using Core.Application.Abstractions;
 using Core.Application.Identity.Abstractions;
 using Core.Application.Identity.Interfaces;
 using Core.Application.Identity.Common.Interfaces;
@@ -21,7 +22,8 @@ namespace Core.Application.Identity.Services;
 public class UserService : IUserService
 {
     private readonly ITokenHelper _tokenHelper;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly ICoreUnitOfWork _unitOfWork;
+    private readonly ICurrentUserAccessor _currentUser;
     private readonly INotificationService _notificationService;
     private readonly IOtpCacheService _otpCacheService;
     private readonly ISessionCacheService _sessionCacheService;
@@ -38,7 +40,8 @@ public class UserService : IUserService
 
     public UserService(
         ITokenHelper tokenHelper,
-        IUnitOfWork unitOfWork,
+        ICoreUnitOfWork unitOfWork,
+        ICurrentUserAccessor currentUser,
         INotificationService notificationService,
         IOtpCacheService otpCacheService,
         ISessionCacheService sessionCacheService,
@@ -55,6 +58,7 @@ public class UserService : IUserService
     {
         _tokenHelper = tokenHelper;
         _unitOfWork = unitOfWork;
+        _currentUser = currentUser;
         _notificationService = notificationService;
         _otpCacheService = otpCacheService;
         _sessionCacheService = sessionCacheService;
@@ -347,11 +351,13 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<ApiOperationResult<UserDto>> LogoutCurrentSessionAsync(Guid userId, Guid sessionId)
+    public async Task<ApiOperationResult<UserDto>> LogoutCurrentSessionAsync(CancellationToken cancellationToken = default)
     {
         var result = new ApiOperationResult<UserDto>();
         try
         {
+            var userId = _currentUser.UserId ?? Guid.Empty;
+            var sessionId = _currentUser.SessionId ?? Guid.Empty;
             if (userId == Guid.Empty || sessionId == Guid.Empty)
                 return result.Failed(IdentityMessages.InvalidSessionIdentifiers, HttpStatusCode.BadRequest);
 
@@ -381,11 +387,16 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<ApiOperationResult<UserDto>> RevokeSessionAsync(Guid userId, Guid sessionId)
+    public async Task<ApiOperationResult<UserDto>> RevokeSessionAsync(RevokeSessionDto dto, CancellationToken cancellationToken = default)
     {
         var result = new ApiOperationResult<UserDto>();
         try
         {
+            var userId = _currentUser.UserId ?? Guid.Empty;
+            var sessionId = dto.SessionId;
+            if (userId == Guid.Empty)
+                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+
             var dbSession = await _unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
             if (dbSession is null || dbSession.RevokedAt is not null)
                 return result.Succeed(IdentityMessages.OperationSucceeded);
@@ -415,11 +426,15 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<ApiOperationResult<UserDto>> RevokeAllSessionsAsync(Guid userId)
+    public async Task<ApiOperationResult<UserDto>> RevokeAllSessionsAsync(CancellationToken cancellationToken = default)
     {
         var result = new ApiOperationResult<UserDto>();
         try
         {
+            var userId = _currentUser.UserId ?? Guid.Empty;
+            if (userId == Guid.Empty)
+                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+
             var sessions = await _unitOfWork.UserSessions.GetAllAsync(s => s.UserId == userId && s.RevokedAt == null, disableTracking: false);
             foreach (var session in sessions)
             {
@@ -446,11 +461,15 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<ApiOperationResult<SessionDto>> GetActiveSessionsAsync(Guid userId)
+    public async Task<ApiOperationResult<SessionDto>> GetActiveSessionsAsync(CancellationToken cancellationToken = default)
     {
         var result = new ApiOperationResult<SessionDto>();
         try
         {
+            var userId = _currentUser.UserId ?? Guid.Empty;
+            if (userId == Guid.Empty)
+                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+
             var sessions = await _unitOfWork.UserSessions.GetActiveByUserAsync(userId);
             var list = sessions.Select(s =>
             {
@@ -512,12 +531,16 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<ApiOperationResult<UserDto>> UpdateAsync(Guid id, Guid requesterId, UpdateUserDto dto)
+    public async Task<ApiOperationResult<UserDto>> UpdateAsync(Guid id, UpdateUserDto dto, CancellationToken cancellationToken = default)
     {
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var validation = await _updateUserValidator.ValidateAsync(dto);
+            var requesterId = _currentUser.UserId ?? Guid.Empty;
+            if (requesterId == Guid.Empty)
+                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+
+            var validation = await _updateUserValidator.ValidateAsync(dto, cancellationToken);
             if (!validation.IsValid)
             {
                 var errors = validation.Errors.Select(e => e.ErrorMessage).ToList();
@@ -568,7 +591,7 @@ public class UserService : IUserService
             await _unitOfWork.Users.UpdateAsync(user);
             await _unitOfWork.SaveChangesAsync();
 
-            return result.Succeed(IdentityMessages.UserUpdated, MapToDto(user));
+            return result.Succeed(IdentityMessages.UserUpdated, user.Adapt<UserDto>());
         }
         catch (Exception ex)
         {
@@ -583,7 +606,7 @@ public class UserService : IUserService
         {
             var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted);
             if (user == null) return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
-            return result.Succeed(IdentityMessages.OperationSucceeded, MapToDto(user));
+            return result.Succeed(IdentityMessages.OperationSucceeded, user.Adapt<UserDto>());
         }
         catch (Exception ex)
         {
@@ -598,7 +621,7 @@ public class UserService : IUserService
         {
             var users = await _unitOfWork.Users.GetPagedListAsync(take, skip, u => !u.IsDeleted);
             var total = await _unitOfWork.Users.CountAsync(u => !u.IsDeleted);
-            return result.Succeed(IdentityMessages.OperationSucceeded, users.Select(MapToDto).ToList(), total);
+            return result.Succeed(IdentityMessages.OperationSucceeded, users.Select(u => u.Adapt<UserDto>()).ToList(), total);
         }
         catch (Exception ex)
         {
@@ -625,21 +648,23 @@ public class UserService : IUserService
         }
     }
 
-    public async Task<ApiOperationResult<UserDto>> Profile(Guid id)
+    public async Task<ApiOperationResult<UserDto>> GetProfileAsync(CancellationToken cancellationToken = default)
     {
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted, false);
-            return result.Succeed(IdentityMessages.OperationSucceeded, user is null ? new UserDto() : MapToDto(user));
+            var userId = _currentUser.UserId ?? Guid.Empty;
+            if (userId == Guid.Empty)
+                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+
+            var user = await _unitOfWork.Users.GetAsync(u => u.Id == userId && !u.IsDeleted, false);
+            return result.Succeed(IdentityMessages.OperationSucceeded, user is null ? new UserDto() : user.Adapt<UserDto>());
         }
         catch (Exception ex)
         {
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
-
-    private static UserDto MapToDto(User user) => user.Adapt<UserDto>();
 
     private ApiOperationResult<LoginDto> BuildOtpFailure(
         ApiOperationResult<LoginDto> result,

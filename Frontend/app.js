@@ -558,6 +558,7 @@
     sessions.unshift(session);
     saveSessions(sessions);
     setActiveSessionId(session.id);
+    document.dispatchEvent(new CustomEvent("testpanel:session-changed"));
     renderSessionsList();
     renderTopbar();
   }
@@ -1521,6 +1522,10 @@
       setActiveSessionId,
       setCurrentCaseId,
     };
+
+    if (typeof window.initKanban === "function") {
+      window.initKanban(window.TestPanel);
+    }
 
     if (typeof window.initPortal === "function") {
       window.initPortal(window.TestPanel);

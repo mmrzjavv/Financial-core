@@ -2,6 +2,7 @@ namespace Core.Application.Identity.Common;
 
 public static class IdentityMessages
 {
+    public const string AuthenticationRequired = "ورود الزامی است.";
     public const string ValidationFailed = "اطلاعات ارسالی نامعتبر است.";
     public const string UserNotFoundByPhone = "کاربری با این شماره موبایل یافت نشد.";
     public const string OtpRateLimited = "درخواست کد تایید بیش از حد مجاز است. لطفاً چند دقیقه بعد دوباره تلاش کنید.";

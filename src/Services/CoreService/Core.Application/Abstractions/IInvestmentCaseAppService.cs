@@ -58,6 +58,7 @@ public interface IInvestmentCaseAppService
     Task<Result<IEnumerable<InvestmentCaseDto>>> SearchAsync(CaseSearchRequest request, CancellationToken cancellationToken);
 
     Task<Result<PresignUploadResponse>> PresignDocumentUploadAsync(Guid caseId, PresignUploadRequest request, CancellationToken cancellationToken);
+    Task<Result<CaseDocumentDto>> UploadDocumentAsync(Guid caseId, PresignUploadRequest request, Stream content, CancellationToken cancellationToken);
     Task<Result<CaseDocumentDto>> ConfirmDocumentUploadedAsync(Guid caseId, string s3Key, CancellationToken cancellationToken);
     Task<Result<PresignDownloadResponse>> PresignDocumentDownloadAsync(Guid caseId, Guid documentId, CancellationToken cancellationToken);
 

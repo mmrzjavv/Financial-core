@@ -47,6 +47,28 @@
           <div id="portalError" class="alert alert--error hidden"></div>
           <div id="portalInfo" class="alert alert--ok hidden"></div>
 
+          <div class="card kanban-board">
+            <div class="kanban-board__header">
+              <div class="card__title">کارتابل</div>
+              <div class="muted">پرونده‌های منتظر اقدام شما و پرونده‌های در جریان با نقش آینده</div>
+              <div class="row">
+                <button id="kanbanRefresh" type="button" class="btn btn--primary">بروزرسانی کارتابل</button>
+              </div>
+            </div>
+            <div id="kanbanLoading" class="muted hidden">در حال بارگذاری کارتابل…</div>
+            <div id="kanbanError" class="alert alert--error hidden"></div>
+            <div class="kanban-columns">
+              <div class="kanban-column">
+                <div class="kanban-column__title">منتظر اقدام من <span id="kanbanActionCount" class="kanban-column__count">0</span></div>
+                <div id="kanbanActionList" class="kanban-list"></div>
+              </div>
+              <div class="kanban-column kanban-column--watch">
+                <div class="kanban-column__title">پیگیری (نقش آینده) <span id="kanbanWatchCount" class="kanban-column__count">0</span></div>
+                <div id="kanbanWatchList" class="kanban-list"></div>
+              </div>
+            </div>
+          </div>
+
           <div class="card portal-summary">
             <div id="portalCaseEmpty" class="portal-empty">پرونده‌ای انتخاب نشده است. از تب «پرونده‌ها» شرکت و پرونده بسازید یا شناسه پرونده را در همان تب تنظیم کنید.</div>
             <div id="portalCaseHeader" class="hidden">
@@ -656,6 +678,7 @@
 
     <script src="config.js"></script>
     <script src="js/workflow-model.js"></script>
+    <script src="js/kanban.js"></script>
     <script src="js/portal.js"></script>
     <script src="workflow-runner.js"></script>
     <script src="app.js"></script>

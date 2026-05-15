@@ -52,6 +52,18 @@ public sealed class LiaraObjectStorage : ILiaraObjectStorage
         return Task.FromResult((url, expiresAt));
     }
 
+    public async Task UploadAsync(string key, Stream content, string contentType, CancellationToken cancellationToken)
+    {
+        await _s3Client.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = _bucketName,
+            Key = key,
+            InputStream = content,
+            ContentType = contentType,
+            AutoCloseStream = false
+        }, cancellationToken);
+    }
+
     public Task<(string Url, DateTimeOffset ExpiresAtUtc)> PresignGetAsync(string key, TimeSpan expiresIn, CancellationToken cancellationToken)
     {
         var expiresAt = _clock.UtcNow.Add(expiresIn);
