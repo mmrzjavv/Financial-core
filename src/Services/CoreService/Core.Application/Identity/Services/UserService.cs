@@ -15,124 +15,77 @@ using Microsoft.Extensions.Options;
 using Core.Application.Identity.Authorization;
 using Core.Application.Identity.Common;
 using Core.Application.Identity.Common.Options;
-
+using Core.Application.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Core.Application.Identity.Services;
 
-public class UserService : IUserService
+public class UserService(
+    ITokenHelper tokenHelper,
+    ICoreUnitOfWork unitOfWork,
+    ICurrentUserAccessor currentUser,
+    INotificationService notificationService,
+    IOtpCacheService otpCacheService,
+    ISessionCacheService sessionCacheService,
+    ICurrentRequestContext requestContext,
+    IRefreshTokenService refreshTokenService,
+    IValidator<CreateUserDto> createUserValidator,
+    IValidator<UpdateUserDto> updateUserValidator,
+    IValidator<SendOtpDto> sendOtpValidator,
+    IValidator<VerifyOtpDto> verifyOtpValidator,
+    IOptions<OtpOptions> otpOptions,
+    IOptions<AuthSessionOptions> sessionOptions,
+    ILogger<UserService> logger) : IUserService
 {
-    private readonly ITokenHelper _tokenHelper;
-    private readonly ICoreUnitOfWork _unitOfWork;
-    private readonly ICurrentUserAccessor _currentUser;
-    private readonly INotificationService _notificationService;
-    private readonly IOtpCacheService _otpCacheService;
-    private readonly ISessionCacheService _sessionCacheService;
-    private readonly ICurrentRequestContext _requestContext;
-    private readonly IRefreshTokenService _refreshTokenService;
-    private readonly IAuditEventLogger _auditEventLogger;
-    private readonly IValidator<CreateUserDto> _createUserValidator;
-    private readonly IValidator<UpdateUserDto> _updateUserValidator;
-    private readonly IValidator<SendOtpDto> _sendOtpValidator;
-    private readonly IValidator<VerifyOtpDto> _verifyOtpValidator;
-    private readonly IOptions<OtpOptions> _otpOptions;
-    private readonly IOptions<AuthSessionOptions> _sessionOptions;
-    private readonly IStructuredLogger _logger;
-
-    public UserService(
-        ITokenHelper tokenHelper,
-        ICoreUnitOfWork unitOfWork,
-        ICurrentUserAccessor currentUser,
-        INotificationService notificationService,
-        IOtpCacheService otpCacheService,
-        ISessionCacheService sessionCacheService,
-        ICurrentRequestContext requestContext,
-        IRefreshTokenService refreshTokenService,
-        IAuditEventLogger auditEventLogger,
-        IValidator<CreateUserDto> createUserValidator,
-        IValidator<UpdateUserDto> updateUserValidator,
-        IValidator<SendOtpDto> sendOtpValidator,
-        IValidator<VerifyOtpDto> verifyOtpValidator,
-        IOptions<OtpOptions> otpOptions,
-        IOptions<AuthSessionOptions> sessionOptions,
-        IStructuredLogger logger)
-    {
-        _tokenHelper = tokenHelper;
-        _unitOfWork = unitOfWork;
-        _currentUser = currentUser;
-        _notificationService = notificationService;
-        _otpCacheService = otpCacheService;
-        _sessionCacheService = sessionCacheService;
-        _requestContext = requestContext;
-        _refreshTokenService = refreshTokenService;
-        _auditEventLogger = auditEventLogger;
-        _createUserValidator = createUserValidator;
-        _updateUserValidator = updateUserValidator;
-        _sendOtpValidator = sendOtpValidator;
-        _verifyOtpValidator = verifyOtpValidator;
-        _otpOptions = otpOptions;
-        _sessionOptions = sessionOptions;
-        _logger = logger;
-    }
-
     public async Task<ApiOperationResult<UserDto>> SendOtpAsync(SendOtpDto dto)
     {
         var result = new ApiOperationResult<UserDto>();
 
         try
         {
-            var validation = await _sendOtpValidator.ValidateAsync(dto, CancellationToken.None);
+            ApplicationLog.Started(logger, "SendOtp");
+
+            var validation = await sendOtpValidator.ValidateAsync(dto, CancellationToken.None);
             if (!validation.IsValid)
             {
-                var errors = validation.Errors.Select(e => e.ErrorMessage).ToList();
-                _logger.LogWarning("OTP send validation failed", new Dictionary<string, object>
-                {
-                    { "PhoneNumber", dto.PhoneNumber },
-                    { "Errors", errors }
-                });
-                return result.Failed(IdentityMessages.ValidationFailed, errors, HttpStatusCode.BadRequest);
+                ApplicationLog.Blocked(logger, "SendOtp", "validation failed");
+                return result.Failed(IdentityMessages.ValidationFailed, validation.Errors.Select(e => e.ErrorMessage).ToList(), HttpStatusCode.BadRequest);
             }
 
-            var user = await _unitOfWork.Users.GetAsync(u => u.PhoneNumber == dto.PhoneNumber, disableTracking: false);
+            var user = await unitOfWork.Users.GetAsync(u => u.PhoneNumber == dto.PhoneNumber, disableTracking: false);
             if (user is null)
             {
-                _logger.LogWarning("OTP request for non-existent user", new Dictionary<string, object>
-                {
-                    { "PhoneNumber", dto.PhoneNumber }
-                });
+                ApplicationLog.Blocked(logger, "SendOtp", "no user registered for this phone number");
                 return result.Failed(IdentityMessages.UserNotFoundByPhone, HttpStatusCode.NotFound);
             }
 
-            var decision = await _otpCacheService.CanRequestOtpAsync(dto.PhoneNumber, CancellationToken.None);
+            var decision = await otpCacheService.CanRequestOtpAsync(dto.PhoneNumber, CancellationToken.None);
             if (!decision.Allowed)
             {
-                _logger.LogWarning("OTP request rate limited", new Dictionary<string, object>
-                {
-                    { "PhoneNumber", dto.PhoneNumber }
-                });
+                ApplicationLog.Blocked(logger, "SendOtp", "rate limit exceeded", user.Id.ToString());
                 return result.Failed(IdentityMessages.OtpRateLimited, HttpStatusCode.BadRequest);
             }
 
-            var otpCode = _otpOptions.Value.DevBypassEnabled && !string.IsNullOrWhiteSpace(_otpOptions.Value.DevCode)
-                ? _otpOptions.Value.DevCode
+            var otpCode = otpOptions.Value.DevBypassEnabled && !string.IsNullOrWhiteSpace(otpOptions.Value.DevCode)
+                ? otpOptions.Value.DevCode
                 : RandomNumberGenerator.GetInt32(100_000, 1_000_000).ToString();
-            var validTime = DateTime.UtcNow.AddMinutes(Math.Max(1, _otpOptions.Value.TtlMinutes));
+            var validTime = DateTime.UtcNow.AddMinutes(Math.Max(1, otpOptions.Value.TtlMinutes));
 
-            await _otpCacheService.StoreOtpAsync(dto.PhoneNumber, otpCode, CancellationToken.None);
-            await _notificationService.SendOtpNotificationAsync(dto.PhoneNumber, otpCode, validTime, CancellationToken.None);
+            await otpCacheService.StoreOtpAsync(dto.PhoneNumber, otpCode, CancellationToken.None);
+            await notificationService.SendOtpNotificationAsync(dto.PhoneNumber, otpCode, validTime, CancellationToken.None);
 
-            _logger.LogAuthEvent("SendOtp", dto.PhoneNumber, true);
+            await unitOfWork.Users.UpdateAsync(user);
+            await unitOfWork.SaveChangesAsync();
 
-            await _unitOfWork.Users.UpdateAsync(user);
-            await _unitOfWork.SaveChangesAsync();
+            ApplicationLog.Completed(logger,
+                "OTP sent to user {UserId} at phone {PhoneNumber}",
+                user.Id, dto.PhoneNumber);
 
             return result.Succeed(IdentityMessages.OtpSent);
         }
         catch (Exception ex)
         {
-            _logger.LogError("Failed to send OTP", ex, new Dictionary<string, object>
-            {
-                { "PhoneNumber", dto.PhoneNumber }
-            });
+            logger.LogError(ex, "SendOtp failed for phone {PhoneNumber}", dto.PhoneNumber);
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -143,67 +96,59 @@ public class UserService : IUserService
 
         try
         {
-            var validationResult = await _verifyOtpValidator.ValidateAsync(dto, CancellationToken.None);
+            ApplicationLog.Started(logger, "VerifyOtp");
+
+            var validationResult = await verifyOtpValidator.ValidateAsync(dto, CancellationToken.None);
             if (!validationResult.IsValid)
             {
-                var errors = validationResult.Errors.Select(error => error.ErrorMessage).ToList();
-                _logger.LogWarning("OTP verification validation failed", new Dictionary<string, object>
-                {
-                    { "PhoneNumber", dto.PhoneNumber },
-                    { "Errors", errors }
-                });
-                return result.Failed(IdentityMessages.ValidationFailed, errors, HttpStatusCode.BadRequest);
+                ApplicationLog.Blocked(logger, "VerifyOtp", "validation failed");
+                return result.Failed(IdentityMessages.ValidationFailed, validationResult.Errors.Select(error => error.ErrorMessage).ToList(), HttpStatusCode.BadRequest);
             }
 
-            var user = await _unitOfWork.Users.GetAsync(user => user.PhoneNumber == dto.PhoneNumber, disableTracking: false);
+            var user = await unitOfWork.Users.GetAsync(u => u.PhoneNumber == dto.PhoneNumber, disableTracking: false);
             if (user is null)
             {
-                _logger.LogWarning("OTP verification for non-existent user", new Dictionary<string, object>
-                {
-                    { "PhoneNumber", dto.PhoneNumber }
-                });
+                ApplicationLog.Blocked(logger, "VerifyOtp", "no user registered for this phone number");
                 return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
             }
 
-            var otpValidation = await _otpCacheService.ValidateOtpAsync(dto.PhoneNumber, dto.OtpCode, CancellationToken.None);
+            var otpValidation = await otpCacheService.ValidateOtpAsync(dto.PhoneNumber, dto.OtpCode, CancellationToken.None);
             if (!otpValidation.Success)
             {
-                _logger.LogAuthEvent("VerifyOtp", dto.PhoneNumber, false,
-                    otpValidation.Locked ? "Locked" : otpValidation.Expired ? "Expired" : "InvalidCode");
+                var reason = otpValidation.Locked ? "OTP locked" : otpValidation.Expired ? "OTP expired" : "invalid OTP code";
+                ApplicationLog.Blocked(logger, "VerifyOtp", reason, user.Id.ToString());
                 return BuildOtpFailure(result, otpValidation);
             }
 
             var sessionId = Guid.NewGuid();
-            var tokenData = _tokenHelper.GenerateToken(
+            var tokenData = tokenHelper.GenerateToken(
                 user.Id.ToString(),
                 user.PhoneNumber,
                 RoleClaimMapper.ToClaimRole(user.Role),
                 sessionId.ToString("N"));
 
-            await _sessionCacheService.StoreSessionAsync(CreateSessionDescriptor(user.Id, sessionId), CancellationToken.None);
+            await sessionCacheService.StoreSessionAsync(CreateSessionDescriptor(user.Id, sessionId), CancellationToken.None);
 
             user.IsPhoneVerified = true;
             user.LastLoginAt = DateTime.UtcNow;
 
-            var refreshToken = _refreshTokenService.CreateNew(
+            var refreshToken = refreshTokenService.CreateNew(
                 userId: user.Id,
                 sessionId: sessionId,
                 familyId: Guid.NewGuid(),
                 parentTokenId: null,
                 rawRefreshToken: tokenData.RefreshToken,
                 expiresAt: tokenData.RefreshTokenExpiration,
-                requestContext: _requestContext);
+                requestContext: requestContext);
 
-            await _unitOfWork.RefreshTokens.AddAsync(refreshToken);
-            await _unitOfWork.UserSessions.AddAsync(CreateUserSession(user.Id, sessionId, refreshToken.Id));
-            await _unitOfWork.Users.UpdateAsync(user);
-            await _unitOfWork.SaveChangesAsync();
+            await unitOfWork.RefreshTokens.AddAsync(refreshToken);
+            await unitOfWork.UserSessions.AddAsync(CreateUserSession(user.Id, sessionId, refreshToken.Id));
+            await unitOfWork.Users.UpdateAsync(user);
+            await unitOfWork.SaveChangesAsync();
 
-            _logger.LogAuthEvent("VerifyOtp", dto.PhoneNumber, true, additionalProperties: new Dictionary<string, object>
-            {
-                { "UserId", user.Id },
-                { "SessionId", sessionId }
-            });
+            ApplicationLog.Completed(logger,
+                "User {UserId} logged in via OTP — session {SessionId}, role {Role}",
+                user.Id, sessionId, user.Role);
 
             var response = new LoginDto
             {
@@ -215,10 +160,7 @@ public class UserService : IUserService
         }
         catch (Exception ex)
         {
-            _logger.LogError("Failed to verify OTP", ex, new Dictionary<string, object>
-            {
-                { "PhoneNumber", dto.PhoneNumber }
-            });
+            logger.LogError(ex, "VerifyOtp failed for phone {PhoneNumber}", dto.PhoneNumber);
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -229,33 +171,39 @@ public class UserService : IUserService
 
         try
         {
-            if (string.IsNullOrWhiteSpace(accessToken))
-                return result.Failed(IdentityMessages.InvalidAccessToken, HttpStatusCode.BadRequest);
-            if (dto is null || string.IsNullOrWhiteSpace(dto.RefreshToken))
-                return result.Failed(IdentityMessages.RefreshTokenRequired, HttpStatusCode.BadRequest);
+            ApplicationLog.Started(logger, "RefreshToken");
 
-            var payload = _tokenHelper.ValidateAccessToken(accessToken);
-            if (payload.UserId == Guid.Empty)
+            if (string.IsNullOrWhiteSpace(accessToken))
             {
-                _logger.LogWarning("Invalid access token presented for refresh");
+                ApplicationLog.Blocked(logger, "RefreshToken", "access token is missing");
                 return result.Failed(IdentityMessages.InvalidAccessToken, HttpStatusCode.BadRequest);
             }
 
-            var user = await _unitOfWork.Users.GetAsync(u => u.Id == payload.UserId, disableTracking: false);
+            if (dto is null || string.IsNullOrWhiteSpace(dto.RefreshToken))
+            {
+                ApplicationLog.Blocked(logger, "RefreshToken", "refresh token is missing");
+                return result.Failed(IdentityMessages.RefreshTokenRequired, HttpStatusCode.BadRequest);
+            }
+
+            var payload = tokenHelper.ValidateAccessToken(accessToken);
+            if (payload.UserId == Guid.Empty)
+            {
+                ApplicationLog.Blocked(logger, "RefreshToken", "access token is invalid");
+                return result.Failed(IdentityMessages.InvalidAccessToken, HttpStatusCode.BadRequest);
+            }
+
+            var user = await unitOfWork.Users.GetAsync(u => u.Id == payload.UserId, disableTracking: false);
             if (user is null)
             {
-                _logger.LogWarning("Refresh token requested for non-existent user", new Dictionary<string, object>
-                {
-                    { "UserId", payload.UserId }
-                });
+                ApplicationLog.Blocked(logger, "RefreshToken", "user not found", payload.UserId.ToString());
                 return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
             }
 
-            var presentedHash = _refreshTokenService.Hash(dto.RefreshToken);
-            var stored = await _unitOfWork.RefreshTokens.GetByTokenHashAsync(presentedHash, disableTracking: false);
+            var presentedHash = refreshTokenService.Hash(dto.RefreshToken);
+            var stored = await unitOfWork.RefreshTokens.GetByTokenHashAsync(presentedHash, disableTracking: false);
             if (stored is null || stored.UserId != user.Id)
             {
-                _logger.LogAuthEvent("RefreshToken", user.PhoneNumber, false, "InvalidRefreshToken");
+                ApplicationLog.Blocked(logger, "RefreshToken", "refresh token is invalid", user.Id.ToString());
                 return result.Failed(IdentityMessages.InvalidRefreshToken, HttpStatusCode.BadRequest);
             }
 
@@ -264,28 +212,16 @@ public class UserService : IUserService
             {
                 await InvalidateFamilyAsync(user.Id, stored.FamilyId, "reuse_detected", CancellationToken.None);
 
-                _logger.LogCritical("Token reuse detected! Revoking token family.", null, new Dictionary<string, object>
-                {
-                    { "UserId", user.Id },
-                    { "FamilyId", stored.FamilyId },
-                    { "SessionId", stored.SessionId }
-                });
-
-                await _auditEventLogger.LogAsync(
-                    new AuditEvent(
-                        EventName: "TokenReuseDetected",
-                        UserId: user.Id,
-                        SessionId: stored.SessionId,
-                        Success: false,
-                        Reason: "reuse_detected"),
-                    CancellationToken.None);
+                logger.LogCritical(
+                    "Security audit: refresh token reuse detected for user {UserId} — family {FamilyId}, session {SessionId} revoked",
+                    user.Id, stored.FamilyId, stored.SessionId);
 
                 return result.Failed(IdentityMessages.InvalidRefreshToken, HttpStatusCode.BadRequest);
             }
 
             if (stored.ExpiresAt <= now)
             {
-                _logger.LogAuthEvent("RefreshToken", user.PhoneNumber, false, "Expired");
+                ApplicationLog.Blocked(logger, "RefreshToken", "refresh token expired", user.Id.ToString());
                 return result.Failed(IdentityMessages.RefreshTokenExpired, HttpStatusCode.BadRequest);
             }
 
@@ -294,48 +230,46 @@ public class UserService : IUserService
             if (stored.FamilyId == Guid.Empty)
             {
                 stored.FamilyId = Guid.NewGuid();
-                await _unitOfWork.RefreshTokens.UpdateAsync(stored);
+                await unitOfWork.RefreshTokens.UpdateAsync(stored);
             }
 
-            var tokenData = _tokenHelper.GenerateToken(
+            var tokenData = tokenHelper.GenerateToken(
                 user.Id.ToString(),
                 user.PhoneNumber,
                 RoleClaimMapper.ToClaimRole(user.Role),
                 sessionId.ToString("N"));
 
-            var newRefresh = _refreshTokenService.CreateNew(
+            var newRefresh = refreshTokenService.CreateNew(
                 userId: user.Id,
                 sessionId: sessionId,
                 familyId: stored.FamilyId,
                 parentTokenId: stored.Id,
                 rawRefreshToken: tokenData.RefreshToken,
                 expiresAt: tokenData.RefreshTokenExpiration,
-                requestContext: _requestContext);
+                requestContext: requestContext);
 
-            _refreshTokenService.Revoke(stored, replacedByTokenId: newRefresh.Id, reason: "rotated", revokedByIp: _requestContext.IpAddress);
+            refreshTokenService.Revoke(stored, replacedByTokenId: newRefresh.Id, reason: "rotated", revokedByIp: requestContext.IpAddress);
 
             user.LastLoginAt = DateTime.UtcNow;
 
-            await _unitOfWork.RefreshTokens.AddAsync(newRefresh);
-            await _unitOfWork.RefreshTokens.UpdateAsync(stored);
-            await _unitOfWork.Users.UpdateAsync(user);
+            await unitOfWork.RefreshTokens.AddAsync(newRefresh);
+            await unitOfWork.RefreshTokens.UpdateAsync(stored);
+            await unitOfWork.Users.UpdateAsync(user);
 
-            var dbSession = await _unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
+            var dbSession = await unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
             if (dbSession is not null && dbSession.RevokedAt is null)
             {
                 dbSession.CurrentRefreshTokenId = newRefresh.Id;
                 dbSession.LastActivityAt = DateTime.UtcNow;
-                await _unitOfWork.UserSessions.UpdateAsync(dbSession);
+                await unitOfWork.UserSessions.UpdateAsync(dbSession);
             }
 
-            await _unitOfWork.SaveChangesAsync();
-            await _sessionCacheService.UpdateLastActivityAsync(sessionId, CancellationToken.None);
+            await unitOfWork.SaveChangesAsync();
+            await sessionCacheService.UpdateLastActivityAsync(sessionId, CancellationToken.None);
 
-            _logger.LogAuthEvent("RefreshToken", user.PhoneNumber, true, additionalProperties: new Dictionary<string, object>
-            {
-                { "UserId", user.Id },
-                { "SessionId", sessionId }
-            });
+            ApplicationLog.Completed(logger,
+                "User {UserId} refreshed access token for session {SessionId}",
+                user.Id, sessionId);
 
             var response = new LoginDto
             {
@@ -347,6 +281,7 @@ public class UserService : IUserService
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "RefreshToken failed");
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -356,33 +291,46 @@ public class UserService : IUserService
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var userId = _currentUser.UserId ?? Guid.Empty;
-            var sessionId = _currentUser.SessionId ?? Guid.Empty;
-            if (userId == Guid.Empty || sessionId == Guid.Empty)
-                return result.Failed(IdentityMessages.InvalidSessionIdentifiers, HttpStatusCode.BadRequest);
+            var userId = currentUser.UserId ?? Guid.Empty;
+            var sessionId = currentUser.SessionId ?? Guid.Empty;
 
-            var dbSession = await _unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
+            ApplicationLog.Started(logger, "Logout", userId == Guid.Empty ? null : userId.ToString());
+
+            if (userId == Guid.Empty || sessionId == Guid.Empty)
+            {
+                ApplicationLog.Blocked(logger, "Logout", "session identifiers are missing");
+                return result.Failed(IdentityMessages.InvalidSessionIdentifiers, HttpStatusCode.BadRequest);
+            }
+
+            var dbSession = await unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
             if (dbSession is not null && dbSession.UserId == userId && dbSession.RevokedAt is null)
             {
                 dbSession.RevokedAt = DateTime.UtcNow;
                 dbSession.LastActivityAt = DateTime.UtcNow;
-                await _unitOfWork.UserSessions.UpdateAsync(dbSession);
+                await unitOfWork.UserSessions.UpdateAsync(dbSession);
             }
 
-            var tokens = await _unitOfWork.RefreshTokens.GetAllAsync(t => t.UserId == userId && t.SessionId == sessionId && t.RevokedAt == null, disableTracking: false);
+            var tokens = await unitOfWork.RefreshTokens.GetAllAsync(
+                t => t.UserId == userId && t.SessionId == sessionId && t.RevokedAt == null,
+                disableTracking: false);
             foreach (var token in tokens)
             {
-                _refreshTokenService.Revoke(token, replacedByTokenId: null, reason: "logout", revokedByIp: _requestContext.IpAddress);
-                await _unitOfWork.RefreshTokens.UpdateAsync(token);
+                refreshTokenService.Revoke(token, replacedByTokenId: null, reason: "logout", revokedByIp: requestContext.IpAddress);
+                await unitOfWork.RefreshTokens.UpdateAsync(token);
             }
 
-            await _unitOfWork.SaveChangesAsync();
-            await _sessionCacheService.RevokeSessionAsync(sessionId, CancellationToken.None);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await sessionCacheService.RevokeSessionAsync(sessionId, cancellationToken);
+
+            ApplicationLog.Completed(logger,
+                "User {UserId} logged out from session {SessionId}",
+                userId, sessionId);
 
             return result.Succeed(IdentityMessages.LogoutSucceeded);
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Logout failed");
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -392,36 +340,57 @@ public class UserService : IUserService
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var userId = _currentUser.UserId ?? Guid.Empty;
+            var userId = currentUser.UserId ?? Guid.Empty;
             var sessionId = dto.SessionId;
-            if (userId == Guid.Empty)
-                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
 
-            var dbSession = await _unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
+            ApplicationLog.Started(logger, "RevokeSession", userId == Guid.Empty ? null : userId.ToString());
+
+            if (userId == Guid.Empty)
+            {
+                ApplicationLog.Blocked(logger, "RevokeSession", "user is not authenticated");
+                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+            }
+
+            var dbSession = await unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
             if (dbSession is null || dbSession.RevokedAt is not null)
+            {
+                ApplicationLog.Completed(logger,
+                    "User {UserId} revoked session {SessionId} — already inactive",
+                    userId, sessionId);
                 return result.Succeed(IdentityMessages.OperationSucceeded);
+            }
 
             if (dbSession.UserId != userId)
+            {
+                ApplicationLog.Blocked(logger, "RevokeSession", "session belongs to another user", userId.ToString());
                 return result.Failed(IdentityMessages.SessionAccessDenied, HttpStatusCode.Forbidden);
+            }
 
             dbSession.RevokedAt = DateTime.UtcNow;
             dbSession.LastActivityAt = DateTime.UtcNow;
-            await _unitOfWork.UserSessions.UpdateAsync(dbSession);
+            await unitOfWork.UserSessions.UpdateAsync(dbSession);
 
-            var tokens = await _unitOfWork.RefreshTokens.GetAllAsync(t => t.UserId == dbSession.UserId && t.SessionId == dbSession.SessionId && t.RevokedAt == null, disableTracking: false);
+            var tokens = await unitOfWork.RefreshTokens.GetAllAsync(
+                t => t.UserId == dbSession.UserId && t.SessionId == dbSession.SessionId && t.RevokedAt == null,
+                disableTracking: false);
             foreach (var token in tokens)
             {
-                _refreshTokenService.Revoke(token, replacedByTokenId: null, reason: "session_revoked", revokedByIp: _requestContext.IpAddress);
-                await _unitOfWork.RefreshTokens.UpdateAsync(token);
+                refreshTokenService.Revoke(token, replacedByTokenId: null, reason: "session_revoked", revokedByIp: requestContext.IpAddress);
+                await unitOfWork.RefreshTokens.UpdateAsync(token);
             }
 
-            await _unitOfWork.SaveChangesAsync();
-            await _sessionCacheService.RevokeSessionAsync(dbSession.SessionId, CancellationToken.None);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await sessionCacheService.RevokeSessionAsync(dbSession.SessionId, cancellationToken);
+
+            ApplicationLog.Completed(logger,
+                "User {UserId} revoked session {SessionId}",
+                userId, sessionId);
 
             return result.Succeed(IdentityMessages.OperationSucceeded);
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "RevokeSession failed for session {SessionId}", dto.SessionId);
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -431,32 +400,43 @@ public class UserService : IUserService
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var userId = _currentUser.UserId ?? Guid.Empty;
-            if (userId == Guid.Empty)
-                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+            var userId = currentUser.UserId ?? Guid.Empty;
 
-            var sessions = await _unitOfWork.UserSessions.GetAllAsync(s => s.UserId == userId && s.RevokedAt == null, disableTracking: false);
+            ApplicationLog.Started(logger, "RevokeAllSessions", userId == Guid.Empty ? null : userId.ToString());
+
+            if (userId == Guid.Empty)
+            {
+                ApplicationLog.Blocked(logger, "RevokeAllSessions", "user is not authenticated");
+                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+            }
+
+            var sessions = await unitOfWork.UserSessions.GetAllAsync(s => s.UserId == userId && s.RevokedAt == null, disableTracking: false);
             foreach (var session in sessions)
             {
                 session.RevokedAt = DateTime.UtcNow;
                 session.LastActivityAt = DateTime.UtcNow;
-                await _unitOfWork.UserSessions.UpdateAsync(session);
+                await unitOfWork.UserSessions.UpdateAsync(session);
             }
 
-            var tokens = await _unitOfWork.RefreshTokens.GetAllAsync(t => t.UserId == userId && t.RevokedAt == null, disableTracking: false);
+            var tokens = await unitOfWork.RefreshTokens.GetAllAsync(t => t.UserId == userId && t.RevokedAt == null, disableTracking: false);
             foreach (var token in tokens)
             {
-                _refreshTokenService.Revoke(token, replacedByTokenId: null, reason: "revoke_all_sessions", revokedByIp: _requestContext.IpAddress);
-                await _unitOfWork.RefreshTokens.UpdateAsync(token);
+                refreshTokenService.Revoke(token, replacedByTokenId: null, reason: "revoke_all_sessions", revokedByIp: requestContext.IpAddress);
+                await unitOfWork.RefreshTokens.UpdateAsync(token);
             }
 
-            await _unitOfWork.SaveChangesAsync();
-            await _sessionCacheService.RevokeAllSessionsAsync(userId, CancellationToken.None);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await sessionCacheService.RevokeAllSessionsAsync(userId, cancellationToken);
+
+            ApplicationLog.Completed(logger,
+                "User {UserId} revoked all active sessions ({SessionCount} session(s))",
+                userId, sessions.Count);
 
             return result.Succeed(IdentityMessages.OperationSucceeded);
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "RevokeAllSessions failed");
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -466,11 +446,17 @@ public class UserService : IUserService
         var result = new ApiOperationResult<SessionDto>();
         try
         {
-            var userId = _currentUser.UserId ?? Guid.Empty;
-            if (userId == Guid.Empty)
-                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+            var userId = currentUser.UserId ?? Guid.Empty;
 
-            var sessions = await _unitOfWork.UserSessions.GetActiveByUserAsync(userId);
+            ApplicationLog.Started(logger, "GetActiveSessions", userId == Guid.Empty ? null : userId.ToString());
+
+            if (userId == Guid.Empty)
+            {
+                ApplicationLog.Blocked(logger, "GetActiveSessions", "user is not authenticated");
+                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+            }
+
+            var sessions = await unitOfWork.UserSessions.GetActiveByUserAsync(userId);
             var list = sessions.Select(s =>
             {
                 var dto = s.Adapt<SessionDto>();
@@ -478,10 +464,15 @@ public class UserService : IUserService
                 return dto;
             }).ToList();
 
+            ApplicationLog.Completed(logger,
+                "User {UserId} loaded {Count} active session(s)",
+                userId, list.Count);
+
             return result.Succeed(IdentityMessages.OperationSucceeded, list, list.Count);
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "GetActiveSessions failed");
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -491,42 +482,58 @@ public class UserService : IUserService
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var validation = await _createUserValidator.ValidateAsync(dto, CancellationToken.None);
+            ApplicationLog.Started(logger, "CreateUser");
+
+            var validation = await createUserValidator.ValidateAsync(dto, CancellationToken.None);
             if (!validation.IsValid)
             {
-                var errors = validation.Errors.Select(error => error.ErrorMessage).ToList();
-                return result.Failed(IdentityMessages.ValidationFailed, errors, HttpStatusCode.BadRequest);
+                ApplicationLog.Blocked(logger, "CreateUser", "validation failed");
+                return result.Failed(IdentityMessages.ValidationFailed, validation.Errors.Select(error => error.ErrorMessage).ToList(), HttpStatusCode.BadRequest);
             }
 
-            var existPhone = await _unitOfWork.Users.GetAsync(user => user.PhoneNumber == dto.PhoneNumber);
+            var existPhone = await unitOfWork.Users.GetAsync(user => user.PhoneNumber == dto.PhoneNumber);
             if (existPhone is not null)
+            {
+                ApplicationLog.Blocked(logger, "CreateUser", "phone number already registered");
                 return result.Failed(IdentityMessages.PhoneAlreadyRegistered, HttpStatusCode.Conflict);
+            }
 
-            var existEmail = await _unitOfWork.Users.GetAsync(user => user.Email == dto.Email);
+            var existEmail = await unitOfWork.Users.GetAsync(user => user.Email == dto.Email);
             if (existEmail is not null)
+            {
+                ApplicationLog.Blocked(logger, "CreateUser", "email already registered");
                 return result.Failed(IdentityMessages.EmailAlreadyRegistered, HttpStatusCode.Conflict);
+            }
 
             var existNationalCode = string.IsNullOrWhiteSpace(dto.NationalCode)
                 ? null
-                : await _unitOfWork.Users.GetAsync(user => user.NationalCode == dto.NationalCode);
+                : await unitOfWork.Users.GetAsync(user => user.NationalCode == dto.NationalCode);
             if (existNationalCode is not null)
+            {
+                ApplicationLog.Blocked(logger, "CreateUser", "national code already registered");
                 return result.Failed(IdentityMessages.NationalCodeAlreadyRegistered, HttpStatusCode.Conflict);
+            }
 
             var user = dto.Adapt<User>();
             user.CreatedAt = DateTime.UtcNow;
-            user.Role = _otpOptions.Value.DevBypassEnabled
-                && !string.IsNullOrWhiteSpace(_otpOptions.Value.SeedAdminPhone)
-                && string.Equals(dto.PhoneNumber, _otpOptions.Value.SeedAdminPhone, StringComparison.Ordinal)
+            user.Role = otpOptions.Value.DevBypassEnabled
+                && !string.IsNullOrWhiteSpace(otpOptions.Value.SeedAdminPhone)
+                && string.Equals(dto.PhoneNumber, otpOptions.Value.SeedAdminPhone, StringComparison.Ordinal)
                 ? UserRole.Admin
                 : UserRole.User;
 
-            await _unitOfWork.Users.AddAsync(user);
-            await _unitOfWork.SaveChangesAsync();
+            await unitOfWork.Users.AddAsync(user);
+            await unitOfWork.SaveChangesAsync();
+
+            ApplicationLog.Completed(logger,
+                "New user {UserId} registered with role {Role} and phone {PhoneNumber}",
+                user.Id, user.Role, user.PhoneNumber);
 
             return result.Succeed(IdentityMessages.UserCreated, user.Adapt<UserDto>());
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "CreateUser failed");
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -536,44 +543,69 @@ public class UserService : IUserService
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var requesterId = _currentUser.UserId ?? Guid.Empty;
+            var requesterId = currentUser.UserId ?? Guid.Empty;
             if (requesterId == Guid.Empty)
-                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
-
-            var validation = await _updateUserValidator.ValidateAsync(dto, cancellationToken);
-            if (!validation.IsValid)
             {
-                var errors = validation.Errors.Select(e => e.ErrorMessage).ToList();
-                return result.Failed(IdentityMessages.ValidationFailed, errors, HttpStatusCode.BadRequest);
+                ApplicationLog.Blocked(logger, "UpdateUser", "user is not authenticated");
+                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
             }
 
-            var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted, false);
-            if (user == null) return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
+            ApplicationLog.Started(logger, "UpdateUser", requesterId.ToString());
 
-            var requester = await _unitOfWork.Users.GetAsync(u => u.Id == requesterId && !u.IsDeleted, false);
-            if (dto.Role.HasValue && user.Role != dto.Role.Value && requester != null && requester.Role != UserRole.Admin)
+            var validation = await updateUserValidator.ValidateAsync(dto, cancellationToken);
+            if (!validation.IsValid)
             {
+                ApplicationLog.Blocked(logger, "UpdateUser", "validation failed", requesterId.ToString());
+                return result.Failed(IdentityMessages.ValidationFailed, validation.Errors.Select(e => e.ErrorMessage).ToList(), HttpStatusCode.BadRequest);
+            }
+
+            var user = await unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted, false);
+            if (user is null)
+            {
+                ApplicationLog.Blocked(logger, "UpdateUser", "target user not found", requesterId.ToString());
+                return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
+            }
+
+            var requester = await unitOfWork.Users.GetAsync(u => u.Id == requesterId && !u.IsDeleted, false);
+            if (dto.Role.HasValue && user.Role != dto.Role.Value && requester is not null && requester.Role != UserRole.Admin)
+            {
+                ApplicationLog.Blocked(logger, "UpdateUser", "only admin may change role", requesterId.ToString());
                 return result.Failed(IdentityMessages.OnlyAdminCanChangeRole, HttpStatusCode.BadRequest);
             }
 
             if (!string.IsNullOrWhiteSpace(dto.PhoneNumber) && dto.PhoneNumber != user.PhoneNumber)
             {
-                var phoneExists = await _unitOfWork.Users.GetAsync(u => u.PhoneNumber == dto.PhoneNumber && u.Id != id);
-                if (phoneExists != null) return result.Failed(IdentityMessages.PhoneAlreadyRegistered, HttpStatusCode.Conflict);
+                var phoneExists = await unitOfWork.Users.GetAsync(u => u.PhoneNumber == dto.PhoneNumber && u.Id != id);
+                if (phoneExists is not null)
+                {
+                    ApplicationLog.Blocked(logger, "UpdateUser", "phone number already in use", requesterId.ToString());
+                    return result.Failed(IdentityMessages.PhoneAlreadyRegistered, HttpStatusCode.Conflict);
+                }
+
                 user.PhoneNumber = dto.PhoneNumber;
             }
 
             if (!string.IsNullOrWhiteSpace(dto.Email) && dto.Email != user.Email)
             {
-                var emailExists = await _unitOfWork.Users.GetAsync(u => u.Email == dto.Email && u.Id != id);
-                if (emailExists != null) return result.Failed(IdentityMessages.EmailAlreadyRegistered, HttpStatusCode.Conflict);
+                var emailExists = await unitOfWork.Users.GetAsync(u => u.Email == dto.Email && u.Id != id);
+                if (emailExists is not null)
+                {
+                    ApplicationLog.Blocked(logger, "UpdateUser", "email already in use", requesterId.ToString());
+                    return result.Failed(IdentityMessages.EmailAlreadyRegistered, HttpStatusCode.Conflict);
+                }
+
                 user.Email = dto.Email;
             }
 
             if (!string.IsNullOrWhiteSpace(dto.NationalCode) && dto.NationalCode != user.NationalCode)
             {
-                var nationalCodeExists = await _unitOfWork.Users.GetAsync(u => u.NationalCode == dto.NationalCode && u.Id != id);
-                if (nationalCodeExists != null) return result.Failed(IdentityMessages.NationalCodeAlreadyRegistered, HttpStatusCode.Conflict);
+                var nationalCodeExists = await unitOfWork.Users.GetAsync(u => u.NationalCode == dto.NationalCode && u.Id != id);
+                if (nationalCodeExists is not null)
+                {
+                    ApplicationLog.Blocked(logger, "UpdateUser", "national code already in use", requesterId.ToString());
+                    return result.Failed(IdentityMessages.NationalCodeAlreadyRegistered, HttpStatusCode.Conflict);
+                }
+
                 user.NationalCode = dto.NationalCode;
             }
 
@@ -588,13 +620,18 @@ public class UserService : IUserService
             if (dto.IsPhoneVerified.HasValue) user.IsPhoneVerified = dto.IsPhoneVerified.Value;
             if (dto.LastLoginAt.HasValue) user.LastLoginAt = dto.LastLoginAt;
 
-            await _unitOfWork.Users.UpdateAsync(user);
-            await _unitOfWork.SaveChangesAsync();
+            await unitOfWork.Users.UpdateAsync(user);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            ApplicationLog.Completed(logger,
+                "User {RequesterId} updated profile of user {TargetUserId} (role {Role})",
+                requesterId, id, user.Role);
 
             return result.Succeed(IdentityMessages.UserUpdated, user.Adapt<UserDto>());
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "UpdateUser failed for user {UserId}", id);
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -604,12 +641,21 @@ public class UserService : IUserService
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted);
-            if (user == null) return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
+            ApplicationLog.Started(logger, "GetUserById");
+
+            var user = await unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted);
+            if (user is null)
+            {
+                ApplicationLog.Blocked(logger, "GetUserById", "user not found");
+                return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
+            }
+
+            ApplicationLog.Completed(logger, "Loaded user {UserId}", id);
             return result.Succeed(IdentityMessages.OperationSucceeded, user.Adapt<UserDto>());
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "GetUserById failed for user {UserId}", id);
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -619,12 +665,21 @@ public class UserService : IUserService
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var users = await _unitOfWork.Users.GetPagedListAsync(take, skip, u => !u.IsDeleted);
-            var total = await _unitOfWork.Users.CountAsync(u => !u.IsDeleted);
-            return result.Succeed(IdentityMessages.OperationSucceeded, users.Select(u => u.Adapt<UserDto>()).ToList(), total);
+            ApplicationLog.Started(logger, "GetUsersPaged");
+
+            var users = await unitOfWork.Users.GetPagedListAsync(take, skip, u => !u.IsDeleted);
+            var total = await unitOfWork.Users.CountAsync(u => !u.IsDeleted);
+            var list = users.Select(u => u.Adapt<UserDto>()).ToList();
+
+            ApplicationLog.Completed(logger,
+                "Listed users page skip={Skip}, take={Take} — {Count} of {Total}",
+                skip, take, list.Count, total);
+
+            return result.Succeed(IdentityMessages.OperationSucceeded, list, total);
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "GetUsersPaged failed");
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -634,16 +689,24 @@ public class UserService : IUserService
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var user = await _unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted, false);
-            if (user == null) return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
+            ApplicationLog.Started(logger, "DeleteUser");
 
-            await _unitOfWork.Users.DeleteAsync(user);
-            await _unitOfWork.SaveChangesAsync();
+            var user = await unitOfWork.Users.GetAsync(u => u.Id == id && !u.IsDeleted, false);
+            if (user is null)
+            {
+                ApplicationLog.Blocked(logger, "DeleteUser", "user not found");
+                return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
+            }
 
+            await unitOfWork.Users.DeleteAsync(user);
+            await unitOfWork.SaveChangesAsync();
+
+            ApplicationLog.Completed(logger, "User {UserId} was soft-deleted", id);
             return result.Succeed(IdentityMessages.UserDeleted);
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "DeleteUser failed for user {UserId}", id);
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
@@ -653,20 +716,32 @@ public class UserService : IUserService
         var result = new ApiOperationResult<UserDto>();
         try
         {
-            var userId = _currentUser.UserId ?? Guid.Empty;
-            if (userId == Guid.Empty)
-                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+            var userId = currentUser.UserId ?? Guid.Empty;
 
-            var user = await _unitOfWork.Users.GetAsync(u => u.Id == userId && !u.IsDeleted, false);
+            ApplicationLog.Started(logger, "GetProfile", userId == Guid.Empty ? null : userId.ToString());
+
+            if (userId == Guid.Empty)
+            {
+                ApplicationLog.Blocked(logger, "GetProfile", "user is not authenticated");
+                return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+            }
+
+            var user = await unitOfWork.Users.GetAsync(u => u.Id == userId && !u.IsDeleted, false);
+
+            ApplicationLog.Completed(logger,
+                "User {UserId} loaded own profile",
+                userId);
+
             return result.Succeed(IdentityMessages.OperationSucceeded, user is null ? new UserDto() : user.Adapt<UserDto>());
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "GetProfile failed");
             return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
-    private ApiOperationResult<LoginDto> BuildOtpFailure(
+    private static ApiOperationResult<LoginDto> BuildOtpFailure(
         ApiOperationResult<LoginDto> result,
         OtpValidationResult otpValidation)
     {
@@ -685,10 +760,10 @@ public class UserService : IUserService
         return new SessionDescriptor(
             SessionId: sessionId,
             UserId: userId,
-            IpAddress: _requestContext.IpAddress,
-            UserAgent: _requestContext.UserAgent,
+            IpAddress: requestContext.IpAddress,
+            UserAgent: requestContext.UserAgent,
             CreatedAt: now,
-            ExpiresAt: now.AddDays(Math.Max(1, _sessionOptions.Value.AbsoluteExpirationDays)));
+            ExpiresAt: now.AddDays(Math.Max(1, sessionOptions.Value.AbsoluteExpirationDays)));
     }
 
     private UserSession CreateUserSession(Guid userId, Guid sessionId, Guid refreshTokenId)
@@ -699,9 +774,9 @@ public class UserService : IUserService
             SessionId = sessionId,
             UserId = userId,
             CurrentRefreshTokenId = refreshTokenId,
-            DeviceId = _requestContext.DeviceId,
-            UserAgent = _requestContext.UserAgent,
-            IpAddress = _requestContext.IpAddress,
+            DeviceId = requestContext.DeviceId,
+            UserAgent = requestContext.UserAgent,
+            IpAddress = requestContext.IpAddress,
             CreatedAt = now,
             LastActivityAt = now
         };
@@ -709,23 +784,23 @@ public class UserService : IUserService
 
     private async Task InvalidateFamilyAsync(Guid userId, Guid familyId, string reason, CancellationToken cancellationToken)
     {
-        var tokens = await _unitOfWork.RefreshTokens.GetAllAsync(t => t.UserId == userId && t.FamilyId == familyId, disableTracking: false);
+        var tokens = await unitOfWork.RefreshTokens.GetAllAsync(t => t.UserId == userId && t.FamilyId == familyId, disableTracking: false);
         foreach (var token in tokens)
         {
             if (token.RevokedAt is null)
             {
-                _refreshTokenService.Revoke(token, replacedByTokenId: null, reason: reason, revokedByIp: _requestContext.IpAddress);
-                await _unitOfWork.RefreshTokens.UpdateAsync(token);
+                refreshTokenService.Revoke(token, replacedByTokenId: null, reason: reason, revokedByIp: requestContext.IpAddress);
+                await unitOfWork.RefreshTokens.UpdateAsync(token);
             }
         }
 
-        await _sessionCacheService.RevokeAllSessionsAsync(userId, cancellationToken);
+        await sessionCacheService.RevokeAllSessionsAsync(userId, cancellationToken);
 
-        var sessions = await _unitOfWork.UserSessions.GetAllAsync(s => s.UserId == userId && s.RevokedAt == null, disableTracking: false);
+        var sessions = await unitOfWork.UserSessions.GetAllAsync(s => s.UserId == userId && s.RevokedAt == null, disableTracking: false);
         foreach (var session in sessions)
         {
             session.RevokedAt = DateTime.UtcNow;
-            await _unitOfWork.UserSessions.UpdateAsync(session);
+            await unitOfWork.UserSessions.UpdateAsync(session);
         }
     }
 }

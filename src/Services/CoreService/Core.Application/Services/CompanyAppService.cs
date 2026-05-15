@@ -1,9 +1,11 @@
 using Core.Application.Abstractions;
 using Core.Application.Common;
+using Core.Application.Logging;
 using Core.Application.Requests;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
 using MapsterMapper;
+using Microsoft.Extensions.Logging;
 using Services.CoreService.Core.Domain.Identity.Entities;
 
 namespace Core.Application.Services;
@@ -18,21 +20,38 @@ public interface ICompanyAppService
 public sealed class CompanyAppService(
     ICoreUnitOfWork unitOfWork,
     ICurrentUserAccessor currentUser,
-    IMapper mapper) : ICompanyAppService
+    IMapper mapper,
+    ILogger<CompanyAppService> logger) : ICompanyAppService
 {
     public async Task<Result<IReadOnlyList<CompanyDto>>> GetMyCompaniesAsync(CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var userId))
+        {
+            ApplicationLog.Blocked(logger, "GetMyCompanies", "user is not authenticated");
             return Result<IReadOnlyList<CompanyDto>>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
+        }
+
+        ApplicationLog.Started(logger, "GetMyCompanies", userId.ToString());
 
         var companies = await unitOfWork.Companies.GetOwnedByUserAsync(userId, cancellationToken);
-        return Result<IReadOnlyList<CompanyDto>>.Ok(companies.Select(c => mapper.Map<CompanyDto>(c)).ToArray());
+        var list = companies.Select(c => mapper.Map<CompanyDto>(c)).ToArray();
+
+        ApplicationLog.Completed(logger,
+            "User {UserId} loaded {Count} owned company(ies)",
+            userId, list.Length);
+
+        return Result<IReadOnlyList<CompanyDto>>.Ok(list);
     }
 
     public async Task<Result<CompanyDto>> CreateAsync(SaveCompanyRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var userId))
+        {
+            ApplicationLog.Blocked(logger, "CreateCompany", "user is not authenticated");
             return Result<CompanyDto>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
+        }
+
+        ApplicationLog.Started(logger, "CreateCompany", userId.ToString());
 
         var company = new Company
         {
@@ -58,20 +77,36 @@ public sealed class CompanyAppService(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        ApplicationLog.Completed(logger,
+            "User {UserId} created company {CompanyId} ({CompanyName})",
+            userId, company.Id, company.Name);
+
         return Result<CompanyDto>.Ok(mapper.Map<CompanyDto>(company));
     }
 
     public async Task<Result<CompanyDto>> UpdateAsync(Guid companyId, SaveCompanyRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var userId))
+        {
+            ApplicationLog.Blocked(logger, "UpdateCompany", "user is not authenticated");
             return Result<CompanyDto>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
+        }
+
+        ApplicationLog.Started(logger, "UpdateCompany", userId.ToString());
 
         var company = await unitOfWork.Companies.GetByIdAsync(companyId, asNoTracking: false, cancellationToken);
         if (company is null)
+        {
+            ApplicationLog.Blocked(logger, "UpdateCompany", "company not found", userId.ToString());
             return Result<CompanyDto>.Fail(Error.NotFound(ApiMessages.CompanyNotFound));
+        }
 
         if (company.OwnerUserId != userId)
+        {
+            ApplicationLog.Blocked(logger, "UpdateCompany", "user is not the owner", userId.ToString());
             return Result<CompanyDto>.Fail(Error.Forbidden(ApiMessages.CompanyAccessDenied));
+        }
 
         company.Name = request.Name.Trim();
         company.EconomicCode = request.EconomicCode.Trim();
@@ -85,6 +120,11 @@ public sealed class CompanyAppService(
 
         unitOfWork.Companies.Update(company);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        ApplicationLog.Completed(logger,
+            "User {UserId} updated company {CompanyId} ({CompanyName})",
+            userId, companyId, company.Name);
+
         return Result<CompanyDto>.Ok(mapper.Map<CompanyDto>(company));
     }
 

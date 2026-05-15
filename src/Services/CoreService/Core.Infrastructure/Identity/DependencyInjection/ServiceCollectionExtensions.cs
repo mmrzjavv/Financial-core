@@ -15,10 +15,6 @@ using Core.Application.Identity.Validators;
 using Core.Infrastructure.Identity.Http;
 using Core.Infrastructure.Identity.Identity;
 using Core.Infrastructure.Identity.Identity.TokenHandler;
-using BuildingBlocks.Observability.Logging;
-using Core.Infrastructure.Identity.Logging;
-using Core.Infrastructure.Identity.Logging.DependencyInjection;
-using Serilog;
 using Core.Infrastructure.Identity.Services;
 using Core.Infrastructure.Identity.Services.Authorization;
 using Core.Infrastructure.Identity.Services.Otp;
@@ -36,13 +32,6 @@ public static class IdentityServiceCollectionExtensions
 {
     public static IServiceCollection AddIdentityApplication(this WebApplicationBuilder builder)
     {
-        builder.Services.AddStructuredLogging(
-            Log.Logger,
-            builder.Environment.EnvironmentName,
-            SerilogHostExtensions.DefaultApplicationName);
-
-        builder.Services.AddScoped<ILoggingService, LoggingService>();
-        builder.Services.AddScoped<IAuditEventLogger, SerilogAuditEventLogger>();
         builder.Services.AddFluentValidationAutoValidation();
         builder.Services.AddFluentValidationClientsideAdapters();
         builder.Services.AddMemoryCache();
