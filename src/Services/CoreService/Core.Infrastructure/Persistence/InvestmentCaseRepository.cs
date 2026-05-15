@@ -10,6 +10,7 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
 {
     public Task<InvestmentCase?> GetAsync(Guid id, CancellationToken cancellationToken)
         => dbContext.InvestmentCases
+            .Include(x => x.ApplicantCompany)
             .Include(x => x.DataEntry1)
             .Include(x => x.DataEntry2)
             .Include(x => x.FinancialWorksheet)
@@ -25,6 +26,7 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
     public Task<InvestmentCase?> GetScopedAsync(Guid id, string userId, bool isInternalUser, CancellationToken cancellationToken)
     {
         var query = dbContext.InvestmentCases
+            .Include(x => x.ApplicantCompany)
             .Include(x => x.DataEntry1)
             .Include(x => x.DataEntry2)
             .Include(x => x.FinancialWorksheet)
@@ -63,7 +65,10 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var query = dbContext.InvestmentCases.AsNoTracking().AsQueryable();
+        var query = dbContext.InvestmentCases
+            .AsNoTracking()
+            .Include(x => x.ApplicantCompany)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(caseNumber))
             query = query.Where(x => x.CaseNumber.Contains(caseNumber));
@@ -103,7 +108,10 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
         bool isInternalUser,
         CancellationToken cancellationToken)
     {
-        var query = dbContext.InvestmentCases.AsNoTracking().AsQueryable();
+        var query = dbContext.InvestmentCases
+            .AsNoTracking()
+            .Include(x => x.ApplicantCompany)
+            .AsQueryable();
 
         if (!isInternalUser)
             query = query.Where(x => x.ApplicantUserId == userId);

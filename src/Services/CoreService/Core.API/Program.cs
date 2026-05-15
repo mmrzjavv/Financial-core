@@ -201,11 +201,13 @@ app.UseExceptionHandler(errorApp =>
         var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
         var ex = exceptionFeature?.Error;
 
-        if (ex is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        if (ex is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
+            or Microsoft.EntityFrameworkCore.DbUpdateException { InnerException: Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException })
         {
             var envelope = new ApiOperationResult<object?>().Failed(
                 ApiMessages.ConcurrencyConflict,
-                HttpStatusCode.Conflict);
+                HttpStatusCode.Conflict,
+                exMessage: app.Environment.IsDevelopment() ? ex.ToString() : null);
 
             context.Response.StatusCode = (int)envelope.Status;
             context.Response.ContentType = "application/json";

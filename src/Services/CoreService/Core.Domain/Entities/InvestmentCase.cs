@@ -3,6 +3,7 @@ using BuildingBlocks.Domain.Entities;
 using Services.CoreService.Core.Domain.Common;
 using Services.CoreService.Core.Domain.Enums;
 using Services.CoreService.Core.Domain.Events;
+using Services.CoreService.Core.Domain.Identity.Entities;
 
 namespace Services.CoreService.Core.Domain.Entities;
 
@@ -14,14 +15,12 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
         ApplicantUserId = default!;
     }
 
-    public InvestmentCase(string caseNumber, string applicantUserId, ApplicantType applicantType, CompanyProfile? company = null)
+    public InvestmentCase(string caseNumber, string applicantUserId, ApplicantType applicantType)
     {
         Id = Guid.NewGuid();
         CaseNumber = caseNumber;
         ApplicantUserId = applicantUserId;
         ApplicantType = applicantType;
-
-        Company = applicantType == ApplicantType.Company ? company : null;
 
         CurrentPhase = CasePhase.Application;
         CurrentStatus = CaseStatus.Draft;
@@ -31,7 +30,8 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
     public string CaseNumber { get; private set; }
     public string ApplicantUserId { get; private set; }
     public ApplicantType ApplicantType { get; private set; }
-    public CompanyProfile? Company { get; private set; }
+    public Guid? CompanyId { get; private set; }
+    public Company? ApplicantCompany { get; private set; }
 
     public CasePhase CurrentPhase { get; private set; }
     public CaseStatus CurrentStatus { get; private set; }
@@ -43,8 +43,6 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
 
     public bool IsDeleted { get; private set; }
     public DateTimeOffset? DeletedAt { get; private set; }
-
-    public uint RowVersion { get; private set; }
 
     public InvestmentCaseDataEntry1? DataEntry1 { get; private set; }
     public InvestmentCaseDataEntry2? DataEntry2 { get; private set; }
@@ -110,73 +108,16 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
-    public void UpsertCompanyProfile(
-        string name,
-        string economicCode,
-        string? registrationNumber,
-        string? nationalId,
-        string? phoneNumber,
-        string? address,
-        string? city,
-        string? province,
-        string? postalCode)
+    public void AssignCompany(Guid companyId)
     {
         if (ApplicantType != ApplicantType.Company)
-            throw new InvalidOperationException(DomainMessages.CompanyProfileOnlyForCompanyApplicant);
+            throw new InvalidOperationException(DomainMessages.CompanyIdOnlyForCompanyApplicant);
 
-        Company = new CompanyProfile(
-            name,
-            economicCode,
-            registrationNumber,
-            nationalId,
-            phoneNumber,
-            address,
-            city,
-            province,
-            postalCode);
+        if (companyId == Guid.Empty)
+            throw new ArgumentException("Company id is required.", nameof(companyId));
 
+        CompanyId = companyId;
         UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    public sealed class CompanyProfile
-    {
-        private CompanyProfile()
-        {
-            Name = default!;
-            EconomicCode = default!;
-        }
-
-        public CompanyProfile(
-            string name,
-            string economicCode,
-            string? registrationNumber,
-            string? nationalId,
-            string? phoneNumber,
-            string? address,
-            string? city,
-            string? province,
-            string? postalCode)
-        {
-            Name = name;
-            EconomicCode = economicCode;
-            RegistrationNumber = registrationNumber;
-            NationalId = nationalId;
-            PhoneNumber = phoneNumber;
-            Address = address;
-            City = city;
-            Province = province;
-            PostalCode = postalCode;
-        }
-
-        public string Name { get; private set; }
-        public string EconomicCode { get; private set; }
-        public string? RegistrationNumber { get; private set; }
-        public string? NationalId { get; private set; }
-        public string? PhoneNumber { get; private set; }
-        public string? Address { get; private set; }
-        public string? City { get; private set; }
-        public string? Province { get; private set; }
-        public string? PostalCode { get; private set; }
     }
 
     public void Submit(string submittedByUserId, string? comment = null)

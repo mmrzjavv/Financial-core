@@ -1,3 +1,4 @@
+using Core.Application.Requests;
 using Services.CoreService.Core.Domain.Enums;
 
 
@@ -13,17 +14,6 @@ public abstract record InvestmentCaseDto(
     DateTimeOffset? UpdatedAt,
     DateTimeOffset? CompletedAt);
 
-public sealed record CompanyProfileDto(
-    string Name,
-    string EconomicCode,
-    string? RegistrationNumber,
-    string? NationalId,
-    string? PhoneNumber,
-    string? Address,
-    string? City,
-    string? Province,
-    string? PostalCode);
-
 public sealed record InvestmentCaseApplicantDto(
     Guid Id,
     string CaseNumber,
@@ -33,7 +23,7 @@ public sealed record InvestmentCaseApplicantDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
     DateTimeOffset? CompletedAt,
-    CompanyProfileDto? Company)
+    CompanyDto? Company)
     : InvestmentCaseDto(Id, CaseNumber, ApplicantType, CurrentPhase, CurrentStatus, CreatedAt, UpdatedAt, CompletedAt);
 
 public sealed record InvestmentCaseInternalDto(
@@ -47,6 +37,5 @@ public sealed record InvestmentCaseInternalDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
     DateTimeOffset? CompletedAt,
-    byte[] RowVersion,
-    CompanyProfileDto? Company)
+    CompanyDto? Company)
     : InvestmentCaseDto(Id, CaseNumber, ApplicantType, CurrentPhase, CurrentStatus, CreatedAt, UpdatedAt, CompletedAt);

@@ -245,6 +245,56 @@
     return btn;
   }
 
+  let uploadFieldCounter = 0;
+
+  function nextUploadFieldId(prefix) {
+    uploadFieldCounter += 1;
+    return (prefix || "upload") + "-" + uploadFieldCounter;
+  }
+
+  function appendFileUploadRow(parent, options) {
+    const row = el("div", "portal-upload-row");
+    const inputId = options.id || nextUploadFieldId(options.idPrefix || "file");
+
+    if (options.title || options.hint) {
+      const meta = el("div", "portal-upload-row__meta");
+      if (options.title) meta.appendChild(el("div", "portal-upload-row__title", options.title));
+      if (options.hint) meta.appendChild(el("div", "muted", options.hint));
+      row.appendChild(meta);
+    }
+
+    const control = el("div", "portal-upload-row__control");
+    const input = document.createElement("input");
+    input.type = "file";
+    input.id = inputId;
+    input.className = "portal-file-input";
+    input.accept = options.accept || ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
+
+    if (options.uploadType != null) input.dataset.uploadType = String(options.uploadType);
+    if (options.contractKind) input.dataset.contractKind = options.contractKind;
+    if (options.contractCommentField) input.dataset.contractCommentField = options.contractCommentField;
+    if (options.contractCommentPhase) input.dataset.contractCommentPhase = String(options.contractCommentPhase);
+    if (options.paymentReceipt) input.dataset.paymentReceipt = "true";
+
+    const picker = document.createElement("label");
+    picker.className = "portal-file-btn";
+    picker.htmlFor = inputId;
+    picker.textContent = options.buttonText || "انتخاب و بارگذاری فایل";
+
+    const status = el("span", "portal-upload-row__status muted");
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      status.textContent = file ? "فایل انتخاب‌شده: " + file.name : "";
+    });
+
+    control.appendChild(input);
+    control.appendChild(picker);
+    control.appendChild(status);
+    row.appendChild(control);
+    parent.appendChild(row);
+    return input;
+  }
+
   function renderStepper() {
     const root = qs("#portalStepper");
     if (!root) return;
@@ -343,19 +393,15 @@
   function renderUploads(card, prefix, title) {
     const wrap = el("div", "card portal-card portal-card--nested");
     wrap.appendChild(el("div", "card__title", title || "بارگذاری مدارک"));
+    wrap.appendChild(el("div", "muted", "پس از انتخاب فایل، بارگذاری به‌صورت خودکار انجام می‌شود."));
     model.APPLICANT_DOCUMENTS.forEach((doc) => {
-      const row = el("div", "portal-upload-row");
-      const meta = el("div", "portal-upload-row__meta");
-      meta.appendChild(el("div", "portal-upload-row__title", doc.label));
-      meta.appendChild(el("div", "muted", doc.hint));
-      const input = document.createElement("input");
-      input.type = "file";
-      input.dataset.uploadType = String(doc.type);
-      input.dataset.uploadPrefix = prefix;
-      input.accept = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
-      row.appendChild(meta);
-      row.appendChild(input);
-      wrap.appendChild(row);
+      appendFileUploadRow(wrap, {
+        id: prefix + "-doc-" + doc.type,
+        title: doc.label,
+        hint: doc.hint,
+        uploadType: doc.type,
+        idPrefix: prefix,
+      });
     });
     card.appendChild(wrap);
   }
@@ -511,16 +557,14 @@
       renderCommentsBlock(card, phase, "val", { allowInternal: true, title: "یادداشت‌های ارزش‌گذاری" });
     } else if (status === 8) {
       card.appendChild(field("توضیح همراه بارگذاری پیش‌قرارداد", "legalPreContractComment", "textarea"));
-      const row = el("div", "portal-upload-row");
-      row.appendChild(el("div", "portal-upload-row__title", "فایل پیش‌قرارداد"));
-      const input = document.createElement("input");
-      input.type = "file";
-      input.dataset.contractKind = "preliminary";
-      input.dataset.contractCommentField = "legalPreContractComment";
-      input.dataset.contractCommentPhase = "3";
-      input.accept = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
-      row.appendChild(input);
-      card.appendChild(row);
+      appendFileUploadRow(card, {
+        idPrefix: "legal-pre",
+        title: "فایل پیش‌قرارداد",
+        hint: "پس از انتخاب فایل، پیش‌قرارداد بارگذاری و پرونده به مرحله بعد می‌رود.",
+        contractKind: "preliminary",
+        contractCommentField: "legalPreContractComment",
+        contractCommentPhase: "3",
+      });
       renderCommentsBlock(card, phase, "legalPre", { allowInternal: true, title: "گفتگوی حقوقی" });
     } else if (status === 9) {
       card.appendChild(actionRow([
@@ -532,14 +576,12 @@
       renderCommentsBlock(card, phase, "legalUser", { allowInternal: false, title: "بازبینی متقاضی" });
     } else if (status === 10) {
       card.appendChild(field("توضیح تدوین قرارداد", "finalizeContractComment", "textarea"));
-      const row = el("div", "portal-upload-row");
-      row.appendChild(el("div", "portal-upload-row__title", "نسخه پیش‌نویس قرارداد (اختیاری)"));
-      const input = document.createElement("input");
-      input.type = "file";
-      input.dataset.uploadType = "8";
-      input.accept = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
-      row.appendChild(input);
-      card.appendChild(row);
+      appendFileUploadRow(card, {
+        idPrefix: "legal-draft",
+        title: "نسخه پیش‌نویس قرارداد (اختیاری)",
+        hint: "فایل پیش‌نویس را بارگذاری کنید؛ سپس «نهایی‌سازی پیش‌نویس» را بزنید.",
+        uploadType: 8,
+      });
       card.appendChild(actionRow([createButton("نهایی‌سازی پیش‌نویس", "btn--primary", "finalize-contract")]));
       renderCommentsBlock(card, phase, "legalDraft", { allowInternal: true, title: "گفتگوی تدوین قرارداد" });
     } else if (status === 11) {
@@ -548,16 +590,14 @@
       renderCommentsBlock(card, phase, "legalSign", { allowInternal: true, title: "گفتگوی امضا" });
     } else if (status === 12) {
       card.appendChild(field("توضیح بارگذاری قرارداد امضاشده", "signedContractComment", "textarea"));
-      const row = el("div", "portal-upload-row");
-      row.appendChild(el("div", "portal-upload-row__title", "قرارداد امضاشده"));
-      const input = document.createElement("input");
-      input.type = "file";
-      input.dataset.contractKind = "signed";
-      input.dataset.contractCommentField = "signedContractComment";
-      input.dataset.contractCommentPhase = "3";
-      input.accept = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
-      row.appendChild(input);
-      card.appendChild(row);
+      appendFileUploadRow(card, {
+        idPrefix: "legal-signed",
+        title: "قرارداد امضاشده",
+        hint: "پس از انتخاب فایل، قرارداد امضاشده بارگذاری و پرونده به مرحله بعد می‌رود.",
+        contractKind: "signed",
+        contractCommentField: "signedContractComment",
+        contractCommentPhase: "3",
+      });
       renderCommentsBlock(card, phase, "legalSigned", { allowInternal: true, title: "گفتگوی بارگذاری نهایی" });
     } else if (status === 13) {
       card.appendChild(field("نام بانک", "wsBank", "text"));
@@ -585,14 +625,13 @@
       card.appendChild(field("شماره تراکنش", "payTxn", "text"));
       card.appendChild(field("روش (1-4)", "payMethod", "number", "1"));
       card.appendChild(field("وضعیت (1-4)", "payStatus", "number", "1"));
-      const row = el("div", "portal-upload-row");
-      row.appendChild(el("div", "portal-upload-row__title", "رسید پرداخت"));
-      const input = document.createElement("input");
-      input.type = "file";
-      input.dataset.paymentReceipt = "true";
-      input.accept = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
-      row.appendChild(input);
-      card.appendChild(row);
+      appendFileUploadRow(card, {
+        idPrefix: "payment-receipt",
+        title: "رسید پرداخت",
+        hint: "رسید را انتخاب کنید؛ با «ثبت پرداخت» بارگذاری و ثبت می‌شود.",
+        paymentReceipt: true,
+        buttonText: "انتخاب رسید",
+      });
       card.appendChild(actionRow([createButton("ثبت پرداخت", "btn--primary", "record-payment")]));
       card.appendChild(field("شناسه پرداخت برای تأیید/لغو", "payId", "text"));
       card.appendChild(
@@ -887,7 +926,8 @@
       const documentType = Number(input.dataset.uploadType);
       await uploadDocument(caseId, documentType, file);
     }
-    input.value = "";
+    const status = input.closest(".portal-upload-row__control")?.querySelector(".portal-upload-row__status");
+    if (status) status.textContent = "بارگذاری شد: " + file.name;
     await refreshCase();
   }
 

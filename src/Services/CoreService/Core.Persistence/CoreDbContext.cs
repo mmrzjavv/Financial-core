@@ -38,5 +38,10 @@ public sealed class CoreDbContext : DbContextBase, ICoreDbContext
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CoreDbContext).Assembly);
         modelBuilder.ApplySoftDeleteQueryFilter();
+
+        // Legacy migrations mapped RowVersion -> xmin; strip if any convention reintroduces it.
+        var rowVersion = modelBuilder.Entity<InvestmentCase>().Metadata.FindProperty("RowVersion");
+        if (rowVersion is not null)
+            modelBuilder.Entity<InvestmentCase>().Metadata.RemoveProperty(rowVersion);
     }
 }

@@ -12,5 +12,4 @@ public sealed record CaseDto(
     CaseStatus CurrentStatus,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
-    DateTimeOffset? CompletedAt,
-    uint RowVersion);
+    DateTimeOffset? CompletedAt);

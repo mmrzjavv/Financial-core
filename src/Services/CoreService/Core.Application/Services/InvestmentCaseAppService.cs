@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Http;
 using Services.CoreService.Core.Domain.Constants;
 using Services.CoreService.Core.Domain.Entities;
 using Services.CoreService.Core.Domain.Enums;
+using Services.CoreService.Core.Domain.Identity.Entities;
 
 
 namespace Core.Application.Services;
@@ -43,6 +44,7 @@ public sealed class InvestmentCaseAppService(
         var now = clock.UtcNow;
         var caseNumber = await caseNumberGenerator.GenerateAsync(cancellationToken);
         var entity = new InvestmentCase(caseNumber, authResult.Value!, request.ApplicantType);
+        Company? linkedCompany = null;
 
         if (request.ApplicantType == ApplicantType.Company)
         {
@@ -52,34 +54,26 @@ public sealed class InvestmentCaseAppService(
             if (!Guid.TryParse(authResult.Value, out var userId))
                 return Result<InvestmentCaseDto>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
 
-            var company = await dbContext.Companies
+            linkedCompany = await dbContext.Companies
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == request.CompanyId.Value, cancellationToken);
 
-            if (company is null)
+            if (linkedCompany is null)
                 return Result<InvestmentCaseDto>.Fail(Error.NotFound(ApiMessages.CompanyNotFound));
 
-            if (company.OwnerUserId != userId)
+            if (linkedCompany.OwnerUserId != userId)
                 return Result<InvestmentCaseDto>.Fail(Error.Forbidden(ApiMessages.CompanyAccessDenied));
 
-            entity.UpsertCompanyProfile(
-                company.Name,
-                company.EconomicCode,
-                company.RegistrationNumber,
-                company.NationalId,
-                company.PhoneNumber,
-                company.Address,
-                company.City,
-                company.Province,
-                company.PostalCode);
+            entity.AssignCompany(linkedCompany.Id);
         }
+
         var workflowInstanceId = await workflowOrchestrator.StartAsync(entity.Id, cancellationToken);
         entity.AttachWorkflowInstance(workflowInstanceId);
 
         await repository.AddAsync(entity, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Result<InvestmentCaseDto>.Ok(ToApplicantDto(entity, now));
+        return Result<InvestmentCaseDto>.Ok(ToApplicantDto(entity, now, linkedCompany));
     }
 
     public async Task<Result<InvestmentCaseDto>> GetAsync(Guid caseId, CancellationToken cancellationToken)
@@ -102,22 +96,49 @@ public sealed class InvestmentCaseAppService(
         if (!userContext.Roles.Contains(SystemRoles.Applicant))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: false, cancellationToken);
-        if (entity is null)
+        var caseStatus = await dbContext.InvestmentCases
+            .AsNoTracking()
+            .Where(x => x.Id == caseId && x.ApplicantUserId == authResult.Value)
+            .Select(x => x.CurrentStatus)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (caseStatus == default)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
-        if (entity.CurrentStatus is not (CaseStatus.Draft or CaseStatus.DataEntry1))
+        if (caseStatus is not (CaseStatus.Draft or CaseStatus.DataEntry1))
             return Result.Fail(Error.Conflict(ApiMessages.DataEntry1NotEditable));
 
-        entity.UpsertDataEntry1(
-            request.StartupTitle,
-            request.BusinessDescription,
-            request.RequestedAmount,
-            request.TeamSize,
-            request.Website,
-            request.Country,
-            request.City,
-            industry: null);
+        var dataEntry = await dbContext.DataEntry1
+            .FirstOrDefaultAsync(x => x.CaseId == caseId, cancellationToken);
+
+        if (dataEntry is null)
+        {
+            dataEntry = new InvestmentCaseDataEntry1(
+                caseId,
+                request.StartupTitle,
+                request.BusinessDescription,
+                request.RequestedAmount,
+                request.TeamSize,
+                request.Website);
+            await dbContext.DataEntry1.AddAsync(dataEntry, cancellationToken);
+        }
+        else
+        {
+            dataEntry.Update(
+                request.StartupTitle,
+                request.BusinessDescription,
+                request.RequestedAmount,
+                request.TeamSize,
+                request.Website,
+                request.Country,
+                request.City,
+                industry: null);
+        }
+
+        var now = clock.UtcNow;
+        await dbContext.InvestmentCases
+            .Where(x => x.Id == caseId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.UpdatedAt, now), cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Ok();
@@ -131,20 +152,46 @@ public sealed class InvestmentCaseAppService(
         if (!userContext.Roles.Contains(SystemRoles.Applicant))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-        var entity = await repository.GetScopedAsync(caseId, authResult.Value!, isInternalUser: false, cancellationToken);
-        if (entity is null)
+        var caseStatus = await dbContext.InvestmentCases
+            .AsNoTracking()
+            .Where(x => x.Id == caseId && x.ApplicantUserId == authResult.Value)
+            .Select(x => x.CurrentStatus)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (caseStatus == default)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
-        if (entity.CurrentStatus is not CaseStatus.DataEntry2)
+        if (caseStatus is not CaseStatus.DataEntry2)
             return Result.Fail(Error.Conflict(ApiMessages.DataEntry2NotEditable));
 
-        entity.UpsertDataEntry2(
-            request.MarketAnalysis,
-            request.RevenueModel,
-            request.CompetitiveAdvantage,
-            request.FinancialProjection ?? string.Empty,
-            risks: null,
-            goToMarketStrategy: null);
+        var dataEntry = await dbContext.DataEntry2
+            .FirstOrDefaultAsync(x => x.CaseId == caseId, cancellationToken);
+
+        if (dataEntry is null)
+        {
+            dataEntry = new InvestmentCaseDataEntry2(
+                caseId,
+                request.MarketAnalysis,
+                request.RevenueModel,
+                request.CompetitiveAdvantage,
+                request.FinancialProjection ?? string.Empty);
+            await dbContext.DataEntry2.AddAsync(dataEntry, cancellationToken);
+        }
+        else
+        {
+            dataEntry.Update(
+                request.MarketAnalysis,
+                request.RevenueModel,
+                request.CompetitiveAdvantage,
+                request.FinancialProjection ?? string.Empty,
+                risks: null,
+                goToMarketStrategy: null);
+        }
+
+        var now = clock.UtcNow;
+        await dbContext.InvestmentCases
+            .Where(x => x.Id == caseId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.UpdatedAt, now), cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Ok();
@@ -794,7 +841,10 @@ public sealed class InvestmentCaseAppService(
     private static InvestmentCaseDto ToDto(InvestmentCase entity, DateTimeOffset now, bool isInternalView)
         => isInternalView ? ToInternalDto(entity, now) : ToApplicantDto(entity, now);
 
-    private static InvestmentCaseApplicantDto ToApplicantDto(InvestmentCase entity, DateTimeOffset now)
+    private static InvestmentCaseApplicantDto ToApplicantDto(
+        InvestmentCase entity,
+        DateTimeOffset now,
+        Company? company = null)
         => new(
             entity.Id,
             entity.CaseNumber,
@@ -804,18 +854,7 @@ public sealed class InvestmentCaseAppService(
             entity.CreatedAt,
             entity.UpdatedAt ?? now,
             entity.CompletedAt,
-            entity.Company is null
-                ? null
-                : new CompanyProfileDto(
-                    entity.Company.Name,
-                    entity.Company.EconomicCode,
-                    entity.Company.RegistrationNumber,
-                    entity.Company.NationalId,
-                    entity.Company.PhoneNumber,
-                    entity.Company.Address,
-                    entity.Company.City,
-                    entity.Company.Province,
-                    entity.Company.PostalCode));
+            ToCompanyDto(company ?? entity.ApplicantCompany));
 
     private static InvestmentCaseInternalDto ToInternalDto(InvestmentCase entity, DateTimeOffset now)
         => new(
@@ -829,19 +868,22 @@ public sealed class InvestmentCaseAppService(
             entity.CreatedAt,
             entity.UpdatedAt ?? now,
             entity.CompletedAt,
-            BitConverter.GetBytes(entity.RowVersion),
-            entity.Company is null
-                ? null
-                : new CompanyProfileDto(
-                    entity.Company.Name,
-                    entity.Company.EconomicCode,
-                    entity.Company.RegistrationNumber,
-                    entity.Company.NationalId,
-                    entity.Company.PhoneNumber,
-                    entity.Company.Address,
-                    entity.Company.City,
-                    entity.Company.Province,
-                    entity.Company.PostalCode));
+            ToCompanyDto(entity.ApplicantCompany));
+
+    private static CompanyDto? ToCompanyDto(Company? company)
+        => company is null
+            ? null
+            : new CompanyDto(
+                company.Id,
+                company.Name,
+                company.EconomicCode,
+                company.RegistrationNumber,
+                company.NationalId,
+                company.PhoneNumber,
+                company.Address,
+                company.City,
+                company.Province,
+                company.PostalCode);
 
     private Result ValidatePresignRequest(InvestmentCase entity, PresignUploadRequest request)
     {
