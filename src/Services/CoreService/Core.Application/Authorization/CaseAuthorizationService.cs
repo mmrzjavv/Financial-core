@@ -2,89 +2,118 @@ using Core.Application.Common;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
 using BuildingBlocks.Domain.Abstractions;
-using Core.Domain.Constants;
+using Core.Domain.Identity;
 
 
 namespace Core.Application.Authorization;
 
 public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAuthorizationService
 {
+    private static readonly string[] InvestmentExpertPermissions =
+    [
+        CasePermissions.ReadAll,
+        CasePermissions.ViewInternalComments,
+        CasePermissions.CreateInternalComment,
+        CasePermissions.ViewEvaluations,
+        CasePermissions.UpsertEvaluations,
+        CasePermissions.ManageFinancialWorksheet,
+        CasePermissions.UploadDocuments,
+        CasePermissions.DownloadDocuments,
+        CasePermissions.UploadCommentAttachments
+    ];
+
+    private static readonly string[] InvestmentManagerPermissions =
+    [
+        CasePermissions.ReadAll,
+        CasePermissions.ViewInternalComments,
+        CasePermissions.CreateInternalComment,
+        CasePermissions.ManageValuations,
+        CasePermissions.ViewEvaluations,
+        CasePermissions.UpsertEvaluations,
+        CasePermissions.ManageFinancialWorksheet,
+        CasePermissions.DownloadDocuments,
+        CasePermissions.UploadCommentAttachments
+    ];
+
+    private static readonly string[] LegalUnitPermissions =
+    [
+        CasePermissions.ReadAll,
+        CasePermissions.ViewInternalComments,
+        CasePermissions.CreateInternalComment,
+        CasePermissions.ManageContracts,
+        CasePermissions.UploadDocuments,
+        CasePermissions.DownloadDocuments,
+        CasePermissions.UploadCommentAttachments
+    ];
+
+    private static readonly string[] FinancialUnitPermissions =
+    [
+        CasePermissions.ReadAll,
+        CasePermissions.ViewInternalComments,
+        CasePermissions.CreateInternalComment,
+        CasePermissions.ManagePayments,
+        CasePermissions.ManageFinancialWorksheet,
+        CasePermissions.DownloadDocuments,
+        CasePermissions.UploadCommentAttachments
+    ];
+
+    private static readonly string[] TechnicalUnitPermissions =
+    [
+        CasePermissions.ReadAll,
+        CasePermissions.ViewInternalComments,
+        CasePermissions.CreateInternalComment,
+        CasePermissions.ViewEvaluations,
+        CasePermissions.DownloadDocuments,
+        CasePermissions.UploadCommentAttachments
+    ];
+
     private static readonly IReadOnlyDictionary<string, IReadOnlyCollection<string>> RolePermissions =
         new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase)
         {
-            [SystemRoles.Applicant] = new[]
-            {
+            [UserRoleClaims.Applicant] =
+            [
                 CasePermissions.Create,
                 CasePermissions.ReadOwn,
                 CasePermissions.UploadDocuments,
                 CasePermissions.DownloadDocuments,
                 CasePermissions.UploadCommentAttachments
-            },
-            [SystemRoles.InvestmentExpert] = new[]
-            {
-                CasePermissions.ReadAll,
-                CasePermissions.ViewInternalComments,
-                CasePermissions.CreateInternalComment,
-                CasePermissions.ViewEvaluations,
-                CasePermissions.UpsertEvaluations,
-                CasePermissions.ManageFinancialWorksheet,
-                CasePermissions.UploadDocuments,
-                CasePermissions.DownloadDocuments,
-                CasePermissions.UploadCommentAttachments
-            },
-            [SystemRoles.InvestmentManager] = new[]
-            {
-                CasePermissions.ReadAll,
-                CasePermissions.ViewInternalComments,
-                CasePermissions.CreateInternalComment,
-                CasePermissions.ManageValuations,
-                CasePermissions.DownloadDocuments,
-                CasePermissions.UploadCommentAttachments
-            },
-            [SystemRoles.LegalExpert] = new[]
-            {
-                CasePermissions.ReadAll,
-                CasePermissions.ViewInternalComments,
-                CasePermissions.CreateInternalComment,
-                CasePermissions.ManageContracts,
-                CasePermissions.UploadDocuments,
-                CasePermissions.DownloadDocuments,
-                CasePermissions.UploadCommentAttachments
-            },
-            [SystemRoles.FinancialExpert] = new[]
-            {
-                CasePermissions.ReadAll,
-                CasePermissions.ViewInternalComments,
-                CasePermissions.CreateInternalComment,
-                CasePermissions.ManagePayments,
-                CasePermissions.ManageFinancialWorksheet,
-                CasePermissions.DownloadDocuments,
-                CasePermissions.UploadCommentAttachments
-            },
-            [SystemRoles.Ceo] = new[]
-            {
+            ],
+            [UserRoleClaims.InvestmentExpert] = InvestmentExpertPermissions,
+            [UserRoleClaims.InvestmentManager] = InvestmentManagerPermissions,
+            [UserRoleClaims.LegalExpert] = LegalUnitPermissions,
+            [UserRoleClaims.LegalManager] = LegalUnitPermissions,
+            [UserRoleClaims.FinancialExpert] = FinancialUnitPermissions,
+            [UserRoleClaims.FinancialManager] = FinancialUnitPermissions,
+            [UserRoleClaims.TechnicalExpert] = TechnicalUnitPermissions,
+            [UserRoleClaims.TechnicalManager] = TechnicalUnitPermissions,
+            [UserRoleClaims.Ceo] =
+            [
                 CasePermissions.ReadAll,
                 CasePermissions.ViewInternalComments,
                 CasePermissions.CreateInternalComment,
                 CasePermissions.CeoApprove,
                 CasePermissions.DownloadDocuments,
                 CasePermissions.UploadCommentAttachments
-            }
+            ]
         };
 
     public string? UserId => userContext.UserId;
 
     public bool IsInternalUser =>
-        userContext.Roles.Contains(SystemRoles.Admin) ||
-        userContext.Roles.Contains(SystemRoles.InvestmentExpert) ||
-        userContext.Roles.Contains(SystemRoles.InvestmentManager) ||
-        userContext.Roles.Contains(SystemRoles.FinancialExpert) ||
-        userContext.Roles.Contains(SystemRoles.LegalExpert) ||
-        userContext.Roles.Contains(SystemRoles.Ceo) ||
-        userContext.Roles.Contains("LegalUnit", StringComparer.OrdinalIgnoreCase) ||
-        userContext.Roles.Contains("CEO", StringComparer.OrdinalIgnoreCase) ||
-        userContext.Roles.Contains("FinancialUnit", StringComparer.OrdinalIgnoreCase) ||
-        userContext.Roles.Contains("InvestmentUnit", StringComparer.OrdinalIgnoreCase);
+        userContext.Roles.Contains(UserRoleClaims.Admin) ||
+        userContext.Roles.Contains(UserRoleClaims.InvestmentExpert) ||
+        userContext.Roles.Contains(UserRoleClaims.InvestmentManager) ||
+        userContext.Roles.Contains(UserRoleClaims.LegalExpert) ||
+        userContext.Roles.Contains(UserRoleClaims.LegalManager) ||
+        userContext.Roles.Contains(UserRoleClaims.FinancialExpert) ||
+        userContext.Roles.Contains(UserRoleClaims.FinancialManager) ||
+        userContext.Roles.Contains(UserRoleClaims.TechnicalExpert) ||
+        userContext.Roles.Contains(UserRoleClaims.TechnicalManager) ||
+        userContext.Roles.Contains(UserRoleClaims.Ceo) ||
+        userContext.Roles.Contains(UserRoleClaims.LegalUnit, StringComparer.OrdinalIgnoreCase) ||
+        userContext.Roles.Contains(UserRoleClaims.FinancialUnit, StringComparer.OrdinalIgnoreCase) ||
+        userContext.Roles.Contains(UserRoleClaims.InvestmentUnit, StringComparer.OrdinalIgnoreCase) ||
+        userContext.Roles.Contains("CEO", StringComparer.OrdinalIgnoreCase);
 
     public Result EnsureAuthenticated()
     {
@@ -96,11 +125,11 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
 
     public bool HasPermission(string permission)
     {
-        if (userContext.Roles.Contains(SystemRoles.Admin))
+        if (userContext.Roles.Contains(UserRoleClaims.Admin))
             return true;
 
         if (string.Equals(permission, CasePermissions.ReadOwn, StringComparison.OrdinalIgnoreCase))
-            return userContext.Roles.Contains(SystemRoles.Applicant);
+            return userContext.Roles.Contains(UserRoleClaims.Applicant);
 
         if (string.Equals(permission, CasePermissions.ReadAll, StringComparison.OrdinalIgnoreCase))
             return IsInternalUser;
@@ -124,16 +153,8 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
     {
         yield return role;
 
-        if (role.Equals("LegalUnit", StringComparison.OrdinalIgnoreCase))
-            yield return SystemRoles.LegalExpert;
-
-        if (role.Equals("FinancialUnit", StringComparison.OrdinalIgnoreCase))
-            yield return SystemRoles.FinancialExpert;
-
-        if (role.Equals("InvestmentUnit", StringComparison.OrdinalIgnoreCase))
-            yield return SystemRoles.InvestmentExpert;
-
-        if (role.Equals("CEO", StringComparison.OrdinalIgnoreCase))
-            yield return SystemRoles.Ceo;
+        var normalized = UserRoleClaims.Normalize(role);
+        if (!string.Equals(normalized, role, StringComparison.OrdinalIgnoreCase))
+            yield return normalized;
     }
 }

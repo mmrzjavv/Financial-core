@@ -50,7 +50,7 @@ public sealed class DocumentService : IDocumentService
         if (entity is null)
             return Result<PresignedUrlResponse>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
-        if (entity.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(SystemRoles.Admin))
+        if (entity.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(UserRoleClaims.Admin))
             return Result<PresignedUrlResponse>.Fail(Error.Forbidden());
 
         var nextVersion = await _db.CaseDocuments
@@ -82,7 +82,7 @@ public sealed class DocumentService : IDocumentService
         if (caseMeta is null)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
-        if (caseMeta.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(SystemRoles.Admin))
+        if (caseMeta.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(UserRoleClaims.Admin))
             return Result.Fail(Error.Forbidden());
 
         if (await _db.CaseDocuments.AsNoTracking().AnyAsync(d => d.S3Key == request.S3Key, ct))

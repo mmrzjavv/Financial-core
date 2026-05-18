@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using Core.Domain.Identity.Enums;
+using Core.Domain.Identity;
 
 
 namespace Core.Application.Identity.Events.Auth;

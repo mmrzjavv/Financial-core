@@ -6,13 +6,16 @@
 
   const ROLE_OPTIONS = [
     { value: "", label: "(no change)" },
-    { value: "1", label: "User (1) - Applicant-ish" },
+    { value: "1", label: "Applicant — متقاضی (1)" },
     { value: "10", label: "InvestmentExpert (10)" },
     { value: "11", label: "InvestmentManager (11)" },
     { value: "12", label: "CEO (12)" },
-    { value: "20", label: "LegalUnit (20)" },
-    { value: "30", label: "FinancialUnit (30)" },
-    { value: "40", label: "TechnicalExpert (40)" },
+    { value: "20", label: "LegalExpert — کارشناس حقوقی (20)" },
+    { value: "21", label: "LegalManager — مدیر حقوقی (21)" },
+    { value: "30", label: "FinancialExpert — کارشناس مالی (30)" },
+    { value: "31", label: "FinancialManager — مدیر مالی (31)" },
+    { value: "40", label: "TechnicalExpert — کارشناس فنی (40)" },
+    { value: "41", label: "TechnicalManager — مدیر فنی (41)" },
     { value: "100", label: "Admin (100)" },
   ];
 

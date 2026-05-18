@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using Core.Domain.Identity.Enums;
+using Core.Domain.Identity;
 
 namespace Core.Domain.Identity.Entities;
 [Table("User", Schema = "Identity")]

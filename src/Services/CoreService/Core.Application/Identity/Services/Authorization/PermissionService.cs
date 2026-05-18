@@ -1,4 +1,5 @@
 using Core.Application.Identity.Authorization;
+using Core.Domain.Identity;
 using Core.Domain.Identity.Entities;
 
 
@@ -37,6 +38,7 @@ public class PermissionService : IPermissionService
 
     public Task<IEnumerable<string>> GetRolePermissionsAsync(string role, CancellationToken cancellationToken = default)
     {
+        role = UserRoleClaims.Normalize(role);
         if (RolePermissions.RolePermissionMappings.TryGetValue(role, out var permissions))
         {
             return Task.FromResult<IEnumerable<string>>(permissions);

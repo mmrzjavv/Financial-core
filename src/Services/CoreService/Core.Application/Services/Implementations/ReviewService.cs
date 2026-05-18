@@ -45,7 +45,7 @@ public sealed class ReviewService : IReviewService
         if (!validation.IsValid)
             return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
-        if (_currentUser.Roles.Contains(SystemRoles.Applicant))
+        if (_currentUser.Roles.Contains(UserRoleClaims.Applicant))
             return Result.Fail(Error.Forbidden());
 
         var entity = await _db.InvestmentCases
@@ -75,7 +75,7 @@ public sealed class ReviewService : IReviewService
         if (!validation.IsValid)
             return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
-        if (_currentUser.Roles.Contains(SystemRoles.Applicant))
+        if (_currentUser.Roles.Contains(UserRoleClaims.Applicant))
             return Result.Fail(Error.Forbidden());
 
         var entity = await _db.InvestmentCases

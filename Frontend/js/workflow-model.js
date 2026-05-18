@@ -2,10 +2,10 @@
   const UNITS = [
     { id: "all", label: "نمای کلی", roles: null },
     { id: "applicant", label: "متقاضی", roles: ["Applicant", "User", "Admin"] },
-    { id: "investment", label: "واحد سرمایه‌گذاری", roles: ["InvestmentExpert", "Admin"] },
-    { id: "manager", label: "مدیریت سرمایه‌گذاری", roles: ["InvestmentManager", "Admin"] },
-    { id: "legal", label: "واحد حقوقی", roles: ["LegalExpert", "LegalUnit", "Admin"] },
-    { id: "financial", label: "واحد مالی", roles: ["FinancialExpert", "FinancialUnit", "Admin"] },
+    { id: "investment", label: "سرمایه‌گذاری — کارشناس", roles: ["InvestmentExpert", "Admin"] },
+    { id: "manager", label: "سرمایه‌گذاری — مدیر", roles: ["InvestmentManager", "Admin"] },
+    { id: "legal", label: "حقوقی", roles: ["LegalExpert", "LegalManager", "LegalUnit", "Admin"] },
+    { id: "financial", label: "مالی", roles: ["FinancialExpert", "FinancialManager", "FinancialUnit", "Admin"] },
     { id: "ceo", label: "مدیرعامل", roles: ["CEO", "Admin"] },
   ];
 
@@ -75,6 +75,7 @@
     User: "Applicant",
     LegalUnit: "LegalExpert",
     FinancialUnit: "FinancialExpert",
+    InvestmentUnit: "InvestmentExpert",
   };
 
   const ROLE_BY_NUMBER = {
@@ -83,8 +84,11 @@
     11: "InvestmentManager",
     12: "CEO",
     20: "LegalExpert",
+    21: "LegalManager",
     30: "FinancialExpert",
+    31: "FinancialManager",
     40: "TechnicalExpert",
+    41: "TechnicalManager",
     100: "Admin",
   };
 

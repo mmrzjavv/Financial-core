@@ -5,7 +5,7 @@ using Core.Application.Abstractions;
 using Core.Domain.Constants;
 using Core.Domain.Entities;
 using Core.Domain.Enums;
-
+using Core.Domain.Identity;
 
 namespace Core.Application.Services;
 
@@ -21,59 +21,66 @@ public sealed class CaseStateManager : ICaseStateManager
 
     private static readonly Dictionary<(CaseStatus Current, WorkflowAction Action, string Role), CaseStatus> Transitions = new()
     {
-        { (CaseStatus.Draft, WorkflowAction.Submit, SystemRoles.Applicant), CaseStatus.DataEntry1 },
-        { (CaseStatus.Draft, WorkflowAction.Cancel, SystemRoles.Applicant), CaseStatus.Cancelled },
+        { (CaseStatus.Draft, WorkflowAction.Submit, UserRoleClaims.Applicant), CaseStatus.DataEntry1 },
+        { (CaseStatus.Draft, WorkflowAction.Cancel, UserRoleClaims.Applicant), CaseStatus.Cancelled },
 
-        { (CaseStatus.DataEntry1, WorkflowAction.Submit, SystemRoles.Applicant), CaseStatus.ReviewDataEntry1 },
-        { (CaseStatus.DataEntry1, WorkflowAction.Cancel, SystemRoles.Applicant), CaseStatus.Cancelled },
+        { (CaseStatus.DataEntry1, WorkflowAction.Submit, UserRoleClaims.Applicant), CaseStatus.ReviewDataEntry1 },
+        { (CaseStatus.DataEntry1, WorkflowAction.Cancel, UserRoleClaims.Applicant), CaseStatus.Cancelled },
 
-        { (CaseStatus.ReviewDataEntry1, WorkflowAction.Approve, SystemRoles.InvestmentExpert), CaseStatus.DataEntry2 },
-        { (CaseStatus.ReviewDataEntry1, WorkflowAction.RequestRevision, SystemRoles.InvestmentExpert), CaseStatus.DataEntry1 },
-        { (CaseStatus.ReviewDataEntry1, WorkflowAction.Reject, SystemRoles.InvestmentExpert), CaseStatus.Rejected },
+        { (CaseStatus.ReviewDataEntry1, WorkflowAction.Approve, UserRoleClaims.InvestmentExpert), CaseStatus.DataEntry2 },
+        { (CaseStatus.ReviewDataEntry1, WorkflowAction.RequestRevision, UserRoleClaims.InvestmentExpert), CaseStatus.DataEntry1 },
+        { (CaseStatus.ReviewDataEntry1, WorkflowAction.Reject, UserRoleClaims.InvestmentExpert), CaseStatus.Rejected },
 
-        { (CaseStatus.DataEntry2, WorkflowAction.Submit, SystemRoles.Applicant), CaseStatus.ReviewDataEntry2 },
-        { (CaseStatus.DataEntry2, WorkflowAction.Cancel, SystemRoles.Applicant), CaseStatus.Cancelled },
+        { (CaseStatus.DataEntry2, WorkflowAction.Submit, UserRoleClaims.Applicant), CaseStatus.ReviewDataEntry2 },
+        { (CaseStatus.DataEntry2, WorkflowAction.Cancel, UserRoleClaims.Applicant), CaseStatus.Cancelled },
 
-        { (CaseStatus.ReviewDataEntry2, WorkflowAction.Approve, SystemRoles.InvestmentExpert), CaseStatus.InitialValuation },
-        { (CaseStatus.ReviewDataEntry2, WorkflowAction.RequestRevision, SystemRoles.InvestmentExpert), CaseStatus.DataEntry2 },
-        { (CaseStatus.ReviewDataEntry2, WorkflowAction.Reject, SystemRoles.InvestmentExpert), CaseStatus.Rejected },
+        { (CaseStatus.ReviewDataEntry2, WorkflowAction.Approve, UserRoleClaims.InvestmentExpert), CaseStatus.InitialValuation },
+        { (CaseStatus.ReviewDataEntry2, WorkflowAction.RequestRevision, UserRoleClaims.InvestmentExpert), CaseStatus.DataEntry2 },
+        { (CaseStatus.ReviewDataEntry2, WorkflowAction.Reject, UserRoleClaims.InvestmentExpert), CaseStatus.Rejected },
 
-        { (CaseStatus.InitialValuation, WorkflowAction.Approve, SystemRoles.InvestmentManager), CaseStatus.SecondaryValuation },
-        { (CaseStatus.InitialValuation, WorkflowAction.Reject, SystemRoles.InvestmentManager), CaseStatus.Rejected },
+        { (CaseStatus.InitialValuation, WorkflowAction.Approve, UserRoleClaims.InvestmentManager), CaseStatus.SecondaryValuation },
+        { (CaseStatus.InitialValuation, WorkflowAction.Reject, UserRoleClaims.InvestmentManager), CaseStatus.Rejected },
 
-        { (CaseStatus.SecondaryValuation, WorkflowAction.Approve, SystemRoles.InvestmentManager), CaseStatus.WaitingPreliminaryContract },
-        { (CaseStatus.SecondaryValuation, WorkflowAction.Reject, SystemRoles.InvestmentManager), CaseStatus.Rejected },
+        { (CaseStatus.SecondaryValuation, WorkflowAction.Approve, UserRoleClaims.InvestmentManager), CaseStatus.WaitingPreliminaryContract },
+        { (CaseStatus.SecondaryValuation, WorkflowAction.Reject, UserRoleClaims.InvestmentManager), CaseStatus.Rejected },
 
-        { (CaseStatus.WaitingPreliminaryContract, WorkflowAction.UploadPreliminaryContract, SystemRoles.LegalExpert), CaseStatus.WaitingUserReviewPreliminaryContract },
-        { (CaseStatus.WaitingPreliminaryContract, WorkflowAction.Reject, SystemRoles.LegalExpert), CaseStatus.Rejected },
+        { (CaseStatus.WaitingPreliminaryContract, WorkflowAction.UploadPreliminaryContract, UserRoleClaims.LegalExpert), CaseStatus.WaitingUserReviewPreliminaryContract },
+        { (CaseStatus.WaitingPreliminaryContract, WorkflowAction.Reject, UserRoleClaims.LegalExpert), CaseStatus.Rejected },
 
-        { (CaseStatus.WaitingUserReviewPreliminaryContract, WorkflowAction.Approve, SystemRoles.Applicant), CaseStatus.ContractDrafting },
-        { (CaseStatus.WaitingUserReviewPreliminaryContract, WorkflowAction.RequestRevision, SystemRoles.Applicant), CaseStatus.WaitingPreliminaryContract },
-        { (CaseStatus.WaitingUserReviewPreliminaryContract, WorkflowAction.Cancel, SystemRoles.Applicant), CaseStatus.Cancelled },
+        { (CaseStatus.WaitingUserReviewPreliminaryContract, WorkflowAction.Approve, UserRoleClaims.Applicant), CaseStatus.ContractDrafting },
+        { (CaseStatus.WaitingUserReviewPreliminaryContract, WorkflowAction.RequestRevision, UserRoleClaims.Applicant), CaseStatus.WaitingPreliminaryContract },
+        { (CaseStatus.WaitingUserReviewPreliminaryContract, WorkflowAction.Cancel, UserRoleClaims.Applicant), CaseStatus.Cancelled },
 
-        { (CaseStatus.ContractDrafting, WorkflowAction.FinalizeContractDraft, SystemRoles.LegalExpert), CaseStatus.WaitingContractSignature },
-        { (CaseStatus.ContractDrafting, WorkflowAction.Reject, SystemRoles.LegalExpert), CaseStatus.Rejected },
+        { (CaseStatus.ContractDrafting, WorkflowAction.FinalizeContractDraft, UserRoleClaims.LegalExpert), CaseStatus.WaitingContractSignature },
+        { (CaseStatus.ContractDrafting, WorkflowAction.Reject, UserRoleClaims.LegalExpert), CaseStatus.Rejected },
 
-        { (CaseStatus.WaitingContractSignature, WorkflowAction.ConfirmSignature, SystemRoles.LegalExpert), CaseStatus.WaitingSignedContractUpload },
-        { (CaseStatus.WaitingContractSignature, WorkflowAction.Reject, SystemRoles.LegalExpert), CaseStatus.Rejected },
+        { (CaseStatus.WaitingContractSignature, WorkflowAction.ConfirmSignature, UserRoleClaims.LegalExpert), CaseStatus.WaitingSignedContractUpload },
+        { (CaseStatus.WaitingContractSignature, WorkflowAction.Reject, UserRoleClaims.LegalExpert), CaseStatus.Rejected },
 
-        { (CaseStatus.WaitingSignedContractUpload, WorkflowAction.UploadSignedContract, SystemRoles.LegalExpert), CaseStatus.WaitingFinancialWorksheet },
-        { (CaseStatus.WaitingSignedContractUpload, WorkflowAction.Reject, SystemRoles.LegalExpert), CaseStatus.Rejected },
+        { (CaseStatus.WaitingSignedContractUpload, WorkflowAction.UploadSignedContract, UserRoleClaims.LegalExpert), CaseStatus.WaitingFinancialWorksheet },
+        { (CaseStatus.WaitingSignedContractUpload, WorkflowAction.Reject, UserRoleClaims.LegalExpert), CaseStatus.Rejected },
 
-        { (CaseStatus.WaitingFinancialWorksheet, WorkflowAction.SubmitFinancialWorksheet, SystemRoles.InvestmentExpert), CaseStatus.FinancialWorksheetReview },
-        { (CaseStatus.WaitingFinancialWorksheet, WorkflowAction.Reject, SystemRoles.InvestmentExpert), CaseStatus.Rejected },
+        { (CaseStatus.WaitingFinancialWorksheet, WorkflowAction.SubmitFinancialWorksheet, UserRoleClaims.InvestmentExpert), CaseStatus.FinancialWorksheetReview },
+        { (CaseStatus.WaitingFinancialWorksheet, WorkflowAction.Reject, UserRoleClaims.InvestmentExpert), CaseStatus.Rejected },
 
-        { (CaseStatus.FinancialWorksheetReview, WorkflowAction.ApproveFinancialWorksheet, SystemRoles.FinancialExpert), CaseStatus.WaitingCeoApproval },
-        { (CaseStatus.FinancialWorksheetReview, WorkflowAction.RequestRevision, SystemRoles.FinancialExpert), CaseStatus.WaitingFinancialWorksheet },
-        { (CaseStatus.FinancialWorksheetReview, WorkflowAction.Reject, SystemRoles.FinancialExpert), CaseStatus.Rejected },
+        { (CaseStatus.FinancialWorksheetReview, WorkflowAction.ApproveFinancialWorksheet, UserRoleClaims.FinancialExpert), CaseStatus.WaitingCeoApproval },
+        { (CaseStatus.FinancialWorksheetReview, WorkflowAction.RequestRevision, UserRoleClaims.FinancialExpert), CaseStatus.WaitingFinancialWorksheet },
+        { (CaseStatus.FinancialWorksheetReview, WorkflowAction.Reject, UserRoleClaims.FinancialExpert), CaseStatus.Rejected },
 
-        { (CaseStatus.WaitingCeoApproval, WorkflowAction.Approve, SystemRoles.Ceo), CaseStatus.WaitingPayment },
-        { (CaseStatus.WaitingCeoApproval, WorkflowAction.RequestRevision, SystemRoles.Ceo), CaseStatus.WaitingFinancialWorksheet },
-        { (CaseStatus.WaitingCeoApproval, WorkflowAction.Reject, SystemRoles.Ceo), CaseStatus.Rejected },
+        { (CaseStatus.WaitingCeoApproval, WorkflowAction.Approve, UserRoleClaims.Ceo), CaseStatus.WaitingPayment },
+        { (CaseStatus.WaitingCeoApproval, WorkflowAction.RequestRevision, UserRoleClaims.Ceo), CaseStatus.WaitingFinancialWorksheet },
+        { (CaseStatus.WaitingCeoApproval, WorkflowAction.Reject, UserRoleClaims.Ceo), CaseStatus.Rejected },
 
-        { (CaseStatus.WaitingPayment, WorkflowAction.CompletePayment, SystemRoles.FinancialExpert), CaseStatus.Completed },
-        { (CaseStatus.WaitingPayment, WorkflowAction.Cancel, SystemRoles.FinancialExpert), CaseStatus.Cancelled }
+        { (CaseStatus.WaitingPayment, WorkflowAction.CompletePayment, UserRoleClaims.FinancialExpert), CaseStatus.Completed },
+        { (CaseStatus.WaitingPayment, WorkflowAction.Cancel, UserRoleClaims.FinancialExpert), CaseStatus.Cancelled }
     };
+
+    static CaseStateManager()
+    {
+        WorkflowRoleExpander.MirrorUnitManager(Transitions, UserRoleClaims.InvestmentExpert, UserRoleClaims.InvestmentManager);
+        WorkflowRoleExpander.MirrorUnitManager(Transitions, UserRoleClaims.LegalExpert, UserRoleClaims.LegalManager);
+        WorkflowRoleExpander.MirrorUnitManager(Transitions, UserRoleClaims.FinancialExpert, UserRoleClaims.FinancialManager);
+    }
 
     public bool IsTerminalState(CaseStatus status) => TerminalStates.Contains(status);
 
@@ -94,7 +101,7 @@ public sealed class CaseStateManager : ICaseStateManager
 
         if (action == WorkflowAction.Archive)
         {
-            if (!string.Equals(userRole, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(userRole, UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase))
             {
                 errorMessage = ApiMessages.OnlyAdminCanArchive;
                 return false;
@@ -112,7 +119,7 @@ public sealed class CaseStateManager : ICaseStateManager
             return true;
         }
 
-        if (string.Equals(userRole, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(userRole, UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase))
         {
             var candidates = Transitions
                 .Where(x => x.Key.Current == currentStatus && x.Key.Action == action)
@@ -286,7 +293,7 @@ public sealed class CaseStateManager : ICaseStateManager
         if (IsTerminalState(currentStatus))
             return [];
 
-        if (string.Equals(userRole, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(userRole, UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase))
         {
             return Transitions
                 .Where(x => x.Key.Current == currentStatus)

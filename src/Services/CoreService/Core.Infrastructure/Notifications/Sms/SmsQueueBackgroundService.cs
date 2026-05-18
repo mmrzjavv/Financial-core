@@ -1,3 +1,4 @@
+using Core.Application.Logging;
 using Core.Application.Notifications.Sms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -57,6 +58,10 @@ public sealed class SmsQueueBackgroundService(
 
         if (due.Count == 0)
             return;
+
+        ApplicationLog.Completed(logger,
+            "SMS queue processing {Count} message(s)",
+            due.Count);
 
         using var scope = scopeFactory.CreateScope();
         var dispatcher = scope.ServiceProvider.GetRequiredService<ISmsDispatcher>();

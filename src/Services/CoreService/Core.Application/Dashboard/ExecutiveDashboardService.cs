@@ -1,12 +1,20 @@
+using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
+using BuildingBlocks.Domain.Abstractions;
 using Core.Application.Abstractions;
+using Core.Application.Common;
 using Core.Application.Kanban;
+using Core.Application.Logging;
 using Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Core.Application.Dashboard;
 
-public sealed class ExecutiveDashboardService(ICoreDbContext dbContext) : IExecutiveDashboardService
+public sealed class ExecutiveDashboardService(
+    ICoreDbContext dbContext,
+    IUserContext userContext,
+    ILogger<ExecutiveDashboardService> logger) : IExecutiveDashboardService
 {
     private static readonly int[] TerminalStatuses =
     [
@@ -28,6 +36,15 @@ public sealed class ExecutiveDashboardService(ICoreDbContext dbContext) : IExecu
 
     public async Task<Result<CeoDashboardDto>> GetCeoDashboardAsync(CancellationToken cancellationToken = default)
     {
+        var userId = userContext.UserId;
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            ApplicationLog.Blocked(logger, "GetCeoDashboard", "user is not authenticated");
+            return Result<CeoDashboardDto>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
+        }
+
+        ApplicationLog.Started(logger, "GetCeoDashboard", userId);
+
         var monthStart = new DateTimeOffset(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, TimeSpan.Zero);
 
         var pipeline = await dbContext.InvestmentCases
@@ -99,6 +116,10 @@ public sealed class ExecutiveDashboardService(ICoreDbContext dbContext) : IExecu
                 h.CreatedAt))
             .ToListAsync(cancellationToken);
 
+        ApplicationLog.Completed(logger,
+            "User {UserId} loaded CEO dashboard — {TotalCases} case(s), {ActiveCases} active, {PendingCeo} awaiting CEO",
+            userId, totalCases, activeCount, pendingCeo);
+
         return Result<CeoDashboardDto>.Ok(new CeoDashboardDto
         {
             PipelineByStatus = pipelineByStatus,
@@ -120,6 +141,15 @@ public sealed class ExecutiveDashboardService(ICoreDbContext dbContext) : IExecu
 
     public async Task<Result<BoardDashboardDto>> GetBoardDashboardAsync(CancellationToken cancellationToken = default)
     {
+        var userId = userContext.UserId;
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            ApplicationLog.Blocked(logger, "GetBoardDashboard", "user is not authenticated");
+            return Result<BoardDashboardDto>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
+        }
+
+        ApplicationLog.Started(logger, "GetBoardDashboard", userId);
+
         var statusCounts = await dbContext.InvestmentCases
             .AsNoTracking()
             .Where(c => !c.IsDeleted)
@@ -148,6 +178,12 @@ public sealed class ExecutiveDashboardService(ICoreDbContext dbContext) : IExecu
             .Where(x => x.Status == (int)CaseStatus.Completed)
             .Sum(x => x.Count);
 
+        var completionRate = total == 0 ? 0 : Math.Round(completed * 100.0 / total, 1);
+
+        ApplicationLog.Completed(logger,
+            "User {UserId} loaded board dashboard — {TotalCases} case(s), completion rate {CompletionRate}%",
+            userId, total, completionRate);
+
         return Result<BoardDashboardDto>.Ok(new BoardDashboardDto
         {
             CountsByStatus = statusCounts
@@ -161,7 +197,7 @@ public sealed class ExecutiveDashboardService(ICoreDbContext dbContext) : IExecu
             MonthlyTrend = monthlyRaw
                 .Select(x => new MonthlyCountDto(x.Year, x.Month, x.Count))
                 .ToList(),
-            CompletionRate = total == 0 ? 0 : Math.Round(completed * 100.0 / total, 1),
+            CompletionRate = completionRate,
             TotalCases = total
         });
     }

@@ -77,7 +77,7 @@ public sealed class CaseService : ICaseService
         if (entity is null)
             return Result<CaseDto>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
-        if (entity.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(SystemRoles.Admin))
+        if (entity.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(UserRoleClaims.Admin))
             return Result<CaseDto>.Fail(Error.Forbidden());
 
         return Result<CaseDto>.Ok(entity.Adapt<CaseDto>());

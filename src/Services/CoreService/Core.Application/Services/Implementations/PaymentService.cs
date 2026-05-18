@@ -40,7 +40,7 @@ public sealed class PaymentService : IPaymentService
         if (!validation.IsValid)
             return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
-        if (!_currentUser.Roles.Contains(SystemRoles.FinancialExpert) && !_currentUser.Roles.Contains(SystemRoles.Admin))
+        if (!_currentUser.Roles.Contains(UserRoleClaims.FinancialExpert) && !_currentUser.Roles.Contains(UserRoleClaims.Admin))
             return Result.Fail(Error.Forbidden());
 
         var entity = await _db.InvestmentCases

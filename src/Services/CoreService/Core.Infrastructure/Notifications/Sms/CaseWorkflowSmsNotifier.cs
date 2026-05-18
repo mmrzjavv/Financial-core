@@ -1,5 +1,6 @@
 using Core.Application.Abstractions;
 using Core.Application.Kanban;
+using Core.Application.Logging;
 using Core.Application.Notifications.Sms;
 using Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +47,10 @@ public sealed class CaseWorkflowSmsNotifier(
 
         var template = ResolveTemplate(from, to, action);
         await smsDispatcher.EnqueueAsync(template, mobile, args, cancellationToken: cancellationToken);
+
+        ApplicationLog.Completed(logger,
+            "Workflow SMS queued for case {CaseId} ({CaseNumber}) — template {TemplateId}, {FromStatus} → {ToStatus}, action {Action}",
+            caseId, caseNumber, template, from, to, action);
     }
 
     private static SmsTemplateId ResolveTemplate(CaseStatus from, CaseStatus to, WorkflowAction action)

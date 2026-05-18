@@ -20,11 +20,11 @@ public sealed class EvaluationService : IEvaluationService
 {
     private static readonly HashSet<string> AllowedRoles =
     [
-        SystemRoles.InvestmentExpert,
-        SystemRoles.InvestmentManager,
-        SystemRoles.LegalExpert,
-        SystemRoles.FinancialExpert,
-        SystemRoles.Admin
+        UserRoleClaims.InvestmentExpert,
+        UserRoleClaims.InvestmentManager,
+        UserRoleClaims.LegalExpert,
+        UserRoleClaims.FinancialExpert,
+        UserRoleClaims.Admin
     ];
 
     private readonly ICoreDbContext _db;

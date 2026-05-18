@@ -1,5 +1,5 @@
 using Core.Application.Identity.Tokens;
-using Core.Domain.Identity.Enums;
+using Core.Domain.Identity;
 
 
 namespace Core.Application.Identity.DTOs.User;
@@ -68,5 +68,5 @@ public class RegisterDto
     public string LastName { get; set; } = string.Empty;
     public string NationalCode { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
-    public UserRole Role { get; set; } = UserRole.User;
+    public UserRole Role { get; set; } = UserRole.Applicant;
 }

@@ -1,5 +1,6 @@
 using Core.Domain.Constants;
 using Core.Domain.Enums;
+using Core.Domain.Identity;
 
 namespace Core.Application.Kanban;
 
@@ -18,22 +19,22 @@ public static class CaseKanbanRules
 
     private static readonly Dictionary<CaseStatus, string> StatusOwnerRole = new()
     {
-        [CaseStatus.Draft] = SystemRoles.Applicant,
-        [CaseStatus.DataEntry1] = SystemRoles.Applicant,
-        [CaseStatus.DataEntry2] = SystemRoles.Applicant,
-        [CaseStatus.ReviewDataEntry1] = SystemRoles.InvestmentExpert,
-        [CaseStatus.ReviewDataEntry2] = SystemRoles.InvestmentExpert,
-        [CaseStatus.InitialValuation] = SystemRoles.InvestmentManager,
-        [CaseStatus.SecondaryValuation] = SystemRoles.InvestmentManager,
-        [CaseStatus.WaitingPreliminaryContract] = SystemRoles.LegalExpert,
-        [CaseStatus.WaitingUserReviewPreliminaryContract] = SystemRoles.Applicant,
-        [CaseStatus.ContractDrafting] = SystemRoles.LegalExpert,
-        [CaseStatus.WaitingContractSignature] = SystemRoles.LegalExpert,
-        [CaseStatus.WaitingSignedContractUpload] = SystemRoles.LegalExpert,
-        [CaseStatus.WaitingFinancialWorksheet] = SystemRoles.InvestmentExpert,
-        [CaseStatus.FinancialWorksheetReview] = SystemRoles.FinancialExpert,
-        [CaseStatus.WaitingCeoApproval] = SystemRoles.Ceo,
-        [CaseStatus.WaitingPayment] = SystemRoles.FinancialExpert
+        [CaseStatus.Draft] = UserRoleClaims.Applicant,
+        [CaseStatus.DataEntry1] = UserRoleClaims.Applicant,
+        [CaseStatus.DataEntry2] = UserRoleClaims.Applicant,
+        [CaseStatus.ReviewDataEntry1] = UserRoleClaims.InvestmentExpert,
+        [CaseStatus.ReviewDataEntry2] = UserRoleClaims.InvestmentExpert,
+        [CaseStatus.InitialValuation] = UserRoleClaims.InvestmentManager,
+        [CaseStatus.SecondaryValuation] = UserRoleClaims.InvestmentManager,
+        [CaseStatus.WaitingPreliminaryContract] = UserRoleClaims.LegalExpert,
+        [CaseStatus.WaitingUserReviewPreliminaryContract] = UserRoleClaims.Applicant,
+        [CaseStatus.ContractDrafting] = UserRoleClaims.LegalExpert,
+        [CaseStatus.WaitingContractSignature] = UserRoleClaims.LegalExpert,
+        [CaseStatus.WaitingSignedContractUpload] = UserRoleClaims.LegalExpert,
+        [CaseStatus.WaitingFinancialWorksheet] = UserRoleClaims.InvestmentExpert,
+        [CaseStatus.FinancialWorksheetReview] = UserRoleClaims.FinancialExpert,
+        [CaseStatus.WaitingCeoApproval] = UserRoleClaims.Ceo,
+        [CaseStatus.WaitingPayment] = UserRoleClaims.FinancialExpert
     };
 
     private static readonly Dictionary<string, HashSet<CaseStatus>> ActionStatusesByRole = BuildActionStatusesByRole();
@@ -56,7 +57,7 @@ public static class CaseKanbanRules
         if (IsTerminal(status))
             return false;
 
-        if (string.Equals(resolvedRole, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(resolvedRole, UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase))
             return StatusOwnerRole.ContainsKey(status);
 
         return ActionStatusesByRole.TryGetValue(resolvedRole, out var statuses) && statuses.Contains(status);
@@ -67,7 +68,7 @@ public static class CaseKanbanRules
         if (IsTerminal(status) || IsActionRequired(status, resolvedRole))
             return false;
 
-        if (string.Equals(resolvedRole, SystemRoles.Admin, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(resolvedRole, UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase))
             return false;
 
         return WatchStatusesByRole.TryGetValue(resolvedRole, out var statuses) && statuses.Contains(status);
@@ -89,13 +90,21 @@ public static class CaseKanbanRules
 
     public static string ResolveWorkflowRole(IReadOnlyCollection<string> roles)
     {
-        if (roles.Contains(SystemRoles.Admin)) return SystemRoles.Admin;
-        if (roles.Contains(SystemRoles.InvestmentManager)) return SystemRoles.InvestmentManager;
-        if (roles.Contains(SystemRoles.InvestmentExpert)) return SystemRoles.InvestmentExpert;
-        if (roles.Contains(SystemRoles.LegalExpert)) return SystemRoles.LegalExpert;
-        if (roles.Contains(SystemRoles.FinancialExpert)) return SystemRoles.FinancialExpert;
-        if (roles.Contains(SystemRoles.Ceo)) return SystemRoles.Ceo;
-        if (roles.Contains(SystemRoles.Applicant)) return SystemRoles.Applicant;
+        if (roles.Contains(UserRoleClaims.Admin)) return UserRoleClaims.Admin;
+        if (roles.Contains(UserRoleClaims.Ceo) || roles.Contains("CEO", StringComparer.OrdinalIgnoreCase))
+            return UserRoleClaims.Ceo;
+        if (roles.Contains(UserRoleClaims.InvestmentManager)) return UserRoleClaims.InvestmentManager;
+        if (roles.Contains(UserRoleClaims.InvestmentExpert)) return UserRoleClaims.InvestmentExpert;
+        if (roles.Contains(UserRoleClaims.LegalManager)) return UserRoleClaims.LegalManager;
+        if (roles.Contains(UserRoleClaims.LegalExpert) || roles.Contains(UserRoleClaims.LegalUnit, StringComparer.OrdinalIgnoreCase))
+            return UserRoleClaims.LegalExpert;
+        if (roles.Contains(UserRoleClaims.FinancialManager)) return UserRoleClaims.FinancialManager;
+        if (roles.Contains(UserRoleClaims.FinancialExpert) || roles.Contains(UserRoleClaims.FinancialUnit, StringComparer.OrdinalIgnoreCase))
+            return UserRoleClaims.FinancialExpert;
+        if (roles.Contains(UserRoleClaims.TechnicalManager)) return UserRoleClaims.TechnicalManager;
+        if (roles.Contains(UserRoleClaims.TechnicalExpert)) return UserRoleClaims.TechnicalExpert;
+        if (roles.Contains(UserRoleClaims.Applicant) || roles.Contains("User", StringComparer.OrdinalIgnoreCase))
+            return UserRoleClaims.Applicant;
         return roles.FirstOrDefault() ?? string.Empty;
     }
 
@@ -113,6 +122,13 @@ public static class CaseKanbanRules
             set.Add(status);
         }
 
+        WorkflowRoleExpander.MirrorKanbanRole(map, UserRoleClaims.InvestmentExpert, UserRoleClaims.InvestmentManager);
+        WorkflowRoleExpander.MirrorKanbanRole(map, UserRoleClaims.LegalExpert, UserRoleClaims.LegalManager);
+        WorkflowRoleExpander.MirrorKanbanRole(map, UserRoleClaims.FinancialExpert, UserRoleClaims.FinancialManager);
+
+        map.TryAdd(UserRoleClaims.TechnicalExpert, []);
+        WorkflowRoleExpander.MirrorKanbanRole(map, UserRoleClaims.TechnicalExpert, UserRoleClaims.TechnicalManager);
+
         return map;
     }
 
@@ -126,15 +142,23 @@ public static class CaseKanbanRules
             return active.Where(s => !action.Contains(s)).ToHashSet();
         }
 
-        return new Dictionary<string, HashSet<CaseStatus>>(StringComparer.OrdinalIgnoreCase)
+        var watch = new Dictionary<string, HashSet<CaseStatus>>(StringComparer.OrdinalIgnoreCase)
         {
-            [SystemRoles.Applicant] = WatchAllExcept(SystemRoles.Applicant),
-            [SystemRoles.InvestmentExpert] = WatchAllExcept(SystemRoles.InvestmentExpert),
-            [SystemRoles.InvestmentManager] = WatchAllExcept(SystemRoles.InvestmentManager),
-            [SystemRoles.LegalExpert] = WatchAllExcept(SystemRoles.LegalExpert),
-            [SystemRoles.FinancialExpert] = WatchAllExcept(SystemRoles.FinancialExpert),
-            [SystemRoles.Ceo] = WatchAllExcept(SystemRoles.Ceo)
+            [UserRoleClaims.Applicant] = WatchAllExcept(UserRoleClaims.Applicant),
+            [UserRoleClaims.InvestmentExpert] = WatchAllExcept(UserRoleClaims.InvestmentExpert),
+            [UserRoleClaims.InvestmentManager] = WatchAllExcept(UserRoleClaims.InvestmentManager),
+            [UserRoleClaims.LegalExpert] = WatchAllExcept(UserRoleClaims.LegalExpert),
+            [UserRoleClaims.FinancialExpert] = WatchAllExcept(UserRoleClaims.FinancialExpert),
+            [UserRoleClaims.TechnicalExpert] = WatchAllExcept(UserRoleClaims.TechnicalExpert),
+            [UserRoleClaims.Ceo] = WatchAllExcept(UserRoleClaims.Ceo)
         };
+
+        WorkflowRoleExpander.MirrorKanbanRole(watch, UserRoleClaims.InvestmentExpert, UserRoleClaims.InvestmentManager);
+        WorkflowRoleExpander.MirrorKanbanRole(watch, UserRoleClaims.LegalExpert, UserRoleClaims.LegalManager);
+        WorkflowRoleExpander.MirrorKanbanRole(watch, UserRoleClaims.FinancialExpert, UserRoleClaims.FinancialManager);
+        WorkflowRoleExpander.MirrorKanbanRole(watch, UserRoleClaims.TechnicalExpert, UserRoleClaims.TechnicalManager);
+
+        return watch;
     }
 
     private static readonly Dictionary<CaseStatus, string> KanbanStatusTitles = new()
@@ -192,25 +216,29 @@ public static class CaseKanbanRules
 
     private static readonly Dictionary<(CaseStatus Status, string OwnerRole), string> KanbanWaitingHints = new()
     {
-        [(CaseStatus.ReviewDataEntry1, SystemRoles.InvestmentExpert)] = "در انتظار بررسی کارشناس سرمایه‌گذاری",
-        [(CaseStatus.ReviewDataEntry2, SystemRoles.InvestmentExpert)] = "در انتظار بررسی کارشناس سرمایه‌گذاری",
-        [(CaseStatus.InitialValuation, SystemRoles.InvestmentManager)] = "در انتظار ارزش‌گذاری مدیر",
-        [(CaseStatus.SecondaryValuation, SystemRoles.InvestmentManager)] = "در انتظار ارزش‌گذاری مدیر",
-        [(CaseStatus.WaitingPreliminaryContract, SystemRoles.LegalExpert)] = "در انتظار واحد حقوقی",
-        [(CaseStatus.WaitingUserReviewPreliminaryContract, SystemRoles.Applicant)] = "در انتظار متقاضی",
-        [(CaseStatus.FinancialWorksheetReview, SystemRoles.FinancialExpert)] = "در انتظار واحد مالی",
-        [(CaseStatus.WaitingCeoApproval, SystemRoles.Ceo)] = "در انتظار تأیید مدیرعامل",
-        [(CaseStatus.WaitingPayment, SystemRoles.FinancialExpert)] = "در انتظار واحد مالی"
+        [(CaseStatus.ReviewDataEntry1, UserRoleClaims.InvestmentExpert)] = "در انتظار بررسی کارشناس سرمایه‌گذاری",
+        [(CaseStatus.ReviewDataEntry2, UserRoleClaims.InvestmentExpert)] = "در انتظار بررسی کارشناس سرمایه‌گذاری",
+        [(CaseStatus.InitialValuation, UserRoleClaims.InvestmentManager)] = "در انتظار ارزش‌گذاری مدیر",
+        [(CaseStatus.SecondaryValuation, UserRoleClaims.InvestmentManager)] = "در انتظار ارزش‌گذاری مدیر",
+        [(CaseStatus.WaitingPreliminaryContract, UserRoleClaims.LegalExpert)] = "در انتظار واحد حقوقی",
+        [(CaseStatus.WaitingUserReviewPreliminaryContract, UserRoleClaims.Applicant)] = "در انتظار متقاضی",
+        [(CaseStatus.FinancialWorksheetReview, UserRoleClaims.FinancialExpert)] = "در انتظار واحد مالی",
+        [(CaseStatus.WaitingCeoApproval, UserRoleClaims.Ceo)] = "در انتظار تأیید مدیرعامل",
+        [(CaseStatus.WaitingPayment, UserRoleClaims.FinancialExpert)] = "در انتظار واحد مالی"
     };
 
     private static readonly Dictionary<string, string> RoleLabels = new(StringComparer.OrdinalIgnoreCase)
     {
-        [SystemRoles.Applicant] = "متقاضی",
-        [SystemRoles.InvestmentExpert] = "کارشناس سرمایه‌گذاری",
-        [SystemRoles.InvestmentManager] = "مدیر سرمایه‌گذاری",
-        [SystemRoles.LegalExpert] = "کارشناس حقوقی",
-        [SystemRoles.FinancialExpert] = "کارشناس مالی",
-        [SystemRoles.Ceo] = "مدیرعامل",
-        [SystemRoles.Admin] = "مدیر سیستم"
+        [UserRoleClaims.Applicant] = "متقاضی",
+        [UserRoleClaims.InvestmentExpert] = "کارشناس سرمایه‌گذاری",
+        [UserRoleClaims.InvestmentManager] = "مدیر سرمایه‌گذاری",
+        [UserRoleClaims.LegalExpert] = "کارشناس حقوقی",
+        [UserRoleClaims.LegalManager] = "مدیر حقوقی",
+        [UserRoleClaims.FinancialExpert] = "کارشناس مالی",
+        [UserRoleClaims.FinancialManager] = "مدیر مالی",
+        [UserRoleClaims.TechnicalExpert] = "کارشناس فنی",
+        [UserRoleClaims.TechnicalManager] = "مدیر فنی",
+        [UserRoleClaims.Ceo] = "مدیرعامل",
+        [UserRoleClaims.Admin] = "مدیر سیستم"
     };
 }

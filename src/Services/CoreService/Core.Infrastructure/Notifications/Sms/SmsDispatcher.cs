@@ -1,5 +1,6 @@
 using Core.Application.Identity.Common.Options;
 using Core.Application.Identity.Interfaces;
+using Core.Application.Logging;
 using Core.Application.Notifications.Sms;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -31,8 +32,16 @@ public sealed class SmsDispatcher(
             Error = success ? null : "Provider returned failure"
         }, cancellationToken);
 
-        if (!success)
+        if (success)
+        {
+            ApplicationLog.Completed(logger,
+                "SMS sent immediately — template {TemplateId} to {Mobile}",
+                templateId, mobile);
+        }
+        else
+        {
             logger.LogWarning("SMS send failed for template {TemplateId} to {Mobile}", templateId, mobile);
+        }
 
         return success;
     }
@@ -48,6 +57,10 @@ public sealed class SmsDispatcher(
             return SendImmediateAsync(templateId, mobile, args, cancellationToken);
 
         var notBefore = DateTimeOffset.UtcNow.Add(delay ?? TimeSpan.Zero);
+        ApplicationLog.Completed(logger,
+            "SMS enqueued — template {TemplateId} to {Mobile}, not before {NotBeforeUtc}",
+            templateId, mobile, notBefore);
+
         return queue.EnqueueAsync(new SmsQueuedMessage
         {
             TemplateId = templateId,

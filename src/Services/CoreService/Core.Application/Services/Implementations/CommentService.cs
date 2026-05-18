@@ -55,7 +55,7 @@ public sealed class CommentService : ICommentService
         if (isApplicant && request.IsInternal)
             return Result.Fail(Error.Forbidden(ApiMessages.ApplicantsCannotCreateInternalComments));
 
-        if (!isApplicant && !_currentUser.Roles.Contains(SystemRoles.Admin))
+        if (!isApplicant && !_currentUser.Roles.Contains(UserRoleClaims.Admin))
             return Result.Fail(Error.Forbidden());
 
         await _db.CaseComments.AddAsync(
@@ -80,7 +80,7 @@ public sealed class CommentService : ICommentService
         if (!validation.IsValid)
             return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
-        if (_currentUser.Roles.Contains(SystemRoles.Applicant))
+        if (_currentUser.Roles.Contains(UserRoleClaims.Applicant))
             return Result.Fail(Error.Forbidden(ApiMessages.ApplicantsCannotRequestRevisions));
 
         var entity = await _db.InvestmentCases

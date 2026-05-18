@@ -15,7 +15,7 @@ using Core.Application.Identity.Common;
 using Core.Application.Identity.Common.Options;
 using Core.Application.Logging;
 using Core.Domain.Identity.Entities;
-using Core.Domain.Identity.Enums;
+using Core.Domain.Identity;
 using Microsoft.Extensions.Logging;
 
 namespace Core.Application.Identity.Services;
@@ -520,7 +520,7 @@ public class UserService(
                 && !string.IsNullOrWhiteSpace(otpOptions.Value.SeedAdminPhone)
                 && string.Equals(dto.PhoneNumber, otpOptions.Value.SeedAdminPhone, StringComparison.Ordinal)
                 ? UserRole.Admin
-                : UserRole.User;
+                : UserRole.Applicant;
 
             await unitOfWork.Users.AddAsync(user);
             await unitOfWork.SaveChangesAsync();

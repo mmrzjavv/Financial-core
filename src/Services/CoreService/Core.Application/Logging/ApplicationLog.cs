@@ -2,7 +2,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Core.Application.Logging;
 
-/// <summary>Shared structured Information logs for application and API layers (not a DI service).</summary>
+/// <summary>
+/// Shared structured Information logs for application and infrastructure use cases (not a DI service).
+/// Pattern per operation: <see cref="Started"/> → optional <see cref="Blocked"/> on expected denials → <see cref="Completed"/> on success.
+/// Controllers stay thin; do not duplicate these messages at the API layer.
+/// </summary>
 public static class ApplicationLog
 {
     public static void Started(ILogger logger, string operation, string? userId = null, Guid? caseId = null)

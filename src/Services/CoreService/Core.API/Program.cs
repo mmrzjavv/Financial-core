@@ -13,10 +13,10 @@ using Core.API.Authorization;
 using Core.API.Http;
 using Core.Application;
 using Core.Application.Abstractions;
+using Core.Domain.Identity;
 using Core.Application.Authorization;
 using Core.Application.Common;
 using Core.Application.Services;
-using Core.Domain.Constants;
 using Core.Infrastructure.DependencyInjection;
 using Core.Infrastructure.Identity.DependencyInjection;
 using Core.Workflow.DependencyInjection;
@@ -165,17 +165,21 @@ builder.Services.AddScoped<IMapper, ServiceMapper>();
 builder.Services.AddAuthorization(options =>
 {
     // IdentityService issues ClaimTypes.Role = UserRole.ToString(): Applicant, InvestmentExpert, InvestmentManager, LegalExpert, FinancialExpert, Admin, ...
-    options.AddPolicy("ApplicantOnly", p => p.RequireRole(SystemRoles.Applicant, SystemRoles.Admin));
+    options.AddPolicy("ApplicantOnly", p => p.RequireRole(UserRoleClaims.Applicant, UserRoleClaims.Admin));
     options.AddPolicy("InternalOnly", p => p.RequireRole(
-        SystemRoles.InvestmentExpert,
-        SystemRoles.InvestmentManager,
-        SystemRoles.FinancialExpert,
-        SystemRoles.LegalExpert,
-        SystemRoles.Ceo,
-        SystemRoles.Admin,
-        "LegalUnit",
-        "FinancialUnit",
-        "InvestmentUnit",
+        UserRoleClaims.InvestmentExpert,
+        UserRoleClaims.InvestmentManager,
+        UserRoleClaims.LegalExpert,
+        UserRoleClaims.LegalManager,
+        UserRoleClaims.FinancialExpert,
+        UserRoleClaims.FinancialManager,
+        UserRoleClaims.TechnicalExpert,
+        UserRoleClaims.TechnicalManager,
+        UserRoleClaims.Ceo,
+        UserRoleClaims.Admin,
+        UserRoleClaims.LegalUnit,
+        UserRoleClaims.FinancialUnit,
+        UserRoleClaims.InvestmentUnit,
         "CEO"));
 
     options.AddPolicy("InvestmentCases.Review", p => p.Requirements.Add(new PermissionRequirement("investment_cases:review")));
@@ -183,15 +187,15 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("InvestmentCases.LegalReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:legal_review")));
     // Role-based: permission cache can lag after role changes; CaseAuthorizationService enforces cases:ceo_approve in app layer.
     options.AddPolicy("InvestmentCases.CeoApprove", p => p.RequireRole(
-        SystemRoles.Ceo,
-        SystemRoles.Admin,
+        UserRoleClaims.Ceo,
+        UserRoleClaims.Admin,
         "CEO"));
 
-    options.AddPolicy("Dashboard.Ceo", p => p.RequireRole(SystemRoles.Ceo, SystemRoles.Admin, "CEO"));
+    options.AddPolicy("Dashboard.Ceo", p => p.RequireRole(UserRoleClaims.Ceo, UserRoleClaims.Admin, "CEO"));
     options.AddPolicy("Dashboard.Board", p => p.RequireRole(
-        SystemRoles.Ceo,
-        SystemRoles.InvestmentManager,
-        SystemRoles.Admin,
+        UserRoleClaims.Ceo,
+        UserRoleClaims.InvestmentManager,
+        UserRoleClaims.Admin,
         "CEO"));
 });
 

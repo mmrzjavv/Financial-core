@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Core.Application.Abstractions;
 using Core.Application.Identity.Authorization;
-using Core.Domain.Constants;
+using Core.Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 
@@ -43,7 +43,7 @@ public sealed class PermissionAuthorizationHandler(IIdentityClient identityClien
 
         if (string.Equals(requirement.Permission, Permissions.InvestmentCases_CeoApprove, StringComparison.OrdinalIgnoreCase))
         {
-            if (roles.Contains(SystemRoles.Ceo) || roles.Contains("CEO") || roles.Contains(SystemRoles.Admin))
+            if (roles.Contains(UserRoleClaims.Ceo) || roles.Contains("CEO") || roles.Contains(UserRoleClaims.Admin))
             {
                 context.Succeed(requirement);
                 return true;

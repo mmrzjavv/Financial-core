@@ -16,6 +16,7 @@ using Core.Application.Responses;
 using Core.Domain.Constants;
 using Core.Domain.Entities;
 using Core.Domain.Enums;
+using Core.Domain.Identity;
 using Core.Domain.Identity.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -136,7 +137,7 @@ public sealed class InvestmentCaseAppService(
 
         ApplicationLog.Started(logger, "UpdateDataEntry1", authResult.Value, caseId);
 
-        if (!userContext.Roles.Contains(SystemRoles.Applicant))
+        if (!userContext.Roles.Contains(UserRoleClaims.Applicant))
         {
             ApplicationLog.Blocked(logger, "UpdateDataEntry1", "only applicants may edit data entry 1", authResult.Value, caseId);
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
@@ -201,7 +202,7 @@ public sealed class InvestmentCaseAppService(
 
         ApplicationLog.Started(logger, "UpdateDataEntry2", authResult.Value, caseId);
 
-        if (!userContext.Roles.Contains(SystemRoles.Applicant))
+        if (!userContext.Roles.Contains(UserRoleClaims.Applicant))
         {
             ApplicationLog.Blocked(logger, "UpdateDataEntry2", "only applicants may edit data entry 2", authResult.Value, caseId);
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
@@ -671,19 +672,23 @@ public sealed class InvestmentCaseAppService(
 
     private string ResolveActorRole()
     {
-        if (userContext.Roles.Contains(SystemRoles.Admin)) return SystemRoles.Admin;
-        if (userContext.Roles.Contains(SystemRoles.InvestmentManager)) return SystemRoles.InvestmentManager;
-        if (userContext.Roles.Contains(SystemRoles.InvestmentExpert)) return SystemRoles.InvestmentExpert;
-        if (userContext.Roles.Contains(SystemRoles.LegalExpert) ||
-            userContext.Roles.Contains("LegalUnit", StringComparer.OrdinalIgnoreCase))
-            return SystemRoles.LegalExpert;
-        if (userContext.Roles.Contains(SystemRoles.FinancialExpert) ||
-            userContext.Roles.Contains("FinancialUnit", StringComparer.OrdinalIgnoreCase))
-            return SystemRoles.FinancialExpert;
-        if (userContext.Roles.Contains(SystemRoles.Ceo) ||
+        if (userContext.Roles.Contains(UserRoleClaims.Admin)) return UserRoleClaims.Admin;
+        if (userContext.Roles.Contains(UserRoleClaims.Ceo) ||
             userContext.Roles.Contains("CEO", StringComparer.OrdinalIgnoreCase))
-            return SystemRoles.Ceo;
-        if (userContext.Roles.Contains(SystemRoles.Applicant)) return SystemRoles.Applicant;
+            return UserRoleClaims.Ceo;
+        if (userContext.Roles.Contains(UserRoleClaims.InvestmentManager)) return UserRoleClaims.InvestmentManager;
+        if (userContext.Roles.Contains(UserRoleClaims.InvestmentExpert)) return UserRoleClaims.InvestmentExpert;
+        if (userContext.Roles.Contains(UserRoleClaims.LegalManager)) return UserRoleClaims.LegalManager;
+        if (userContext.Roles.Contains(UserRoleClaims.LegalExpert) ||
+            userContext.Roles.Contains(UserRoleClaims.LegalUnit, StringComparer.OrdinalIgnoreCase))
+            return UserRoleClaims.LegalExpert;
+        if (userContext.Roles.Contains(UserRoleClaims.FinancialManager)) return UserRoleClaims.FinancialManager;
+        if (userContext.Roles.Contains(UserRoleClaims.FinancialExpert) ||
+            userContext.Roles.Contains(UserRoleClaims.FinancialUnit, StringComparer.OrdinalIgnoreCase))
+            return UserRoleClaims.FinancialExpert;
+        if (userContext.Roles.Contains(UserRoleClaims.TechnicalManager)) return UserRoleClaims.TechnicalManager;
+        if (userContext.Roles.Contains(UserRoleClaims.TechnicalExpert)) return UserRoleClaims.TechnicalExpert;
+        if (userContext.Roles.Contains(UserRoleClaims.Applicant)) return UserRoleClaims.Applicant;
         return userContext.Roles.FirstOrDefault() ?? string.Empty;
     }
 
