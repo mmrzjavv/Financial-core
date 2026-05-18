@@ -1,6 +1,6 @@
 using BuildingBlocks.Domain.Entities;
 
-namespace Services.CoreService.Core.Domain.Entities;
+namespace Core.Domain.Entities;
 
 public sealed class CaseCommentAttachment : Entity<Guid>
 {

@@ -2,7 +2,7 @@ using Core.Application.Common;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
 using BuildingBlocks.Domain.Abstractions;
-using Services.CoreService.Core.Domain.Constants;
+using Core.Domain.Constants;
 
 
 namespace Core.Application.Authorization;
@@ -60,6 +60,15 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
                 CasePermissions.ManageFinancialWorksheet,
                 CasePermissions.DownloadDocuments,
                 CasePermissions.UploadCommentAttachments
+            },
+            [SystemRoles.Ceo] = new[]
+            {
+                CasePermissions.ReadAll,
+                CasePermissions.ViewInternalComments,
+                CasePermissions.CreateInternalComment,
+                CasePermissions.CeoApprove,
+                CasePermissions.DownloadDocuments,
+                CasePermissions.UploadCommentAttachments
             }
         };
 
@@ -71,7 +80,9 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
         userContext.Roles.Contains(SystemRoles.InvestmentManager) ||
         userContext.Roles.Contains(SystemRoles.FinancialExpert) ||
         userContext.Roles.Contains(SystemRoles.LegalExpert) ||
+        userContext.Roles.Contains(SystemRoles.Ceo) ||
         userContext.Roles.Contains("LegalUnit", StringComparer.OrdinalIgnoreCase) ||
+        userContext.Roles.Contains("CEO", StringComparer.OrdinalIgnoreCase) ||
         userContext.Roles.Contains("FinancialUnit", StringComparer.OrdinalIgnoreCase) ||
         userContext.Roles.Contains("InvestmentUnit", StringComparer.OrdinalIgnoreCase);
 
@@ -121,5 +132,8 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
 
         if (role.Equals("InvestmentUnit", StringComparison.OrdinalIgnoreCase))
             yield return SystemRoles.InvestmentExpert;
+
+        if (role.Equals("CEO", StringComparison.OrdinalIgnoreCase))
+            yield return SystemRoles.Ceo;
     }
 }

@@ -10,6 +10,7 @@ using Services.CoreService.Core.Application.Abstractions;
 using Services.CoreService.Core.Application.Contracts.DataEntry;
 using Services.CoreService.Core.Domain.Entities;
 using Services.CoreService.Core.Domain.Enums;
+using Services.CoreService.Core.Domain.Identity.Entities;
 
 namespace Services.CoreService.Core.Application.Services.Implementations;
 
@@ -56,38 +57,32 @@ public sealed class DataEntryService : IDataEntryService
         if (caseMeta.CurrentPhase != CasePhase.Application)
             return Result.Fail(Error.Conflict(ApiMessages.DataEntry1NotCurrentPhase));
 
+        if (!Guid.TryParse(_currentUser.UserId, out var userId))
+            return Result.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
+
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user is null)
+            return Result.Fail(Error.NotFound(ApiMessages.AuthenticationRequired));
+
+        var fullName = $"{user.FirstName} {user.LastName}".Trim();
+        var email = user.Email?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(email))
+            return Result.Fail(Error.Validation(ApiMessages.ApplicantProfileIncomplete));
+
         var dataEntry = await _db.DataEntry1.FirstOrDefaultAsync(x => x.CaseId == caseId, ct);
         if (dataEntry is null)
         {
             dataEntry = new InvestmentCaseDataEntry1(
                 caseId,
-                request.StartupTitle,
-                request.BusinessDescription,
-                request.RequestedAmount,
-                request.TeamSize,
-                request.Website);
-            dataEntry.Update(
-                request.StartupTitle,
-                request.BusinessDescription,
-                request.RequestedAmount,
-                request.TeamSize,
-                request.Website,
-                request.Country,
-                request.City,
-                request.Industry);
+                fullName,
+                request.BusinessStage,
+                email,
+                request.RequestedAmount);
             await _db.DataEntry1.AddAsync(dataEntry, ct);
         }
         else
         {
-            dataEntry.Update(
-                request.StartupTitle,
-                request.BusinessDescription,
-                request.RequestedAmount,
-                request.TeamSize,
-                request.Website,
-                request.Country,
-                request.City,
-                request.Industry);
+            dataEntry.Update(fullName, request.BusinessStage, email, request.RequestedAmount);
         }
 
         await _db.InvestmentCases.TouchUpdatedAtAsync(caseId, _clock.UtcNow, ct);
@@ -120,23 +115,12 @@ public sealed class DataEntryService : IDataEntryService
         if (dataEntry is null)
         {
             await _db.DataEntry2.AddAsync(
-                new InvestmentCaseDataEntry2(
-                    caseId,
-                    request.MarketAnalysis,
-                    request.RevenueModel,
-                    request.CompetitiveAdvantage,
-                    request.FinancialProjection),
+                new InvestmentCaseDataEntry2(caseId, request.InvestmentAttractionBasis),
                 ct);
         }
         else
         {
-            dataEntry.Update(
-                request.MarketAnalysis,
-                request.RevenueModel,
-                request.CompetitiveAdvantage,
-                request.FinancialProjection,
-                request.Risks,
-                request.GoToMarketStrategy);
+            dataEntry.Update(request.InvestmentAttractionBasis);
         }
 
         await _db.InvestmentCases.TouchUpdatedAtAsync(caseId, _clock.UtcNow, ct);

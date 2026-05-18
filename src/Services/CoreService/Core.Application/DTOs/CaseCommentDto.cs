@@ -1,5 +1,4 @@
-using Services.CoreService.Core.Domain.Enums;
-
+using Core.Domain.Enums;
 
 namespace Core.Application.DTOs;
 

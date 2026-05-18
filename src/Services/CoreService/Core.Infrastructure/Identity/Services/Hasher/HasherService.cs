@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using Core.Application.Identity.Common.Interfaces;
-using Core.Infrastructure.Identity.DTOs;
+using Core.Infrastructure.Identity.Services.Hasher.DTOs;
 using Microsoft.Extensions.Options;
 
-namespace Core.Infrastructure.Identity.Services
+namespace Core.Infrastructure.Identity.Services.Hasher
 {
     public class HasherService : IHasher
     {

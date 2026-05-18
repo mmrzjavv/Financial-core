@@ -1,6 +1,6 @@
-using FluentValidation;
 using Core.Application.Requests;
-
+using Core.Domain.Enums;
+using FluentValidation;
 
 namespace Core.Application.Validators;
 
@@ -8,12 +8,9 @@ public sealed class UpdateDataEntry1RequestValidator : AbstractValidator<UpdateD
 {
     public UpdateDataEntry1RequestValidator()
     {
-        RuleFor(x => x.StartupTitle).NotEmpty().MaximumLength(256);
-        RuleFor(x => x.BusinessDescription).NotEmpty().MaximumLength(4000);
+        RuleFor(x => x.BusinessStage)
+            .Must(s => s is BusinessStage.Idea or BusinessStage.HasPrototype)
+            .WithMessage("مرحله کسب‌وکار نامعتبر است.");
         RuleFor(x => x.RequestedAmount).GreaterThan(0);
-        RuleFor(x => x.TeamSize).GreaterThanOrEqualTo(1).LessThanOrEqualTo(5000);
-        RuleFor(x => x.Website).MaximumLength(512);
-        RuleFor(x => x.Country).MaximumLength(128);
-        RuleFor(x => x.City).MaximumLength(128);
     }
 }

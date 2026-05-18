@@ -41,6 +41,7 @@
     { value: "12", label: "WaitingSignedContractUpload (12)" },
     { value: "13", label: "WaitingFinancialWorksheet (13)" },
     { value: "14", label: "FinancialWorksheetReview (14)" },
+    { value: "20", label: "WaitingCeoApproval (20)" },
     { value: "15", label: "WaitingPayment (15)" },
     { value: "16", label: "Completed (16)" },
     { value: "17", label: "Rejected (17)" },
@@ -59,6 +60,15 @@
     { value: "8", label: "FinalContract (8)" },
     { value: "9", label: "SignedContract (9)" },
     { value: "10", label: "PaymentReceipt (10)" },
+    { value: "11", label: "BusinessPlan (11)" },
+    { value: "12", label: "CompanyIntroduction (12)" },
+    { value: "13", label: "EmployeeInsuranceList (13)" },
+    { value: "14", label: "TrialBalanceScan (14)" },
+    { value: "15", label: "ActivityLicenses (15)" },
+    { value: "16", label: "BusinessPermits (16)" },
+    { value: "17", label: "ManagersBoardValidation (17)" },
+    { value: "18", label: "BoardMeetingMinutes (18)" },
+    { value: "19", label: "CapitalRaisingPlans (19)" },
     { value: "99", label: "Other (99)" },
   ];
 
@@ -250,7 +260,20 @@
 
     let body = opts.body;
     let bodyForLog = body;
-    if (body != null && opts.json !== false && typeof body !== "string") {
+    const sendJson =
+      opts.json !== false &&
+      (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE");
+    if (sendJson) {
+      const payload = body == null ? {} : body;
+      bodyForLog = payload;
+      if (typeof payload === "string") {
+        headers["Content-Type"] = headers["Content-Type"] || "application/json";
+        body = payload;
+      } else {
+        headers["Content-Type"] = headers["Content-Type"] || "application/json";
+        body = JSON.stringify(payload);
+      }
+    } else if (body != null && opts.json !== false && typeof body !== "string") {
       headers["Content-Type"] = headers["Content-Type"] || "application/json";
       body = JSON.stringify(body);
     }
@@ -456,20 +479,12 @@
 
   function setDefaultJsonTemplates() {
     qs("#dataEntry1Json").value = pretty({
-      startupTitle: "My Startup",
-      businessDescription: "Short description",
+      businessStage: 2,
       requestedAmount: 100000000,
-      teamSize: 3,
-      website: "https://example.com",
-      country: "IR",
-      city: "Tehran",
     });
 
     qs("#dataEntry2Json").value = pretty({
-      marketAnalysis: "Market analysis ...",
-      revenueModel: "Revenue model ...",
-      competitiveAdvantage: "Competitive advantage ...",
-      financialProjection: "Optional",
+      investmentAttractionBasis: "توسعه محصول و ورود به بازار منطقه‌ای …",
     });
 
     qs("#valuationJson").value = pretty({
@@ -1281,7 +1296,13 @@
         if (!docId) throw new Error("شناسه سند الزامی است.");
         const res = await apiRequest({
           method: "GET",
-          path: casesBasePath() + "/" + caseId + "/documents/" + encodeURIComponent(docId) + "/download",
+          path:
+            casesBasePath() +
+            "/" +
+            caseId +
+            "/documents/" +
+            encodeURIComponent(docId) +
+            "/download?presign=true",
         });
         const body = res.body && (res.body.url ? res.body : res.body.Value || res.body.value || res.body.data || res.body.Data);
         const url = body && (body.url || body.Url);
@@ -1422,6 +1443,149 @@
     );
   }
 
+  function formatMoney(n) {
+    const v = Number(n) || 0;
+    return v.toLocaleString("fa-IR") + " ریال";
+  }
+
+  function renderBarChart(container, items, labelKey, countKey) {
+    if (!items || !items.length) {
+      container.innerHTML = '<p class="muted">داده‌ای موجود نیست.</p>';
+      return;
+    }
+    const max = Math.max(...items.map((x) => Number(x[countKey]) || 0), 1);
+    container.innerHTML = items
+      .map((item) => {
+        const count = Number(item[countKey]) || 0;
+        const label = item[labelKey] || item.statusTitle || item.StatusTitle || "";
+        const pct = Math.round((count / max) * 100);
+        return (
+          '<div class="dashboard-bar">' +
+          '<div class="dashboard-bar__label"><span>' +
+          label +
+          '</span><span class="mono">' +
+          count +
+          "</span></div>" +
+          '<div class="dashboard-bar__track"><div class="dashboard-bar__fill" style="width:' +
+          pct +
+          '%"></div></div></div>'
+        );
+      })
+      .join("");
+  }
+
+  function unwrapDashboard(body) {
+    const root = body && (body.data != null ? body.data : body.Data != null ? body.Data : body);
+    return root;
+  }
+
+  function wireDashboard() {
+    qs("#btnLoadCeoDashboard").addEventListener("click", () =>
+      withUiError(async () => {
+        const errEl = qs("#ceoDashboardError");
+        errEl.classList.add("hidden");
+        const res = await apiRequest({ method: "GET", path: "/api/v1/dashboard/ceo" });
+        const d = unwrapDashboard(res.body);
+        if (!d) throw new Error("پاسخ داشبورد خالی است.");
+        const metrics = qs("#ceoDashboardMetrics");
+        metrics.classList.remove("hidden");
+        metrics.innerHTML =
+          '<div class="dashboard-metric"><span class="muted">پرونده فعال</span><strong>' +
+          (d.totalActiveCases ?? d.TotalActiveCases ?? 0) +
+          "</strong></div>" +
+          '<div class="dashboard-metric"><span class="muted">تکمیل‌شده</span><strong>' +
+          (d.completedCases ?? d.CompletedCases ?? 0) +
+          "</strong></div>" +
+          '<div class="dashboard-metric"><span class="muted">این ماه</span><strong>' +
+          (d.casesThisMonth ?? d.CasesThisMonth ?? 0) +
+          "</strong></div>" +
+          '<div class="dashboard-metric"><span class="muted">میانگین روز بررسی</span><strong>' +
+          (d.averageDaysInReview ?? d.AverageDaysInReview ?? 0) +
+          "</strong></div>" +
+          '<div class="dashboard-metric"><span class="muted">مبلغ درخواستی</span><strong>' +
+          formatMoney(d.totalRequestedAmount ?? d.TotalRequestedAmount) +
+          "</strong></div>" +
+          '<div class="dashboard-metric"><span class="muted">پرداخت تأییدشده</span><strong>' +
+          formatMoney(d.approvedPaymentsSum ?? d.ApprovedPaymentsSum) +
+          "</strong></div>" +
+          '<div class="dashboard-metric dashboard-metric--accent"><span class="muted">در انتظار تأیید مدیرعامل</span><strong>' +
+          (d.pendingCeoApprovals ?? d.PendingCeoApprovals ?? 0) +
+          "</strong></div>" +
+          '<div class="dashboard-metric"><span class="muted">در انتظار پرداخت</span><strong>' +
+          (d.waitingPaymentCount ?? d.WaitingPaymentCount ?? 0) +
+          "</strong></div>" +
+          '<div class="dashboard-metric"><span class="muted">نرخ تکمیل</span><strong>' +
+          (d.completionRate ?? d.CompletionRate ?? 0) +
+          "%</strong></div>" +
+          '<div class="dashboard-metric"><span class="muted">مبلغ خط لوله فعال</span><strong>' +
+          formatMoney(d.activePipelineRequestedAmount ?? d.ActivePipelineRequestedAmount) +
+          "</strong></div>" +
+          '<div class="dashboard-metric"><span class="muted">ردشده</span><strong>' +
+          (d.rejectedCount ?? d.RejectedCount ?? 0) +
+          "</strong></div>";
+        const funnel = qs("#ceoDashboardFunnel");
+        funnel.classList.remove("hidden");
+        renderBarChart(
+          funnel,
+          d.pipelineByStatus || d.PipelineByStatus || [],
+          "statusTitle",
+          "count"
+        );
+        const activity = qs("#ceoDashboardActivity");
+        activity.classList.remove("hidden");
+        const rows = d.recentActivity || d.RecentActivity || [];
+        activity.innerHTML =
+          '<div class="card__title">فعالیت اخیر</div><ul class="dashboard-activity">' +
+          rows
+            .map((r) => {
+              const cn = r.caseNumber || r.CaseNumber || "";
+              const act = r.action || r.Action || "";
+              const at = r.createdAt || r.CreatedAt || "";
+              return "<li><span class=\"mono\">" + cn + "</span> — " + act + " <span class=\"muted\">" + at + "</span></li>";
+            })
+            .join("") +
+          "</ul>";
+      }).catch((e) => {
+        const errEl = qs("#ceoDashboardError");
+        errEl.textContent = String(e.message || e);
+        errEl.classList.remove("hidden");
+      })
+    );
+
+    qs("#btnLoadBoardDashboard").addEventListener("click", () =>
+      withUiError(async () => {
+        const errEl = qs("#boardDashboardError");
+        errEl.classList.add("hidden");
+        const res = await apiRequest({ method: "GET", path: "/api/v1/dashboard/board" });
+        const d = unwrapDashboard(res.body);
+        if (!d) throw new Error("پاسخ داشبورد خالی است.");
+        const summary = qs("#boardDashboardSummary");
+        summary.classList.remove("hidden");
+        summary.innerHTML =
+          '<div class="dashboard-metric"><span class="muted">کل پرونده‌ها</span><strong>' +
+          (d.totalCases ?? d.TotalCases ?? 0) +
+          "</strong></div>" +
+          '<div class="dashboard-metric"><span class="muted">نرخ تکمیل</span><strong>' +
+          (d.completionRate ?? d.CompletionRate ?? 0) +
+          "%</strong></div>";
+        const trend = qs("#boardDashboardTrend");
+        trend.classList.remove("hidden");
+        const trendItems = (d.monthlyTrend || d.MonthlyTrend || []).map((m) => ({
+          statusTitle: (m.year || m.Year) + "/" + (m.month || m.Month),
+          count: m.count || m.Count,
+        }));
+        renderBarChart(trend, trendItems, "statusTitle", "count");
+        const status = qs("#boardDashboardStatus");
+        status.classList.remove("hidden");
+        renderBarChart(status, d.countsByStatus || d.CountsByStatus || [], "statusTitle", "count");
+      }).catch((e) => {
+        const errEl = qs("#boardDashboardError");
+        errEl.textContent = String(e.message || e);
+        errEl.classList.remove("hidden");
+      })
+    );
+  }
+
   function wireDebugTools() {
     qs("#btnManualSend").addEventListener("click", () =>
       withUiError(async () => {
@@ -1494,6 +1658,7 @@
     wireDocuments();
     wireComments();
     wireEvaluations();
+    wireDashboard();
     wireDebugTools();
 
     renderInspector();
@@ -1518,6 +1683,7 @@
       unwrapEnvelope,
       saveSessionFromLogin,
       getActiveSession,
+      makeUrl,
       findSessionByPhone,
       setActiveSessionId,
       setCurrentCaseId,

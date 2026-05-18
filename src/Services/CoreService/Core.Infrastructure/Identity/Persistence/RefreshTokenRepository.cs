@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using Core.Application.Identity.Abstractions;
-using Services.CoreService.Core.Domain.Identity.Entities;
-using Services.CoreService.Core.Persistence;
+using Core.Domain.Identity.Entities;
+using Core.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Core.Infrastructure.Identity.Persistence;

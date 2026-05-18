@@ -1,8 +1,8 @@
+using Core.Domain.Entities;
+using Core.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
-using Services.CoreService.Core.Domain.Entities;
-using Services.CoreService.Core.Domain.Enums;
 
-namespace Services.CoreService.Core.Persistence.Extensions;
+namespace Core.Persistence.Extensions;
 
 public static class InvestmentCaseWriteExtensions
 {

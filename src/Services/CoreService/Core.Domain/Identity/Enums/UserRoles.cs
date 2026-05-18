@@ -1,4 +1,4 @@
-namespace Services.CoreService.Core.Domain.Identity.Enums;
+namespace Core.Domain.Identity.Enums;
 
 public enum UserRole
 {

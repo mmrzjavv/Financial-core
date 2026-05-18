@@ -1,6 +1,6 @@
 using FluentValidation;
 using Core.Application.Requests;
-using Services.CoreService.Core.Domain.Enums;
+using Core.Domain.Enums;
 
 namespace Core.Application.Validators;
 

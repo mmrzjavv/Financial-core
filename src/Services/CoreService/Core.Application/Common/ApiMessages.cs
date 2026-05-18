@@ -12,9 +12,11 @@ public static class ApiMessages
     public const string CommentNotFound = "نظر یافت نشد.";
     public const string DocumentNotFound = "سند یافت نشد.";
     public const string UploadedFileNotFound = "فایل بارگذاری‌شده در سیستم یافت نشد.";
+    public const string UploadedFileEmpty = "فایل بارگذاری‌شده خالی است و قابل ثبت نیست.";
     public const string DocumentAlreadyExists = "این سند قبلاً ثبت شده است.";
     public const string DocumentAlreadyRegistered = "این سند قبلاً ثبت شده است.";
     public const string InvalidFileName = "نام فایل نامعتبر است.";
+    public const string InvalidDocumentType = "نوع سند نامعتبر است.";
     public const string FileTypeNotAllowed = "نوع فایل مجاز نیست.";
     public const string InvalidDocumentKey = "کلید سند نامعتبر است.";
     public const string InvalidAttachmentKey = "کلید پیوست نامعتبر است.";
@@ -28,11 +30,14 @@ public static class ApiMessages
     public const string DataEntry2NotCurrentPhase = "مرحله فعلی پرونده، ورود اطلاعات ۲ نیست.";
     public const string FinancialWorksheetNotCurrentPhase = "مرحله فعلی پرونده، کاربرگ مالی نیست.";
     public const string PaymentPhaseMismatch = "پرونده در مرحله پردازش پرداخت نیست.";
-    public const string PaymentsOnlyInWaitingPayment = "ثبت پرداخت فقط در وضعیت انتظار پرداخت امکان‌پذیر است.";
+    public const string PaymentsOnlyInWaitingPayment = "ثبت پرداخت فقط پس از تأیید مدیرعامل و در وضعیت «انتظار پرداخت» امکان‌پذیر است.";
+    public const string CeoApprovalRequiredForPayment = "تا زمانی که مدیرعامل پرونده را تأیید نکرده، ورود به مرحله پرداخت ممکن نیست.";
     public const string ApprovalMustMatchPhase = "تأیید باید با مرحله فعلی پرونده هم‌خوان باشد.";
     public const string RevisionMustMatchPhase = "درخواست اصلاح باید با مرحله فعلی پرونده هم‌خوان باشد.";
     public const string ApplicantsCannotCreateInternalComments = "متقاضی نمی‌تواند نظر داخلی ثبت کند.";
     public const string ApplicantsCannotRequestRevisions = "متقاضی نمی‌تواند درخواست اصلاح ثبت کند.";
+    public const string RevisionMessageRequired = "پیام درخواست اصلاح الزامی است.";
+    public const string FreeformCommentNotAllowed = "در این مرحله امکان ثبت نظر آزاد وجود ندارد.";
     public const string DocumentUploadNotAllowed = "در وضعیت فعلی امکان بارگذاری سند وجود ندارد.";
     public const string DocumentConfirmationNotAllowed = "در وضعیت فعلی امکان تأیید سند وجود ندارد.";
     public const string CannotTransitionFromTerminalState = "از وضعیت پایانی نمی‌توان به مرحله بعد رفت.";
@@ -41,8 +46,12 @@ public static class ApiMessages
     public const string CaseEntityIsNull = "پرونده برای پردازش در دسترس نیست.";
     public const string CannotSubmitDataEntry1BeforeSave = "ابتدا ورود اطلاعات ۱ را ذخیره کنید.";
     public const string DataEntry1Incomplete = "ورود اطلاعات ۱ ناقص است.";
+    public const string ApplicantProfileIncomplete =
+        "نام، نام خانوادگی و ایمیل در پروفایل کاربر باید تکمیل شود؛ سپس فرم را ذخیره کنید.";
+    public const string DataEntry1PitchDeckRequired = "بارگذاری پیچ‌دک برای ارسال فرم اولیه الزامی است.";
     public const string CannotSubmitDataEntry2BeforeSave = "ابتدا ورود اطلاعات ۲ را ذخیره کنید.";
     public const string DataEntry2Incomplete = "ورود اطلاعات ۲ ناقص است.";
+    public const string DataEntry2DocumentsIncomplete = "مدارک الزامی فرم تکمیلی هنوز کامل بارگذاری نشده است.";
     public const string PreliminaryContractMissing = "برای ادامه، سند پیش‌قرارداد بارگذاری نشده است.";
     public const string SignedContractMissing = "برای ادامه، سند قرارداد امضاشده بارگذاری نشده است.";
     public const string FinancialWorksheetMissingOrInvalid = "کاربرگ مالی ثبت نشده یا مبلغ تأییدشده نامعتبر است.";

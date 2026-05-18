@@ -5,4 +5,13 @@ public class SmsOptions
     public string ApiBaseUrl { get; set; } = string.Empty;
     public string ApiKey { get; set; } = string.Empty;
     public string SenderNumber { get; set; } = string.Empty;
+    public bool QueueEnabled { get; set; } = true;
+    public SmsMongoLoggingOptions MongoLogging { get; set; } = new();
+}
+
+public sealed class SmsMongoLoggingOptions
+{
+    public bool Enabled { get; set; }
+    public string ConnectionString { get; set; } = string.Empty;
+    public string DatabaseName { get; set; } = "financial_core";
 }

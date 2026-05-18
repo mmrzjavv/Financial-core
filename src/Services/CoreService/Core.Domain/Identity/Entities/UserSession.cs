@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Services.CoreService.Core.Domain.Identity.Entities;
+namespace Core.Domain.Identity.Entities;
 
 [Table("UserSessions", Schema = "Identity")]
 public class UserSession : BaseEntity

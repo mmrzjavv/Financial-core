@@ -10,9 +10,11 @@ namespace Core.Infrastructure.Storage;
 public sealed class LiaraObjectStorage : ILiaraObjectStorage
 {
     private readonly IAmazonS3 _s3Client;
+    private readonly IAmazonS3? _presignGetClient;
     private readonly string _bucketName;
     private readonly string _endpointUrl;
     private readonly IClock _clock;
+    private readonly bool _useVirtualHostPresign;
 
     public LiaraObjectStorage(IConfiguration configuration, IClock clock)
     {
@@ -24,8 +26,9 @@ public sealed class LiaraObjectStorage : ILiaraObjectStorage
                         ?? throw new InvalidOperationException(InfrastructureMessages.StorageAccessKeyMissing);
         var secretKey = configuration["LiaraStorage:SecretKey"]
                         ?? throw new InvalidOperationException(InfrastructureMessages.StorageSecretKeyMissing);
-        _endpointUrl = configuration["LiaraStorage:EndpointUrl"]
+        _endpointUrl = configuration["LiaraStorage:EndpointUrl"]?.TrimEnd('/')
                        ?? throw new InvalidOperationException(InfrastructureMessages.StorageEndpointMissing);
+        _useVirtualHostPresign = configuration.GetValue("LiaraStorage:UseVirtualHostPresign", true);
 
         var credentials = new BasicAWSCredentials(accessKey, secretKey);
         var config = new AmazonS3Config
@@ -35,6 +38,17 @@ public sealed class LiaraObjectStorage : ILiaraObjectStorage
             AuthenticationRegion = "us-east-1"
         };
         _s3Client = new AmazonS3Client(credentials, config);
+
+        if (_useVirtualHostPresign)
+        {
+            var presignConfig = new AmazonS3Config
+            {
+                ServiceURL = _endpointUrl,
+                ForcePathStyle = false,
+                AuthenticationRegion = "us-east-1"
+            };
+            _presignGetClient = new AmazonS3Client(credentials, presignConfig);
+        }
     }
 
     public Task<(string Url, DateTimeOffset ExpiresAtUtc)> PresignPutAsync(string key, string contentType, TimeSpan expiresIn, CancellationToken cancellationToken)
@@ -73,10 +87,44 @@ public sealed class LiaraObjectStorage : ILiaraObjectStorage
             BucketName = _bucketName,
             Key = key,
             Verb = HttpVerb.GET,
-            Expires = expiresAt.UtcDateTime
+            Expires = expiresAt.UtcDateTime,
+            Protocol = Protocol.HTTPS
         };
-        var url = _s3Client.GetPreSignedURL(request);
+        var client = _presignGetClient ?? _s3Client;
+        var url = client.GetPreSignedURL(request);
         return Task.FromResult((url, expiresAt));
+    }
+
+    public async Task<ObjectMetadata?> GetObjectMetadataAsync(string key, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return null;
+
+        try
+        {
+            var response = await _s3Client.GetObjectMetadataAsync(new GetObjectMetadataRequest
+            {
+                BucketName = _bucketName,
+                Key = key
+            }, cancellationToken);
+
+            return new ObjectMetadata(response.ContentLength, response.Headers.ContentType);
+        }
+        catch (AmazonS3Exception ex) when (IsMissingObject(ex))
+        {
+            return null;
+        }
+    }
+
+    public async Task<Stream> OpenReadAsync(string key, CancellationToken cancellationToken)
+    {
+        var response = await _s3Client.GetObjectAsync(new GetObjectRequest
+        {
+            BucketName = _bucketName,
+            Key = key
+        }, cancellationToken);
+
+        return response.ResponseStream;
     }
 
     public async Task<bool> ExistsAsync(string key, CancellationToken cancellationToken)
@@ -89,51 +137,12 @@ public sealed class LiaraObjectStorage : ILiaraObjectStorage
             if (attempt > 0)
                 await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt), cancellationToken);
 
-            if (await TryHeadObjectAsync(key, cancellationToken))
-                return true;
-
-            if (await TryListObjectAsync(key, cancellationToken))
+            var metadata = await GetObjectMetadataAsync(key, cancellationToken);
+            if (metadata is { ContentLength: > 0 })
                 return true;
         }
 
         return false;
-    }
-
-    private async Task<bool> TryHeadObjectAsync(string key, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _s3Client.GetObjectMetadataAsync(new GetObjectMetadataRequest
-            {
-                BucketName = _bucketName,
-                Key = key
-            }, cancellationToken);
-
-            return true;
-        }
-        catch (AmazonS3Exception ex) when (IsMissingObject(ex))
-        {
-            return false;
-        }
-    }
-
-    private async Task<bool> TryListObjectAsync(string key, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var response = await _s3Client.ListObjectsV2Async(new ListObjectsV2Request
-            {
-                BucketName = _bucketName,
-                Prefix = key,
-                MaxKeys = 1
-            }, cancellationToken);
-
-            return response.S3Objects.Exists(o => string.Equals(o.Key, key, StringComparison.Ordinal));
-        }
-        catch (AmazonS3Exception ex) when (IsMissingObject(ex))
-        {
-            return false;
-        }
     }
 
     private static bool IsMissingObject(AmazonS3Exception ex)

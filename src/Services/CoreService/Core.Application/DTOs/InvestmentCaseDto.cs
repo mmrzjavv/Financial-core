@@ -1,5 +1,5 @@
 using Core.Application.Requests;
-using Services.CoreService.Core.Domain.Enums;
+using Core.Domain.Enums;
 
 
 namespace Core.Application.DTOs;
@@ -24,6 +24,7 @@ public sealed record InvestmentCaseApplicantDto(
     DateTimeOffset? UpdatedAt,
     DateTimeOffset? CompletedAt,
     CompanyDto? Company,
+    ApplicantContactDto? Applicant = null,
     DataEntry1Dto? DataEntry1 = null,
     DataEntry2Dto? DataEntry2 = null)
     : InvestmentCaseDto(Id, CaseNumber, ApplicantType, CurrentPhase, CurrentStatus, CreatedAt, UpdatedAt, CompletedAt);

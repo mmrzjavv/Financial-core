@@ -1,11 +1,11 @@
 using BuildingBlocks.Domain.Abstractions;
 using BuildingBlocks.Domain.Entities;
-using Services.CoreService.Core.Domain.Common;
-using Services.CoreService.Core.Domain.Enums;
-using Services.CoreService.Core.Domain.Events;
-using Services.CoreService.Core.Domain.Identity.Entities;
+using Core.Domain.Common;
+using Core.Domain.Enums;
+using Core.Domain.Events;
+using Core.Domain.Identity.Entities;
 
-namespace Services.CoreService.Core.Domain.Entities;
+namespace Core.Domain.Entities;
 
 public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISoftDelete
 {
@@ -97,7 +97,7 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
         CaseStatus.Draft or CaseStatus.DataEntry1 or CaseStatus.ReviewDataEntry1 or CaseStatus.DataEntry2 or CaseStatus.ReviewDataEntry2 => CasePhase.Application,
         CaseStatus.InitialValuation or CaseStatus.SecondaryValuation => CasePhase.Valuation,
         CaseStatus.WaitingPreliminaryContract or CaseStatus.WaitingUserReviewPreliminaryContract or CaseStatus.ContractDrafting or CaseStatus.WaitingContractSignature or CaseStatus.WaitingSignedContractUpload => CasePhase.Legal,
-        CaseStatus.WaitingFinancialWorksheet or CaseStatus.FinancialWorksheetReview or CaseStatus.WaitingPayment => CasePhase.Finance,
+        CaseStatus.WaitingFinancialWorksheet or CaseStatus.FinancialWorksheetReview or CaseStatus.WaitingCeoApproval or CaseStatus.WaitingPayment => CasePhase.Finance,
         CaseStatus.Completed or CaseStatus.Rejected or CaseStatus.Cancelled or CaseStatus.Archived => CasePhase.Closing,
         _ => CasePhase.Application
     };
@@ -150,35 +150,25 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
     }
 
     public InvestmentCaseDataEntry1 UpsertDataEntry1(
-        string startupTitle,
-        string businessDescription,
-        decimal requestedAmount,
-        int teamSize,
-        string? website,
-        string? country,
-        string? city,
-        string? industry)
+        string representativeFullName,
+        BusinessStage businessStage,
+        string contactEmail,
+        decimal requestedAmount)
     {
         if (DataEntry1 is null)
-            DataEntry1 = new InvestmentCaseDataEntry1(Id, startupTitle, businessDescription, requestedAmount, teamSize, website);
+            DataEntry1 = new InvestmentCaseDataEntry1(Id, representativeFullName, businessStage, contactEmail, requestedAmount);
 
-        DataEntry1.Update(startupTitle, businessDescription, requestedAmount, teamSize, website, country, city, industry);
+        DataEntry1.Update(representativeFullName, businessStage, contactEmail, requestedAmount);
         UpdatedAt = DateTimeOffset.UtcNow;
         return DataEntry1;
     }
 
-    public InvestmentCaseDataEntry2 UpsertDataEntry2(
-        string marketAnalysis,
-        string revenueModel,
-        string competitiveAdvantage,
-        string financialProjection,
-        string? risks,
-        string? goToMarketStrategy)
+    public InvestmentCaseDataEntry2 UpsertDataEntry2(string investmentAttractionBasis)
     {
         if (DataEntry2 is null)
-            DataEntry2 = new InvestmentCaseDataEntry2(Id, marketAnalysis, revenueModel, competitiveAdvantage, financialProjection);
+            DataEntry2 = new InvestmentCaseDataEntry2(Id, investmentAttractionBasis);
 
-        DataEntry2.Update(marketAnalysis, revenueModel, competitiveAdvantage, financialProjection, risks, goToMarketStrategy);
+        DataEntry2.Update(investmentAttractionBasis);
         UpdatedAt = DateTimeOffset.UtcNow;
         return DataEntry2;
     }
@@ -217,9 +207,9 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
 
         Comments.Add(new CaseComment(
             caseId: Id,
-            phase: fromPhase, // Use current phase for comment context
+            phase: fromPhase,
             senderUserId: requestedByUserId,
-            senderRole: null,
+            senderRole: actorRole,
             message: message,
             isRevisionRequest: true,
             isInternal: isInternal));
@@ -237,6 +227,28 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
             $"Revision requested: {message}"));
 
         AddDomainEvent(new RevisionRequestedDomainEvent(Id, fromPhase, requestedByUserId));
+    }
+
+    public void AddDiscussionComment(
+        CasePhase phase,
+        string senderUserId,
+        string? senderRole,
+        string message,
+        bool isRevisionRequest,
+        bool isInternal)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return;
+
+        Comments.Add(new CaseComment(
+            caseId: Id,
+            phase: phase,
+            senderUserId: senderUserId,
+            senderRole: senderRole,
+            message: message.Trim(),
+            isRevisionRequest: isRevisionRequest,
+            isInternal: isInternal));
+        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public CaseDocument AddDocument(

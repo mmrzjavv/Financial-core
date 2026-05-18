@@ -8,7 +8,6 @@ using Core.Application.DTOs;
 using Core.Application.Kanban;
 using Core.Application.Logging;
 using Microsoft.Extensions.Logging;
-using Services.CoreService.Core.Domain.Enums;
 
 namespace Core.Application.Services;
 

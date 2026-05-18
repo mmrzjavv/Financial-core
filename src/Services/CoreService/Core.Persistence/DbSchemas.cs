@@ -1,4 +1,4 @@
-namespace Services.CoreService.Core.Persistence;
+namespace Core.Persistence;
 
 public static class DbSchemas
 {

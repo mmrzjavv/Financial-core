@@ -83,21 +83,23 @@ public class SmsService : ISmsService
             $"کد ورود شما: {otpCode}\n\n" +
             $"این کد تا {validMinutes} دقیقه معتبر است.\n" +
             $"کد را با کسی به اشتراک نگذارید.\n\n" +
-            $"تیم پشتیبانی";
+            $"صندوق پژوهش و فناوری غیردولتی مسکن";
     }
 
 
-    public async Task<bool> SendSmsAsync(string mobileNumber, int messageId)
+    public Task<bool> SendSmsAsync(string mobileNumber, int messageId)
+    {
+        if (!_smsMessages.TryGetValue(messageId, out var messageText))
+            throw new ArgumentException(IdentityMessages.UnknownSmsTemplate);
+
+        return SendRawMessageAsync(mobileNumber, messageText);
+    }
+
+    public async Task<bool> SendRawMessageAsync(string mobileNumber, string messageText)
     {
         try
         {
-            if (!_smsMessages.TryGetValue(messageId, out var messageText))
-            {
-                throw new ArgumentException(IdentityMessages.UnknownSmsTemplate);
-            }
-
-            string url = $"{_apiBaseUrl}/v1/{_apiKey}/sms/send.json";
-
+            var url = $"{_apiBaseUrl}/v1/{_apiKey}/sms/send.json";
             var content = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("receptor", mobileNumber),
@@ -106,11 +108,17 @@ public class SmsService : ISmsService
             });
 
             var response = await _httpClient.PostAsync(url, content);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Kavenegar SMS error. StatusCode={StatusCode} Body={Body}", (int)response.StatusCode, error);
+            }
+
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending Normal SMS");
+            _logger.LogError(ex, "Error sending SMS to {Mobile}", mobileNumber);
             return false;
         }
     }

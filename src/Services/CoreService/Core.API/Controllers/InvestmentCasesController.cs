@@ -7,9 +7,9 @@ using Core.Application.Common;
 using Core.Application.DTOs;
 using Core.Application.Requests;
 using Core.Application.Responses;
+using Core.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.CoreService.Core.Domain.Enums;
 
 namespace Core.API.Controllers;
 
@@ -87,8 +87,9 @@ public sealed class InvestmentCasesController(
 
     [HttpPost("{id:guid}/data-entry1/submit")]
     [Authorize(Policy = "ApplicantOnly")]
-    public async Task<IActionResult> SubmitDataEntry1(Guid id, [FromBody] SemanticTransitionRequest request, CancellationToken ct)
+    public async Task<IActionResult> SubmitDataEntry1(Guid id, CancellationToken ct)
     {
+        var request = await ReadTransitionRequestAsync(ct);
         var result = await service.SubmitDataEntry1Async(id, request.Comment, ct);
         return Respond(result, CaseSuccessMessages.DataEntry1Submitted, HttpStatusCode.Accepted);
     }
@@ -97,7 +98,7 @@ public sealed class InvestmentCasesController(
     [Authorize(Policy = "InternalOnly")]
     public async Task<IActionResult> ApproveDataEntry1(Guid id, [FromBody] SemanticTransitionRequest request, CancellationToken ct)
     {
-        var result = await service.ApproveDataEntry1Async(id, request.Comment, ct);
+        var result = await service.ApproveDataEntry1Async(id, request.Comment, request.InternalComment, ct);
         return Respond(result, CaseSuccessMessages.DataEntry1Approved, HttpStatusCode.Accepted);
     }
 
@@ -119,8 +120,9 @@ public sealed class InvestmentCasesController(
 
     [HttpPost("{id:guid}/data-entry2/submit")]
     [Authorize(Policy = "ApplicantOnly")]
-    public async Task<IActionResult> SubmitDataEntry2(Guid id, [FromBody] SemanticTransitionRequest request, CancellationToken ct)
+    public async Task<IActionResult> SubmitDataEntry2(Guid id, CancellationToken ct)
     {
+        var request = await ReadTransitionRequestAsync(ct);
         var result = await service.SubmitDataEntry2Async(id, request.Comment, ct);
         return Respond(result, CaseSuccessMessages.DataEntry2Submitted, HttpStatusCode.Accepted);
     }
@@ -129,7 +131,7 @@ public sealed class InvestmentCasesController(
     [Authorize(Policy = "InternalOnly")]
     public async Task<IActionResult> ApproveDataEntry2(Guid id, [FromBody] SemanticTransitionRequest request, CancellationToken ct)
     {
-        var result = await service.ApproveDataEntry2Async(id, request.Comment, ct);
+        var result = await service.ApproveDataEntry2Async(id, request.Comment, request.InternalComment, ct);
         return Respond(result, CaseSuccessMessages.DataEntry2Approved, HttpStatusCode.Accepted);
     }
 
@@ -247,7 +249,7 @@ public sealed class InvestmentCasesController(
     [Authorize(Policy = "InternalOnly")]
     public async Task<IActionResult> ApproveFinancialWorksheet(Guid id, [FromBody] SemanticTransitionRequest request, CancellationToken ct)
     {
-        var result = await service.ApproveFinancialWorksheetAsync(id, request.Comment, ct);
+        var result = await service.ApproveFinancialWorksheetAsync(id, request.Comment, request.InternalComment, ct);
         return Respond(result, CaseSuccessMessages.FinancialWorksheetApproved, HttpStatusCode.Accepted);
     }
 
@@ -257,6 +259,30 @@ public sealed class InvestmentCasesController(
     {
         var result = await service.RequestFinancialWorksheetRevisionAsync(id, request.Message, ct);
         return Respond(result, CaseSuccessMessages.FinancialWorksheetRevisionRequested, HttpStatusCode.Accepted);
+    }
+
+    [HttpPost("{id:guid}/ceo-approval/approve")]
+    [Authorize(Policy = "InvestmentCases.CeoApprove")]
+    public async Task<IActionResult> ApproveCeo(Guid id, [FromBody] SemanticTransitionRequest request, CancellationToken ct)
+    {
+        var result = await service.ApproveCeoAsync(id, request.Comment, ct);
+        return Respond(result, CaseSuccessMessages.CeoApprovalGranted, HttpStatusCode.Accepted);
+    }
+
+    [HttpPost("{id:guid}/ceo-approval/revision-request")]
+    [Authorize(Policy = "InvestmentCases.CeoApprove")]
+    public async Task<IActionResult> RequestCeoRevision(Guid id, [FromBody] SemanticRevisionRequest request, CancellationToken ct)
+    {
+        var result = await service.RequestCeoRevisionAsync(id, request.Message, ct);
+        return Respond(result, CaseSuccessMessages.CeoRevisionRequested, HttpStatusCode.Accepted);
+    }
+
+    [HttpGet("{id:guid}/payments")]
+    [Authorize(Policy = "InternalOnly")]
+    public async Task<IActionResult> GetPayments(Guid id, CancellationToken ct)
+    {
+        var result = await service.GetPaymentsAsync(id, ct);
+        return Respond(result, CaseSuccessMessages.PaymentsRetrieved);
     }
 
     [HttpPost("{id:guid}/payments")]
@@ -354,12 +380,52 @@ public sealed class InvestmentCasesController(
         return Respond(result, CaseSuccessMessages.DocumentsRetrieved);
     }
 
+    [HttpGet("{id:guid}/documents/latest")]
+    [Authorize]
+    public async Task<IActionResult> GetDocumentsLatest(Guid id, CancellationToken ct)
+    {
+        var result = await service.GetDocumentsLatestAsync(id, ct);
+        return Respond(result, CaseSuccessMessages.DocumentsLatestRetrieved);
+    }
+
+    [HttpGet("{id:guid}/documents/version-groups")]
+    [Authorize]
+    public async Task<IActionResult> GetDocumentVersionGroups(Guid id, [FromQuery] string? scope, CancellationToken ct)
+    {
+        var result = await service.GetDocumentVersionGroupsAsync(id, scope, ct);
+        return Respond(result, CaseSuccessMessages.DocumentVersionGroupsRetrieved);
+    }
+
+    [HttpGet("{id:guid}/documents/types/{documentType:int}/versions")]
+    [Authorize]
+    public async Task<IActionResult> GetDocumentVersions(Guid id, int documentType, CancellationToken ct)
+    {
+        if (!Enum.IsDefined(typeof(DocumentType), documentType))
+            return BadRequest(new { success = false, message = ApiMessages.InvalidDocumentType });
+
+        var result = await service.GetDocumentVersionsAsync(id, (DocumentType)documentType, ct);
+        return Respond(result, CaseSuccessMessages.DocumentVersionsRetrieved);
+    }
+
     [HttpGet("{id:guid}/documents/{documentId:guid}/download")]
     [Authorize]
-    public async Task<IActionResult> DownloadDocument(Guid id, Guid documentId, CancellationToken ct)
+    public async Task<IActionResult> DownloadDocument(
+        Guid id,
+        Guid documentId,
+        [FromQuery] bool presign = false,
+        CancellationToken ct = default)
     {
-        var result = await service.PresignDocumentDownloadAsync(id, documentId, ct);
-        return Respond(result, CaseSuccessMessages.DocumentDownloadPresigned);
+        if (presign)
+        {
+            var presignResult = await service.PresignDocumentDownloadAsync(id, documentId, ct);
+            return Respond(presignResult, CaseSuccessMessages.DocumentDownloadPresigned);
+        }
+
+        var result = await service.DownloadDocumentFileAsync(id, documentId, ct);
+        if (result.IsFailure)
+            return Respond(result, CaseSuccessMessages.DocumentDownloadPresigned);
+
+        return File(result.Value!.Content, result.Value.ContentType, result.Value.FileName);
     }
 
     [HttpPost("{id:guid}/evaluations")]

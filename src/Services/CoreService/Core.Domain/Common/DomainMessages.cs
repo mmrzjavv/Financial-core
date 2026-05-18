@@ -1,4 +1,4 @@
-namespace Services.CoreService.Core.Domain.Common;
+namespace Core.Domain.Common;
 
 public static class DomainMessages
 {

@@ -1,8 +1,8 @@
+using Core.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Services.CoreService.Core.Domain.Entities;
 
-namespace Services.CoreService.Core.Persistence.Configurations;
+namespace Core.Persistence.Configurations;
 
 public sealed class WorkflowHistoryConfiguration : IEntityTypeConfiguration<CaseWorkflowHistory>
 {

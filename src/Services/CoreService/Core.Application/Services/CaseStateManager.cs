@@ -2,9 +2,9 @@ using Core.Application.Common;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
 using Core.Application.Abstractions;
-using Services.CoreService.Core.Domain.Constants;
-using Services.CoreService.Core.Domain.Entities;
-using Services.CoreService.Core.Domain.Enums;
+using Core.Domain.Constants;
+using Core.Domain.Entities;
+using Core.Domain.Enums;
 
 
 namespace Core.Application.Services;
@@ -63,9 +63,13 @@ public sealed class CaseStateManager : ICaseStateManager
         { (CaseStatus.WaitingFinancialWorksheet, WorkflowAction.SubmitFinancialWorksheet, SystemRoles.InvestmentExpert), CaseStatus.FinancialWorksheetReview },
         { (CaseStatus.WaitingFinancialWorksheet, WorkflowAction.Reject, SystemRoles.InvestmentExpert), CaseStatus.Rejected },
 
-        { (CaseStatus.FinancialWorksheetReview, WorkflowAction.ApproveFinancialWorksheet, SystemRoles.FinancialExpert), CaseStatus.WaitingPayment },
+        { (CaseStatus.FinancialWorksheetReview, WorkflowAction.ApproveFinancialWorksheet, SystemRoles.FinancialExpert), CaseStatus.WaitingCeoApproval },
         { (CaseStatus.FinancialWorksheetReview, WorkflowAction.RequestRevision, SystemRoles.FinancialExpert), CaseStatus.WaitingFinancialWorksheet },
         { (CaseStatus.FinancialWorksheetReview, WorkflowAction.Reject, SystemRoles.FinancialExpert), CaseStatus.Rejected },
+
+        { (CaseStatus.WaitingCeoApproval, WorkflowAction.Approve, SystemRoles.Ceo), CaseStatus.WaitingPayment },
+        { (CaseStatus.WaitingCeoApproval, WorkflowAction.RequestRevision, SystemRoles.Ceo), CaseStatus.WaitingFinancialWorksheet },
+        { (CaseStatus.WaitingCeoApproval, WorkflowAction.Reject, SystemRoles.Ceo), CaseStatus.Rejected },
 
         { (CaseStatus.WaitingPayment, WorkflowAction.CompletePayment, SystemRoles.FinancialExpert), CaseStatus.Completed },
         { (CaseStatus.WaitingPayment, WorkflowAction.Cancel, SystemRoles.FinancialExpert), CaseStatus.Cancelled }
@@ -184,14 +188,21 @@ public sealed class CaseStateManager : ICaseStateManager
                     errorMessage = ApiMessages.CannotSubmitDataEntry1BeforeSave;
                     return false;
                 }
-                if (string.IsNullOrWhiteSpace(caseEntity.DataEntry1.StartupTitle) ||
-                    string.IsNullOrWhiteSpace(caseEntity.DataEntry1.BusinessDescription) ||
+                if (string.IsNullOrWhiteSpace(caseEntity.DataEntry1.RepresentativeFullName) ||
+                    string.IsNullOrWhiteSpace(caseEntity.DataEntry1.ContactEmail) ||
                     caseEntity.DataEntry1.RequestedAmount <= 0 ||
-                    caseEntity.DataEntry1.TeamSize <= 0)
+                    caseEntity.DataEntry1.BusinessStage is not (BusinessStage.Idea or BusinessStage.HasPrototype))
                 {
                     errorMessage = ApiMessages.DataEntry1Incomplete;
                     return false;
                 }
+
+                if (!caseEntity.Documents.Any(d => d.DocumentType == DocumentType.PitchDeck))
+                {
+                    errorMessage = ApiMessages.DataEntry1PitchDeckRequired;
+                    return false;
+                }
+
                 break;
 
             case WorkflowAction.Submit when caseEntity.CurrentStatus == CaseStatus.DataEntry2:
@@ -200,14 +211,20 @@ public sealed class CaseStateManager : ICaseStateManager
                     errorMessage = ApiMessages.CannotSubmitDataEntry2BeforeSave;
                     return false;
                 }
-                if (string.IsNullOrWhiteSpace(caseEntity.DataEntry2.MarketAnalysis) ||
-                    string.IsNullOrWhiteSpace(caseEntity.DataEntry2.RevenueModel) ||
-                    string.IsNullOrWhiteSpace(caseEntity.DataEntry2.CompetitiveAdvantage) ||
-                    string.IsNullOrWhiteSpace(caseEntity.DataEntry2.FinancialProjection))
+                if (string.IsNullOrWhiteSpace(caseEntity.DataEntry2.InvestmentAttractionBasis))
                 {
                     errorMessage = ApiMessages.DataEntry2Incomplete;
                     return false;
                 }
+
+                var missingDoc = DataEntry2DocumentRequirements.RequiredForSubmit
+                    .FirstOrDefault(t => !caseEntity.Documents.Any(d => d.DocumentType == t));
+                if (missingDoc != default)
+                {
+                    errorMessage = ApiMessages.DataEntry2DocumentsIncomplete;
+                    return false;
+                }
+
                 break;
 
             case WorkflowAction.UploadPreliminaryContract when nextStatus == CaseStatus.WaitingUserReviewPreliminaryContract:
@@ -227,7 +244,15 @@ public sealed class CaseStateManager : ICaseStateManager
                 break;
 
             case WorkflowAction.SubmitFinancialWorksheet when nextStatus == CaseStatus.FinancialWorksheetReview:
-            case WorkflowAction.ApproveFinancialWorksheet when nextStatus == CaseStatus.WaitingPayment:
+            case WorkflowAction.ApproveFinancialWorksheet when nextStatus == CaseStatus.WaitingCeoApproval:
+                if (caseEntity.FinancialWorksheet is null || caseEntity.FinancialWorksheet.ApprovedAmount <= 0)
+                {
+                    errorMessage = ApiMessages.FinancialWorksheetMissingOrInvalid;
+                    return false;
+                }
+                break;
+
+            case WorkflowAction.Approve when caseEntity.CurrentStatus == CaseStatus.WaitingCeoApproval:
                 if (caseEntity.FinancialWorksheet is null || caseEntity.FinancialWorksheet.ApprovedAmount <= 0)
                 {
                     errorMessage = ApiMessages.FinancialWorksheetMissingOrInvalid;

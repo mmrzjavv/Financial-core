@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using Core.Application.Abstractions;
+using Core.Application.Identity.Authorization;
+using Core.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 
@@ -10,6 +12,9 @@ public sealed class PermissionAuthorizationHandler(IIdentityClient identityClien
 {
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
     {
+        if (TrySucceedFromRoleClaims(context, requirement))
+            return;
+
         var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrWhiteSpace(userId))
             return;
@@ -24,6 +29,40 @@ public sealed class PermissionAuthorizationHandler(IIdentityClient identityClien
         {
             logger.LogWarning(ex, "Permission validation via IdentityService failed.");
         }
+    }
+
+    private static bool TrySucceedFromRoleClaims(AuthorizationHandlerContext context, PermissionRequirement requirement)
+    {
+        var roles = context.User.Claims
+            .Where(c => c.Type == ClaimTypes.Role)
+            .Select(c => c.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (roles.Count == 0)
+            return false;
+
+        if (string.Equals(requirement.Permission, Permissions.InvestmentCases_CeoApprove, StringComparison.OrdinalIgnoreCase))
+        {
+            if (roles.Contains(SystemRoles.Ceo) || roles.Contains("CEO") || roles.Contains(SystemRoles.Admin))
+            {
+                context.Succeed(requirement);
+                return true;
+            }
+        }
+
+        foreach (var role in roles)
+        {
+            if (!RolePermissions.RolePermissionMappings.TryGetValue(role, out var permissions))
+                continue;
+
+            if (permissions.Contains(requirement.Permission, StringComparer.OrdinalIgnoreCase))
+            {
+                context.Succeed(requirement);
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

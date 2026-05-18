@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Services.CoreService.Core.Domain.Identity.Entities;
+namespace Core.Domain.Identity.Entities;
 
 [Table("Company", Schema = "Identity")]
 public sealed class Company : BaseEntity

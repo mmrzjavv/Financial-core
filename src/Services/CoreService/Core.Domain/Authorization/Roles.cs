@@ -1,6 +1,6 @@
-using Services.CoreService.Core.Domain.Constants;
+using Core.Domain.Constants;
 
-namespace Services.CoreService.Core.Domain.Authorization;
+namespace Core.Domain.Authorization;
 
 public static class Roles
 {

@@ -10,6 +10,7 @@
       { key: "applicant", phone: "09100000002", role: 1, firstName: "Applicant", lastName: "Tester", label: "Applicant" },
       { key: "investmentExpert", phone: "09100000003", role: 10, firstName: "Investment", lastName: "Expert", label: "InvestmentExpert" },
       { key: "investmentManager", phone: "09100000004", role: 11, firstName: "Investment", lastName: "Manager", label: "InvestmentManager" },
+      { key: "ceo", phone: "09100000007", role: 12, firstName: "CEO", lastName: "Tester", label: "CEO" },
       { key: "legalExpert", phone: "09100000005", role: 20, firstName: "Legal", lastName: "Expert", label: "LegalExpert" },
       { key: "financialExpert", phone: "09100000006", role: 30, firstName: "Financial", lastName: "Expert", label: "FinancialExpert" },
     ],

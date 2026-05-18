@@ -1,5 +1,5 @@
-using Services.CoreService.Core.Domain.Constants;
-using Services.CoreService.Core.Domain.Enums;
+using Core.Domain.Constants;
+using Core.Domain.Enums;
 
 namespace Core.Application.Kanban;
 
@@ -32,6 +32,7 @@ public static class CaseKanbanRules
         [CaseStatus.WaitingSignedContractUpload] = SystemRoles.LegalExpert,
         [CaseStatus.WaitingFinancialWorksheet] = SystemRoles.InvestmentExpert,
         [CaseStatus.FinancialWorksheetReview] = SystemRoles.FinancialExpert,
+        [CaseStatus.WaitingCeoApproval] = SystemRoles.Ceo,
         [CaseStatus.WaitingPayment] = SystemRoles.FinancialExpert
     };
 
@@ -93,6 +94,7 @@ public static class CaseKanbanRules
         if (roles.Contains(SystemRoles.InvestmentExpert)) return SystemRoles.InvestmentExpert;
         if (roles.Contains(SystemRoles.LegalExpert)) return SystemRoles.LegalExpert;
         if (roles.Contains(SystemRoles.FinancialExpert)) return SystemRoles.FinancialExpert;
+        if (roles.Contains(SystemRoles.Ceo)) return SystemRoles.Ceo;
         if (roles.Contains(SystemRoles.Applicant)) return SystemRoles.Applicant;
         return roles.FirstOrDefault() ?? string.Empty;
     }
@@ -130,7 +132,8 @@ public static class CaseKanbanRules
             [SystemRoles.InvestmentExpert] = WatchAllExcept(SystemRoles.InvestmentExpert),
             [SystemRoles.InvestmentManager] = WatchAllExcept(SystemRoles.InvestmentManager),
             [SystemRoles.LegalExpert] = WatchAllExcept(SystemRoles.LegalExpert),
-            [SystemRoles.FinancialExpert] = WatchAllExcept(SystemRoles.FinancialExpert)
+            [SystemRoles.FinancialExpert] = WatchAllExcept(SystemRoles.FinancialExpert),
+            [SystemRoles.Ceo] = WatchAllExcept(SystemRoles.Ceo)
         };
     }
 
@@ -150,6 +153,7 @@ public static class CaseKanbanRules
         [CaseStatus.WaitingSignedContractUpload] = "آپلود قرارداد امضاشده",
         [CaseStatus.WaitingFinancialWorksheet] = "کاربرگ مالی",
         [CaseStatus.FinancialWorksheetReview] = "بررسی کاربرگ مالی",
+        [CaseStatus.WaitingCeoApproval] = "تأیید مدیرعامل",
         [CaseStatus.WaitingPayment] = "پرداخت",
         [CaseStatus.Completed] = "تکمیل‌شده",
         [CaseStatus.Rejected] = "رد شده",
@@ -182,6 +186,7 @@ public static class CaseKanbanRules
         [CaseStatus.WaitingSignedContractUpload] = "بارگذاری قرارداد امضاشده",
         [CaseStatus.WaitingFinancialWorksheet] = "تکمیل و ارسال کاربرگ مالی",
         [CaseStatus.FinancialWorksheetReview] = "بررسی کاربرگ مالی",
+        [CaseStatus.WaitingCeoApproval] = "تأیید نهایی مدیرعامل",
         [CaseStatus.WaitingPayment] = "ثبت/تأیید پرداخت"
     };
 
@@ -193,7 +198,9 @@ public static class CaseKanbanRules
         [(CaseStatus.SecondaryValuation, SystemRoles.InvestmentManager)] = "در انتظار ارزش‌گذاری مدیر",
         [(CaseStatus.WaitingPreliminaryContract, SystemRoles.LegalExpert)] = "در انتظار واحد حقوقی",
         [(CaseStatus.WaitingUserReviewPreliminaryContract, SystemRoles.Applicant)] = "در انتظار متقاضی",
-        [(CaseStatus.FinancialWorksheetReview, SystemRoles.FinancialExpert)] = "در انتظار واحد مالی"
+        [(CaseStatus.FinancialWorksheetReview, SystemRoles.FinancialExpert)] = "در انتظار واحد مالی",
+        [(CaseStatus.WaitingCeoApproval, SystemRoles.Ceo)] = "در انتظار تأیید مدیرعامل",
+        [(CaseStatus.WaitingPayment, SystemRoles.FinancialExpert)] = "در انتظار واحد مالی"
     };
 
     private static readonly Dictionary<string, string> RoleLabels = new(StringComparer.OrdinalIgnoreCase)
@@ -203,6 +210,7 @@ public static class CaseKanbanRules
         [SystemRoles.InvestmentManager] = "مدیر سرمایه‌گذاری",
         [SystemRoles.LegalExpert] = "کارشناس حقوقی",
         [SystemRoles.FinancialExpert] = "کارشناس مالی",
+        [SystemRoles.Ceo] = "مدیرعامل",
         [SystemRoles.Admin] = "مدیر سیستم"
     };
 }

@@ -1,37 +1,37 @@
 using System.Net;
+using System.Security.Claims;
+using System.Text;
 using Asp.Versioning;
-using BuildingBlocks.Application.Results;
-using BuildingBlocks.Domain.Abstractions;
-using Core.API.Http;
 using BuildingBlocks.Application.Common;
-using Core.Application.Common;
+using BuildingBlocks.Application.Results;
+using BuildingBlocks.Application.Validation;
+using BuildingBlocks.Domain.Abstractions;
 using BuildingBlocks.Observability.Correlation;
 using BuildingBlocks.Observability.Logging;
+using Core.API;
+using Core.API.Authorization;
+using Core.API.Http;
+using Core.Application;
 using Core.Application.Abstractions;
+using Core.Application.Authorization;
+using Core.Application.Common;
 using Core.Application.Services;
+using Core.Domain.Constants;
 using Core.Infrastructure.DependencyInjection;
+using Core.Infrastructure.Identity.DependencyInjection;
 using Core.Workflow.DependencyInjection;
-using BuildingBlocks.Application.Validation;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Mapster;
 using MapsterMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using Serilog;
-using System.Security.Claims;
-using System.Text;
-using Core.API.Authorization;
-using Core.Application;
-using Microsoft.AspNetCore.Authorization;
-using Services.CoreService.Core.Domain.Constants;
-using Core.Application.Authorization;
-using Core.Infrastructure.Identity.DependencyInjection;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -171,15 +171,28 @@ builder.Services.AddAuthorization(options =>
         SystemRoles.InvestmentManager,
         SystemRoles.FinancialExpert,
         SystemRoles.LegalExpert,
+        SystemRoles.Ceo,
         SystemRoles.Admin,
         "LegalUnit",
         "FinancialUnit",
-        "InvestmentUnit"));
+        "InvestmentUnit",
+        "CEO"));
 
     options.AddPolicy("InvestmentCases.Review", p => p.Requirements.Add(new PermissionRequirement("investment_cases:review")));
     options.AddPolicy("InvestmentCases.FinanceReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:finance_review")));
     options.AddPolicy("InvestmentCases.LegalReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:legal_review")));
-    options.AddPolicy("InvestmentCases.CeoApprove", p => p.Requirements.Add(new PermissionRequirement("investment_cases:ceo_approve")));
+    // Role-based: permission cache can lag after role changes; CaseAuthorizationService enforces cases:ceo_approve in app layer.
+    options.AddPolicy("InvestmentCases.CeoApprove", p => p.RequireRole(
+        SystemRoles.Ceo,
+        SystemRoles.Admin,
+        "CEO"));
+
+    options.AddPolicy("Dashboard.Ceo", p => p.RequireRole(SystemRoles.Ceo, SystemRoles.Admin, "CEO"));
+    options.AddPolicy("Dashboard.Board", p => p.RequireRole(
+        SystemRoles.Ceo,
+        SystemRoles.InvestmentManager,
+        SystemRoles.Admin,
+        "CEO"));
 });
 
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
@@ -269,15 +282,18 @@ foreach (var address in addresses)
 
 app.Run();
 
-public sealed class SystemClock : IClock
+namespace Core.API
 {
-    public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
-}
+    public sealed class SystemClock : IClock
+    {
+        public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
+    }
 
-public sealed class HttpUserContext(IHttpContextAccessor accessor) : IUserContext
-{
-    public string? UserId => accessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    public string? UserName => accessor.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value;
-    public IReadOnlyCollection<string> Roles => accessor.HttpContext?.User?.Claims.Where(x => x.Type == ClaimTypes.Role).Select(x => x.Value).Distinct().ToArray()
-        ?? Array.Empty<string>();
+    public sealed class HttpUserContext(IHttpContextAccessor accessor) : IUserContext
+    {
+        public string? UserId => accessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        public string? UserName => accessor.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value;
+        public IReadOnlyCollection<string> Roles => accessor.HttpContext?.User?.Claims.Where(x => x.Type == ClaimTypes.Role).Select(x => x.Value).Distinct().ToArray()
+                                                    ?? Array.Empty<string>();
+    }
 }

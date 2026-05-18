@@ -16,6 +16,7 @@ public static class CasePermissions
     public const string ManageContracts = "cases:manage_contracts";
     public const string ManageFinancialWorksheet = "cases:manage_financial_worksheet";
     public const string ManagePayments = "cases:manage_payments";
+    public const string CeoApprove = "cases:ceo_approve";
 
     public const string UploadDocuments = "cases:upload_documents";
     public const string DownloadDocuments = "cases:download_documents";

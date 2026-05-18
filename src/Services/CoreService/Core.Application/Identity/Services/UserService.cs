@@ -9,13 +9,13 @@ using Core.Application.Abstractions;
 using Core.Application.Identity.Abstractions;
 using Core.Application.Identity.Interfaces;
 using Core.Application.Identity.Common.Interfaces;
-using Services.CoreService.Core.Domain.Identity.Entities;
-using Services.CoreService.Core.Domain.Identity.Enums;
 using Microsoft.Extensions.Options;
 using Core.Application.Identity.Authorization;
 using Core.Application.Identity.Common;
 using Core.Application.Identity.Common.Options;
 using Core.Application.Logging;
+using Core.Domain.Identity.Entities;
+using Core.Domain.Identity.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace Core.Application.Identity.Services;

@@ -1,8 +1,8 @@
+using Core.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Services.CoreService.Core.Domain.Entities;
 
-namespace Services.CoreService.Core.Persistence.Interceptors;
+namespace Core.Persistence.Interceptors;
 
 /// <summary>
 /// Never persist tracked UPDATEs on <see cref="InvestmentCase"/>; use ExecuteUpdate extensions instead.

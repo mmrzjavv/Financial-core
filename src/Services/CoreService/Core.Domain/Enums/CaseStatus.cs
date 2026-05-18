@@ -1,4 +1,4 @@
-namespace Services.CoreService.Core.Domain.Enums;
+namespace Core.Domain.Enums;
 
 public enum CaseStatus
 {
@@ -17,6 +17,8 @@ public enum CaseStatus
     WaitingFinancialWorksheet = 13,
     FinancialWorksheetReview = 14,
     WaitingPayment = 15,
+    /// <summary>Financial worksheet approved; awaiting CEO sign-off before payment phase.</summary>
+    WaitingCeoApproval = 20,
     Completed = 16,
     Rejected = 17,
     Cancelled = 18,

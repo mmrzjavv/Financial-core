@@ -1,8 +1,8 @@
+using Core.Domain.Identity.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Services.CoreService.Core.Domain.Identity.Entities;
 
-namespace Services.CoreService.Core.Persistence.Configurations.Identity;
+namespace Core.Persistence.Configurations.Identity;
 
 public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 {

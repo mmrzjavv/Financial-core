@@ -6,6 +6,7 @@
     { id: "manager", label: "مدیریت سرمایه‌گذاری", roles: ["InvestmentManager", "Admin"] },
     { id: "legal", label: "واحد حقوقی", roles: ["LegalExpert", "LegalUnit", "Admin"] },
     { id: "financial", label: "واحد مالی", roles: ["FinancialExpert", "FinancialUnit", "Admin"] },
+    { id: "ceo", label: "مدیرعامل", roles: ["CEO", "Admin"] },
   ];
 
   const PHASES = {
@@ -31,6 +32,7 @@
     { status: 12, key: "WaitingSignedContractUpload", title: "آپلود قرارداد امضاشده", unit: "legal", phase: 3 },
     { status: 13, key: "WaitingFinancialWorksheet", title: "کاربرگ مالی", unit: "investment", phase: 4 },
     { status: 14, key: "FinancialWorksheetReview", title: "بررسی کاربرگ مالی", unit: "financial", phase: 4 },
+    { status: 20, key: "WaitingCeoApproval", title: "تأیید مدیرعامل", unit: "ceo", phase: 4 },
     { status: 15, key: "WaitingPayment", title: "پرداخت", unit: "financial", phase: 4 },
     { status: 16, key: "Completed", title: "تکمیل‌شده", unit: "all", phase: 5 },
     { status: 17, key: "Rejected", title: "رد شده", unit: "all", phase: 5 },
@@ -38,15 +40,36 @@
     { status: 19, key: "Archived", title: "بایگانی", unit: "all", phase: 5 },
   ];
 
-  const APPLICANT_DOCUMENTS = [
-    { type: 1, label: "پیچ‌دک", hint: "PitchDeck" },
-    { type: 2, label: "صورت‌های مالی", hint: "FinancialStatements" },
-    { type: 3, label: "مدارک مالیاتی", hint: "TaxDocuments" },
-    { type: 4, label: "ثبت شرکت", hint: "CompanyRegistration" },
-    { type: 5, label: "سهامداران و مدیران", hint: "ShareholderManager" },
-    { type: 6, label: "اسناد فروش", hint: "SalesDocuments" },
-    { type: 99, label: "سایر", hint: "Other" },
+  /** فرم ورود اطلاعات ۱ — مطابق فرم متقاضی (نام شرکت/استارتاپ/موبایل در پروفایل Company است) */
+  const DATA_ENTRY_1_DOCUMENTS = [
+    { type: 1, label: "پیچ‌دک", hint: "ضروری — حداکثر ۱۰ مگابایت", required: true },
+    { type: 11, label: "بیزینس پلن", hint: "اختیاری", required: false },
+    { type: 99, label: "سایر فایل‌ها", hint: "اختیاری", required: false },
   ];
+
+  const BUSINESS_STAGES = [
+    { value: 1, label: "در مرحله ایده" },
+    { value: 2, label: "دارای نمونه اولیه" },
+  ];
+
+  /** فرم ورود اطلاعات ۲ — مدارک و متن (اطلاعات شرکت/کاربر در پروفایل است) */
+  const DATA_ENTRY_2_DOCUMENTS = [
+    { type: 12, label: "اسناد معرفی شرکت (کاتالوگ، چارت سازمانی و …)", hint: "ضروری — ۱۰ مگابایت", required: true },
+    { type: 13, label: "آخرین لیست بیمه کارکنان", hint: "ضروری — ۱۰ مگابایت", required: true },
+    { type: 14, label: "اسکن آخرین تراز آزمایشی", hint: "ضروری — ۵ مگابایت", required: true },
+    { type: 3, label: "اظهارنامه مالیاتی (حسابرسی‌شده در صورت وجود)", hint: "ضروری — ۱۰ مگابایت", required: true },
+    { type: 15, label: "تصویر مجوزهای اصلی فعالیت شرکت", hint: "ضروری — ۵ مگابایت", required: true },
+    { type: 4, label: "مدارک ثبت شرکت (آگهی تأسیس، روزنامه رسمی، آخرین تغییرات)", hint: "ضروری — ۱۰ مگابایت", required: true },
+    { type: 19, label: "برنامه‌های جذب سرمایه (پرزنت و امکان‌سنجی)", hint: "ضروری — ۱۰ مگابایت", required: true },
+    { type: 2, label: "صورت‌های مالی ۳ سال گذشته", hint: "اختیاری — ۱۰ مگابایت", required: false },
+    { type: 6, label: "اسکن قراردادهای فروش و مستندات فروش", hint: "اختیاری — ۵ مگابایت", required: false },
+    { type: 16, label: "جواز کسب، پروانه بهره‌برداری، کارت بازرگانی", hint: "اختیاری — ۱۰ مگابایت", required: false },
+    { type: 17, label: "اعتبارسنجی مدیران و اعضای هیئت‌مدیره", hint: "اختیاری — ۱۰ مگابایت", required: false },
+    { type: 18, label: "صورتجلسه هیئت‌مدیره", hint: "اختیاری — ۱۰ مگابایت", required: false },
+  ];
+
+  /** سازگاری قدیمی — از DATA_ENTRY_2 استفاده کنید */
+  const APPLICANT_DOCUMENTS = DATA_ENTRY_2_DOCUMENTS;
 
   const ROLE_ALIASES = {
     User: "Applicant",
@@ -82,6 +105,24 @@
     return ROLE_ALIASES[role] || role;
   }
 
+  const TERMINAL_STATUSES = new Set([17, 18, 19]);
+
+  function getStepperSteps() {
+    return STEPS.filter((step) => !TERMINAL_STATUSES.has(step.status));
+  }
+
+  function getStepOrderIndex(status) {
+    const value = Number(status);
+    return getStepperSteps().findIndex((step) => step.status === value);
+  }
+
+  function compareStepOrder(a, b) {
+    const ai = getStepOrderIndex(a);
+    const bi = getStepOrderIndex(b);
+    if (ai >= 0 && bi >= 0) return ai - bi;
+    return Number(a) - Number(b);
+  }
+
   function getStep(status) {
     const value = Number(status);
     return STEPS.find((step) => step.status === value) || null;
@@ -108,7 +149,7 @@
     if (value <= 5) return 1;
     if (value <= 7) return 2;
     if (value <= 12) return 3;
-    if (value <= 15) return 4;
+    if (value <= 15 || value === 20) return 4;
     return 5;
   }
 
@@ -121,9 +162,15 @@
     UNITS,
     PHASES,
     STEPS,
+    DATA_ENTRY_1_DOCUMENTS,
+    DATA_ENTRY_2_DOCUMENTS,
+    BUSINESS_STAGES,
     APPLICANT_DOCUMENTS,
     normalizeRole,
     getStep,
+    getStepperSteps,
+    getStepOrderIndex,
+    compareStepOrder,
     getUnit,
     roleMatchesUnit,
     canActOnCase,

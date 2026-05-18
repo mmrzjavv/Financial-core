@@ -13,6 +13,17 @@ public sealed class LiaraDocumentStorage(ILiaraObjectStorage objectStorage) : ID
     public Task UploadAsync(string s3Key, Stream content, string mimeType, CancellationToken cancellationToken)
         => objectStorage.UploadAsync(s3Key, content, mimeType, cancellationToken);
 
+    public async Task<DocumentObjectMetadata?> GetMetadataAsync(string s3Key, CancellationToken cancellationToken)
+    {
+        var metadata = await objectStorage.GetObjectMetadataAsync(s3Key, cancellationToken);
+        return metadata is null
+            ? null
+            : new DocumentObjectMetadata(metadata.ContentLength, metadata.ContentType);
+    }
+
+    public Task<Stream> OpenReadAsync(string s3Key, CancellationToken cancellationToken)
+        => objectStorage.OpenReadAsync(s3Key, cancellationToken);
+
     public Task<bool> ExistsAsync(string s3Key, CancellationToken cancellationToken)
         => objectStorage.ExistsAsync(s3Key, cancellationToken);
 }

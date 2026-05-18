@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using Services.CoreService.Core.Domain.Identity.Enums;
+using Core.Domain.Identity.Enums;
 
-namespace Services.CoreService.Core.Domain.Identity.Entities;
+namespace Core.Domain.Identity.Entities;
 [Table("User", Schema = "Identity")]
 public class User : BaseEntity
 {

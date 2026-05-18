@@ -1,12 +1,11 @@
 using BuildingBlocks.Persistence.Db;
 using BuildingBlocks.Persistence.Db.DomainEvents;
-using BuildingBlocks.Persistence.Db.Interceptors;
 using Core.Application.Abstractions;
+using Core.Domain.Entities;
+using Core.Domain.Identity.Entities;
 using Microsoft.EntityFrameworkCore;
-using Services.CoreService.Core.Domain.Entities;
-using Services.CoreService.Core.Domain.Identity.Entities;
 
-namespace Services.CoreService.Core.Persistence;
+namespace Core.Persistence;
 
 public sealed class CoreDbContext : DbContextBase, ICoreDbContext
 {

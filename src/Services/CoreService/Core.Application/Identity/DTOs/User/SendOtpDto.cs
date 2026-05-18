@@ -1,5 +1,5 @@
 using Core.Application.Identity.Tokens;
-using Services.CoreService.Core.Domain.Identity.Enums;
+using Core.Domain.Identity.Enums;
 
 
 namespace Core.Application.Identity.DTOs.User;

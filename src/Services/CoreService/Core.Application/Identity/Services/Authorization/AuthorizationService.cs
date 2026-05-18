@@ -1,6 +1,6 @@
 using Core.Application.Abstractions;
 using Core.Application.Identity.Authorization;
-using Services.CoreService.Core.Domain.Identity.Entities;
+using Core.Domain.Identity.Entities;
 
 
 namespace Core.Application.Identity.Services.Authorization;

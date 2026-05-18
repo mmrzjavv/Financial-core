@@ -1,4 +1,4 @@
-namespace Services.CoreService.Core.Domain.Constants;
+namespace Core.Domain.Constants;
 
 public static class SystemRoles
 {
@@ -7,5 +7,6 @@ public static class SystemRoles
     public const string InvestmentManager = "InvestmentManager";
     public const string LegalExpert = "LegalExpert";
     public const string FinancialExpert = "FinancialExpert";
+    public const string Ceo = "CEO";
     public const string Admin = "Admin";
 }

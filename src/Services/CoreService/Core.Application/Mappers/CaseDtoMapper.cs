@@ -1,9 +1,9 @@
 using Core.Application.Authorization;
 using Core.Application.DTOs;
 using Core.Application.Requests;
+using Core.Domain.Entities;
+using Core.Domain.Identity.Entities;
 using MapsterMapper;
-using Services.CoreService.Core.Domain.Entities;
-using Services.CoreService.Core.Domain.Identity.Entities;
 
 namespace Core.Application.Mappers;
 
@@ -11,7 +11,12 @@ public interface ICaseDtoMapper
 {
     CompanyDto? MapCompany(Company? company);
     CaseDocumentDto MapDocument(CaseDocument document);
-    InvestmentCaseDto MapCase(InvestmentCase entity, DateTimeOffset now, bool isInternalView, Company? companyOverride = null);
+    InvestmentCaseDto MapCase(
+        InvestmentCase entity,
+        DateTimeOffset now,
+        bool isInternalView,
+        Company? companyOverride = null,
+        ApplicantContactDto? applicantContact = null);
     CaseCommentDto MapComment(CaseComment comment);
     CaseWorkflowHistoryDto MapHistory(CaseWorkflowHistory history);
     CaseEvaluationDto MapEvaluation(CaseEvaluation evaluation);
@@ -27,7 +32,12 @@ public sealed class CaseDtoMapper(IMapper mapper, ICaseAuthorizationService auth
             ? mapper.Map<CaseDocumentInternalDto>(document)
             : mapper.Map<CaseDocumentApplicantDto>(document);
 
-    public InvestmentCaseDto MapCase(InvestmentCase entity, DateTimeOffset now, bool isInternalView, Company? companyOverride = null)
+    public InvestmentCaseDto MapCase(
+        InvestmentCase entity,
+        DateTimeOffset now,
+        bool isInternalView,
+        Company? companyOverride = null,
+        ApplicantContactDto? applicantContact = null)
     {
         var company = MapCompany(companyOverride ?? entity.ApplicantCompany);
 
@@ -42,6 +52,7 @@ public sealed class CaseDtoMapper(IMapper mapper, ICaseAuthorizationService auth
         {
             UpdatedAt = applicant.UpdatedAt ?? now,
             Company = company,
+            Applicant = applicantContact,
             DataEntry1 = MapDataEntry1(entity.DataEntry1),
             DataEntry2 = MapDataEntry2(entity.DataEntry2)
         };
@@ -51,22 +62,15 @@ public sealed class CaseDtoMapper(IMapper mapper, ICaseAuthorizationService auth
         => dataEntry is null
             ? null
             : new DataEntry1Dto(
-                dataEntry.StartupTitle,
-                dataEntry.BusinessDescription,
-                dataEntry.RequestedAmount,
-                dataEntry.TeamSize,
-                dataEntry.Website,
-                dataEntry.Country,
-                dataEntry.City);
+                dataEntry.RepresentativeFullName,
+                dataEntry.BusinessStage,
+                dataEntry.ContactEmail,
+                dataEntry.RequestedAmount);
 
     private static DataEntry2Dto? MapDataEntry2(InvestmentCaseDataEntry2? dataEntry)
         => dataEntry is null
             ? null
-            : new DataEntry2Dto(
-                dataEntry.MarketAnalysis,
-                dataEntry.RevenueModel,
-                dataEntry.CompetitiveAdvantage,
-                dataEntry.FinancialProjection);
+            : new DataEntry2Dto(dataEntry.InvestmentAttractionBasis);
 
     public CaseCommentDto MapComment(CaseComment comment)
     {

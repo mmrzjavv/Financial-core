@@ -1,5 +1,5 @@
 using BuildingBlocks.Persistence.Abstractions;
-using Services.CoreService.Core.Domain.Identity.Entities;
+using Core.Domain.Identity.Entities;
 
 namespace Core.Application.Abstractions.Persistence;
 

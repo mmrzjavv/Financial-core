@@ -1,9 +1,8 @@
-using Services.CoreService.Core.Domain.Enums;
-
+using Core.Domain.Enums;
 
 namespace Core.Application.Requests;
 
-public sealed record SemanticTransitionRequest(string? Comment);
+public sealed record SemanticTransitionRequest(string? Comment = null, string? InternalComment = null);
 public sealed record SemanticRevisionRequest(string Message);
 public sealed record SemanticRejectRequest(string Reason);
 public sealed record SemanticCancelRequest(string Reason);

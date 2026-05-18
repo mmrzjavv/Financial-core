@@ -22,5 +22,11 @@ public sealed class S3DocumentStorage(IS3Presigner presigner) : IDocumentStorage
 
     public Task<bool> ExistsAsync(string s3Key, CancellationToken cancellationToken)
         => presigner.ExistsAsync(s3Key, cancellationToken);
+
+    public Task<DocumentObjectMetadata?> GetMetadataAsync(string s3Key, CancellationToken cancellationToken)
+        => throw new NotSupportedException("Object metadata requires Liara object storage.");
+
+    public Task<Stream> OpenReadAsync(string s3Key, CancellationToken cancellationToken)
+        => throw new NotSupportedException("Streaming download requires Liara object storage.");
 }
 

@@ -1,6 +1,6 @@
 using BuildingBlocks.Application.Results;
-using Services.CoreService.Core.Domain.Entities;
-using Services.CoreService.Core.Domain.Enums;
+using Core.Domain.Entities;
+using Core.Domain.Enums;
 
 
 namespace Core.Application.Abstractions;

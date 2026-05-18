@@ -12,7 +12,6 @@ using Elsa.Workflows.Runtime.Filters;
 using Elsa.Workflows.Runtime.Options;
 using Elsa.Workflows.Runtime.Requests;
 using Microsoft.Extensions.Logging;
-using Services.CoreService.Core.Domain.Entities;
 
 namespace Core.Workflow.Orchestration;
 

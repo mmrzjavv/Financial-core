@@ -1,6 +1,6 @@
+using Core.Domain.Entities;
+using Core.Domain.Identity.Entities;
 using Microsoft.EntityFrameworkCore;
-using Services.CoreService.Core.Domain.Entities;
-using Services.CoreService.Core.Domain.Identity.Entities;
 
 
 namespace Core.Application.Abstractions;

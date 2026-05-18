@@ -2,7 +2,6 @@ using BuildingBlocks.Persistence.Db.DomainEvents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
-using Services.CoreService.Core.Persistence;
 
 namespace Core.Persistence.DesignTime;
 

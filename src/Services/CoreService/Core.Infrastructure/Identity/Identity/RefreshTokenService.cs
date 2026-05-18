@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using Core.Application.Identity.Common.Interfaces;
+using Core.Domain.Identity.Entities;
 using Microsoft.Extensions.Configuration;
-using Services.CoreService.Core.Domain.Identity.Entities;
 
 namespace Core.Infrastructure.Identity.Identity;
 

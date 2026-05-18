@@ -1,8 +1,8 @@
 using Core.Application.Abstractions;
 using Core.Application.Identity.Authorization;
+using Core.Domain.Identity.Entities;
+using Core.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Services.CoreService.Core.Domain.Identity.Entities;
-using Services.CoreService.Core.Persistence;
 using IdentityAuthorizationService = Core.Application.Identity.Authorization.IAuthorizationService;
 
 namespace Core.Infrastructure.Identity.Services;

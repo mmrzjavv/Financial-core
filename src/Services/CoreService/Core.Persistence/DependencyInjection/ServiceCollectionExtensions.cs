@@ -2,13 +2,13 @@ using BuildingBlocks.Application.Abstractions;
 using BuildingBlocks.Application.Common;
 using BuildingBlocks.Persistence.Db.DomainEvents;
 using BuildingBlocks.Persistence.Db.Interceptors;
-using Services.CoreService.Core.Persistence.Interceptors;
 using Core.Application.Abstractions;
+using Core.Persistence.Interceptors;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Services.CoreService.Core.Persistence.DependencyInjection;
+namespace Core.Persistence.DependencyInjection;
 
 public static class ServiceCollectionExtensions
 {

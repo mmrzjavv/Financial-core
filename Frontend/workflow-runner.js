@@ -230,13 +230,8 @@
             method: "PUT",
             path: panel.casesBasePath() + "/" + caseId + "/data-entry1",
             body: {
-              startupTitle: "Workflow Demo Startup",
-              businessDescription: "Automated end-to-end workflow test case.",
+              businessStage: 2,
               requestedAmount: 100000000,
-              teamSize: 5,
-              website: "https://example.com",
-              country: "IR",
-              city: "Tehran",
             },
           });
           await panel.apiRequest({
@@ -253,10 +248,7 @@
             method: "PUT",
             path: panel.casesBasePath() + "/" + caseId + "/data-entry2",
             body: {
-              marketAnalysis: "Automated market analysis.",
-              revenueModel: "Subscription and services.",
-              competitiveAdvantage: "Speed and domain expertise.",
-              financialProjection: "Break-even in year 2.",
+              investmentAttractionBasis: "جذب سرمایه برای توسعه محصول (تست خودکار).",
             },
           });
           await panel.apiRequest({
@@ -281,10 +273,7 @@
             method: "PUT",
             path: panel.casesBasePath() + "/" + caseId + "/data-entry2",
             body: {
-              marketAnalysis: "Automated market analysis.",
-              revenueModel: "Subscription and services.",
-              competitiveAdvantage: "Speed and domain expertise.",
-              financialProjection: "Break-even in year 2.",
+              investmentAttractionBasis: "جذب سرمایه برای توسعه محصول (تست خودکار).",
             },
           });
           await panel.apiRequest({
@@ -397,6 +386,19 @@
             path: panel.casesBasePath() + "/" + caseId + "/financial-worksheet/approve",
             body: { comment: "Worksheet approved" },
           });
+        });
+
+        await runStep("CEO approves before payment phase", async () => {
+          await usePersona("ceo");
+          await panel.apiRequest({
+            method: "POST",
+            path: panel.casesBasePath() + "/" + caseId + "/ceo-approval/approve",
+            body: { comment: "CEO approved for payment" },
+          });
+        });
+
+        await runStep("Financial records payment", async () => {
+          await usePersona("financialExpert");
           await panel.apiRequest({
             method: "POST",
             path: panel.casesBasePath() + "/" + caseId + "/payments",

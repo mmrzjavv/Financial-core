@@ -1,4 +1,4 @@
-namespace Services.CoreService.Core.Domain.Enums;
+namespace Core.Domain.Enums;
 
 public static class EvaluationItemTitle
 {

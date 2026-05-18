@@ -4,9 +4,9 @@ using Core.Application.Logging;
 using Core.Application.Requests;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
+using Core.Domain.Identity.Entities;
 using MapsterMapper;
 using Microsoft.Extensions.Logging;
-using Services.CoreService.Core.Domain.Identity.Entities;
 
 namespace Core.Application.Services;
 

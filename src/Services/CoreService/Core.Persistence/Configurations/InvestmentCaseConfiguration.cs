@@ -1,10 +1,8 @@
-using BuildingBlocks.Persistence.Db;
+using Core.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Services.CoreService.Core.Domain.Entities;
-using Services.CoreService.Core.Domain.Identity.Entities;
 
-namespace Services.CoreService.Core.Persistence.Configurations;
+namespace Core.Persistence.Configurations;
 
 public sealed class InvestmentCaseConfiguration : IEntityTypeConfiguration<InvestmentCase>
 {
@@ -22,6 +20,8 @@ public sealed class InvestmentCaseConfiguration : IEntityTypeConfiguration<Inves
         builder.Property(x => x.ApplicantType).HasConversion<int>().IsRequired();
         builder.Property(x => x.CurrentPhase).HasConversion<int>().IsRequired();
         builder.Property(x => x.CurrentStatus).HasConversion<int>().IsRequired();
+        builder.HasIndex(x => x.CurrentStatus);
+        builder.HasIndex(x => x.CreatedAt);
 
         builder.Property(x => x.WorkflowInstanceId).HasMaxLength(128);
 

@@ -1,4 +1,4 @@
-namespace Services.CoreService.Core.Domain.Constants;
+namespace Core.Domain.Constants;
 
 public static class WorkflowSignals
 {

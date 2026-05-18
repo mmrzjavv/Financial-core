@@ -1,8 +1,8 @@
 using BuildingBlocks.Domain.Abstractions;
 using BuildingBlocks.Domain.Entities;
-using Services.CoreService.Core.Domain.Enums;
+using Core.Domain.Enums;
 
-namespace Services.CoreService.Core.Domain.Entities;
+namespace Core.Domain.Entities;
 
 public sealed class PaymentRecord : Entity<Guid>, IAuditableEntity
 {

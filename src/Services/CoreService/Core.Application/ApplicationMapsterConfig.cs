@@ -1,9 +1,9 @@
 using Core.Application.DTOs;
 using Core.Application.Identity.DTOs.User;
 using Core.Application.Requests;
+using Core.Domain.Entities;
+using Core.Domain.Identity.Entities;
 using Mapster;
-using Services.CoreService.Core.Domain.Entities;
-using Services.CoreService.Core.Domain.Identity.Entities;
 
 namespace Core.Application;
 
@@ -16,10 +16,13 @@ public sealed class ApplicationMapsterConfig : IRegister
         config.NewConfig<CaseDocument, CaseDocumentApplicantDto>();
         config.NewConfig<CaseDocument, CaseDocumentInternalDto>();
 
+        config.NewConfig<InvestmentCaseDataEntry1, DataEntry1Dto>();
+        config.NewConfig<InvestmentCaseDataEntry2, DataEntry2Dto>();
+
         config.NewConfig<InvestmentCase, InvestmentCaseApplicantDto>()
             .Map(dest => dest.Company, src => src.ApplicantCompany)
-            .Map(dest => dest.DataEntry1, _ => (DataEntry1Dto?)null)
-            .Map(dest => dest.DataEntry2, _ => (DataEntry2Dto?)null);
+            .Map(dest => dest.DataEntry1, src => src.DataEntry1 != null ? src.DataEntry1.Adapt<DataEntry1Dto>() : null)
+            .Map(dest => dest.DataEntry2, src => src.DataEntry2 != null ? src.DataEntry2.Adapt<DataEntry2Dto>() : null);
         config.NewConfig<InvestmentCase, InvestmentCaseInternalDto>()
             .Map(dest => dest.Company, src => src.ApplicantCompany);
 

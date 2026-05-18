@@ -1,8 +1,8 @@
 using Core.Application.Abstractions;
+using Core.Domain.Entities;
+using Core.Domain.Enums;
+using Core.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Services.CoreService.Core.Domain.Entities;
-using Services.CoreService.Core.Domain.Enums;
-using Services.CoreService.Core.Persistence;
 
 namespace Core.Infrastructure.Persistence;
 
@@ -212,7 +212,7 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
                 x.CurrentStatus,
                 x.CreatedAt,
                 x.UpdatedAt,
-                x.DataEntry1 != null ? x.DataEntry1.StartupTitle : null,
+                x.DataEntry1 != null ? x.DataEntry1.RepresentativeFullName : null,
                 x.ApplicantCompany != null ? x.ApplicantCompany.Name : null))
             .ToListAsync(cancellationToken);
     }

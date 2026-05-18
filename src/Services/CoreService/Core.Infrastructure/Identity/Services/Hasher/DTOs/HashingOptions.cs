@@ -1,4 +1,4 @@
-namespace Core.Infrastructure.Identity.DTOs;
+namespace Core.Infrastructure.Identity.Services.Hasher.DTOs;
 
 public class HashingOptions
 {

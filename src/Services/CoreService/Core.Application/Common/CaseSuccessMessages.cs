@@ -29,6 +29,9 @@ public static class CaseSuccessMessages
     public const string FinancialWorksheetSubmitted = "کاربرگ مالی ارسال شد.";
     public const string FinancialWorksheetApproved = "کاربرگ مالی تأیید شد.";
     public const string FinancialWorksheetRevisionRequested = "درخواست اصلاح کاربرگ مالی ثبت شد.";
+    public const string CeoApprovalGranted = "تأیید مدیرعامل ثبت شد؛ پرونده به مرحله پرداخت منتقل شد.";
+    public const string CeoRevisionRequested = "درخواست اصلاح مدیرعامل ثبت شد.";
+    public const string PaymentsRetrieved = "فهرست پرداخت‌ها بارگذاری شد.";
     public const string PaymentRecorded = "پرداخت ثبت شد.";
     public const string PaymentConfirmed = "پرداخت تأیید شد.";
     public const string PaymentCancelled = "پرداخت لغو شد.";
@@ -39,6 +42,9 @@ public static class CaseSuccessMessages
     public const string DocumentUploaded = "سند با موفقیت بارگذاری شد.";
     public const string DocumentUploadConfirmed = "بارگذاری سند تأیید شد و در صورت نیاز پرونده به مرحله بعد منتقل شد.";
     public const string DocumentsRetrieved = "فهرست اسناد دریافت شد.";
+    public const string DocumentsLatestRetrieved = "آخرین نسخه هر نوع سند دریافت شد.";
+    public const string DocumentVersionsRetrieved = "نسخه‌های سند دریافت شد.";
+    public const string DocumentVersionGroupsRetrieved = "تاریخچه نسخه‌های اسناد دریافت شد.";
     public const string DocumentDownloadPresigned = "آدرس دریافت سند آماده شد.";
     public const string EvaluationSaved = "ارزیابی ذخیره شد.";
     public const string EvaluationsRetrieved = "فهرست ارزیابی‌ها دریافت شد.";

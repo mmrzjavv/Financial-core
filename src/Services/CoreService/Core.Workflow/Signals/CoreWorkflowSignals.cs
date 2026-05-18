@@ -1,4 +1,4 @@
-using Services.CoreService.Core.Domain.Constants;
+using Core.Domain.Constants;
 
 namespace Core.Workflow.Signals;
 

@@ -1,6 +1,6 @@
 using Core.Application.Abstractions.Persistence;
-using Services.CoreService.Core.Domain.Identity.Entities;
-using Services.CoreService.Core.Persistence;
+using Core.Domain.Identity.Entities;
+using Core.Persistence;
 
 namespace Core.Infrastructure.Persistence;
 

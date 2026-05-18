@@ -1,4 +1,4 @@
-namespace Services.CoreService.Core.Domain.Enums;
+namespace Core.Domain.Enums;
 
 public enum DocumentType
 {
@@ -12,6 +12,15 @@ public enum DocumentType
     FinalContract = 8,
     SignedContract = 9,
     PaymentReceipt = 10,
+    BusinessPlan = 11,
+    CompanyIntroduction = 12,
+    EmployeeInsuranceList = 13,
+    TrialBalanceScan = 14,
+    ActivityLicenses = 15,
+    BusinessPermits = 16,
+    ManagersBoardValidation = 17,
+    BoardMeetingMinutes = 18,
+    CapitalRaisingPlans = 19,
     Other = 99
 }
 

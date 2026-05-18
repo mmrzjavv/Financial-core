@@ -37,6 +37,8 @@
         <button class="navbtn" data-tab="tabDocs">Documents</button>
         <button class="navbtn" data-tab="tabComments">Comments</button>
         <button class="navbtn" data-tab="tabEval">Evaluations</button>
+        <button class="navbtn" data-tab="tabDashboardCeo">مدیرعامل</button>
+        <button class="navbtn" data-tab="tabDashboardBoard">هیئت مدیره</button>
         <button class="navbtn" data-tab="tabDebug">Debug Tools</button>
       </aside>
 
@@ -581,6 +583,33 @@
               <button id="btnGetEvals" class="btn">Fetch</button>
               <div class="hint mono">GET /api/v1/cases/{id}/evaluations</div>
             </div>
+          </div>
+        </div>
+
+
+        <div id="tabDashboardCeo" class="tab">
+          <div class="card">
+            <div class="card__title">داشبورد مدیرعامل</div>
+            <div class="row">
+              <button id="btnLoadCeoDashboard" type="button" class="btn btn--primary">بارگذاری</button>
+            </div>
+            <div id="ceoDashboardError" class="alert alert--error hidden"></div>
+            <div id="ceoDashboardMetrics" class="dashboard-metrics hidden"></div>
+            <div id="ceoDashboardFunnel" class="dashboard-chart hidden"></div>
+            <div id="ceoDashboardActivity" class="dashboard-list hidden"></div>
+          </div>
+        </div>
+
+        <div id="tabDashboardBoard" class="tab">
+          <div class="card">
+            <div class="card__title">داشبورد هیئت مدیره</div>
+            <div class="row">
+              <button id="btnLoadBoardDashboard" type="button" class="btn btn--primary">بارگذاری</button>
+            </div>
+            <div id="boardDashboardError" class="alert alert--error hidden"></div>
+            <div id="boardDashboardSummary" class="dashboard-metrics hidden"></div>
+            <div id="boardDashboardTrend" class="dashboard-chart hidden"></div>
+            <div id="boardDashboardStatus" class="dashboard-chart hidden"></div>
           </div>
         </div>
 

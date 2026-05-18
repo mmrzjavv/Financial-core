@@ -1,7 +1,7 @@
 using Core.Application.Abstractions;
 using Core.Application.Abstractions.Persistence;
 using Core.Application.Identity.Abstractions;
-using Services.CoreService.Core.Persistence;
+using Core.Persistence;
 
 namespace Core.Infrastructure.Persistence;
 
