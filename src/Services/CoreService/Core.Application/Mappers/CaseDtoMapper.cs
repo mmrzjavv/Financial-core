@@ -38,13 +38,71 @@ public sealed class CaseDtoMapper(IMapper mapper, ICaseAuthorizationService auth
         }
 
         var applicant = mapper.Map<InvestmentCaseApplicantDto>(entity);
-        return applicant with { UpdatedAt = applicant.UpdatedAt ?? now, Company = company };
+        return applicant with
+        {
+            UpdatedAt = applicant.UpdatedAt ?? now,
+            Company = company,
+            DataEntry1 = MapDataEntry1(entity.DataEntry1),
+            DataEntry2 = MapDataEntry2(entity.DataEntry2)
+        };
     }
 
+    private static DataEntry1Dto? MapDataEntry1(InvestmentCaseDataEntry1? dataEntry)
+        => dataEntry is null
+            ? null
+            : new DataEntry1Dto(
+                dataEntry.StartupTitle,
+                dataEntry.BusinessDescription,
+                dataEntry.RequestedAmount,
+                dataEntry.TeamSize,
+                dataEntry.Website,
+                dataEntry.Country,
+                dataEntry.City);
+
+    private static DataEntry2Dto? MapDataEntry2(InvestmentCaseDataEntry2? dataEntry)
+        => dataEntry is null
+            ? null
+            : new DataEntry2Dto(
+                dataEntry.MarketAnalysis,
+                dataEntry.RevenueModel,
+                dataEntry.CompetitiveAdvantage,
+                dataEntry.FinancialProjection);
+
     public CaseCommentDto MapComment(CaseComment comment)
+    {
+        var attachments = comment.Attachments.Select(MapCommentAttachment).ToArray();
+
+        if (authorizationService.IsInternalUser)
+        {
+            return new CaseCommentInternalDto(
+                comment.Id,
+                comment.CaseId,
+                comment.Phase,
+                comment.SenderUserId,
+                comment.SenderRole,
+                comment.Message,
+                comment.IsRevisionRequest,
+                comment.IsInternal,
+                comment.ParentId,
+                attachments,
+                comment.CreatedAt);
+        }
+
+        return new CaseCommentApplicantDto(
+            comment.Id,
+            comment.CaseId,
+            comment.Phase,
+            comment.Message,
+            comment.IsRevisionRequest,
+            comment.ParentId,
+            attachments,
+            comment.CreatedAt);
+    }
+
+    private CaseCommentAttachmentDto MapCommentAttachment(CaseCommentAttachment attachment)
         => authorizationService.IsInternalUser
-            ? mapper.Map<CaseCommentInternalDto>(comment)
-            : mapper.Map<CaseCommentApplicantDto>(comment);
+            ? new CaseCommentAttachmentInternalDto(attachment.Id, attachment.S3Key, attachment.FileName)
+            : new CaseCommentAttachmentApplicantDto(attachment.Id, attachment.FileName);
 
     public CaseWorkflowHistoryDto MapHistory(CaseWorkflowHistory history)
         => authorizationService.IsInternalUser

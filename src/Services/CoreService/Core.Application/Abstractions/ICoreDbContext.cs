@@ -13,6 +13,7 @@ public interface ICoreDbContext
     DbSet<FinancialWorksheet> FinancialWorksheets { get; }
     DbSet<CaseDocument> CaseDocuments { get; }
     DbSet<CaseComment> CaseComments { get; }
+    DbSet<CaseCommentAttachment> CaseCommentAttachments { get; }
     DbSet<CaseRevision> CaseRevisions { get; }
     DbSet<CaseEvaluation> CaseEvaluations { get; }
     DbSet<CaseEvaluationItem> CaseEvaluationItems { get; }

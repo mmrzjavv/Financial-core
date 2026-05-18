@@ -247,6 +247,8 @@ pre.code.small{min-height:80px; max-height:220px}
   border:0;
 }
 .portal-upload-row__status{flex:1 1 100%}
+.portal-upload-row--done{border-color:rgba(34,197,94,.35)}
+.portal-upload-row__status.is-uploaded{color:#86efac;font-weight:600}
 .portal-file-btn{
   display:inline-flex;
   align-items:center;
@@ -276,6 +278,7 @@ pre.code.small{min-height:80px; max-height:220px}
 .portal-thread__message{white-space:pre-wrap}
 .portal-card--nested{margin-top:10px;background:rgba(11,18,32,.45)}
 .portal-stage__hint{color:var(--muted);margin-top:6px}
+.portal-action-hint{margin:10px 0 0;padding:10px 12px;border-radius:10px;border:1px solid rgba(59,130,246,.35);background:rgba(59,130,246,.12);color:#dbeafe;font-size:14px;line-height:1.5}
 
 .kanban-board{margin-bottom:12px}
 .kanban-board__header{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}

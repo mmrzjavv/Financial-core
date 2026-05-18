@@ -1,6 +1,7 @@
+using BuildingBlocks.Persistence.Db.DomainEvents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using BuildingBlocks.Persistence.Db.DomainEvents;
+using Microsoft.Extensions.Configuration;
 using Services.CoreService.Core.Persistence;
 
 namespace Core.Persistence.DesignTime;
@@ -9,8 +10,19 @@ public sealed class CoreDbContextFactory : IDesignTimeDbContextFactory<CoreDbCon
 {
     public CoreDbContext CreateDbContext(string[] args)
     {
+        var apiDir = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "Core.API"));
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(apiDir)
+            .AddJsonFile("appsettings.json", optional: true)
+            .AddEnvironmentVariables()
+            .Build();
+
+        var connectionString = configuration.GetConnectionString("Postgres")
+            ?? Environment.GetEnvironmentVariable("CORE_POSTGRES_CONNECTION")
+            ?? "Host=localhost;Database=core;Username=postgres;Password=postgres";
+
         var optionsBuilder = new DbContextOptionsBuilder<CoreDbContext>();
-        optionsBuilder.UseNpgsql("Host=localhost;Database=core;Username=postgres;Password=postgres");
+        optionsBuilder.UseNpgsql(connectionString);
         return new CoreDbContext(optionsBuilder.Options, new NoOpDomainEventDispatcher());
     }
 

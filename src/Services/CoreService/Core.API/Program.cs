@@ -27,7 +27,6 @@ using Serilog;
 using System.Security.Claims;
 using System.Text;
 using Core.API.Authorization;
-using Core.API.Filters;
 using Core.Application;
 using Microsoft.AspNetCore.Authorization;
 using Services.CoreService.Core.Domain.Constants;
@@ -93,7 +92,7 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-builder.Services.AddControllers(options => options.Filters.Add<ApiRequestLoggingFilter>())
+builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
     {
         options.InvalidModelStateResponseFactory = context =>
@@ -167,7 +166,15 @@ builder.Services.AddAuthorization(options =>
 {
     // IdentityService issues ClaimTypes.Role = UserRole.ToString(): Applicant, InvestmentExpert, InvestmentManager, LegalExpert, FinancialExpert, Admin, ...
     options.AddPolicy("ApplicantOnly", p => p.RequireRole(SystemRoles.Applicant, SystemRoles.Admin));
-    options.AddPolicy("InternalOnly", p => p.RequireRole(SystemRoles.InvestmentExpert, SystemRoles.InvestmentManager, SystemRoles.FinancialExpert, SystemRoles.LegalExpert, SystemRoles.Admin));
+    options.AddPolicy("InternalOnly", p => p.RequireRole(
+        SystemRoles.InvestmentExpert,
+        SystemRoles.InvestmentManager,
+        SystemRoles.FinancialExpert,
+        SystemRoles.LegalExpert,
+        SystemRoles.Admin,
+        "LegalUnit",
+        "FinancialUnit",
+        "InvestmentUnit"));
 
     options.AddPolicy("InvestmentCases.Review", p => p.Requirements.Add(new PermissionRequirement("investment_cases:review")));
     options.AddPolicy("InvestmentCases.FinanceReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:finance_review")));
@@ -230,8 +237,6 @@ app.UseExceptionHandler(errorApp =>
 });
 
 app.UseMiddleware<CorrelationIdMiddleware>();
-
-app.UsePlatformRequestLogging();
 
 // In development, we allow swagger even if not explicitly in Dev env for now to fix user issue
 app.UseSwagger();

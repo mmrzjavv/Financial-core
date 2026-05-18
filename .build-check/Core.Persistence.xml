@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Core.Persistence</name>
+    </assembly>
+    <members>
+        <member name="T:Core.Persistence.Migrations.Init">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.Init.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.Init.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.Init.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Core.Persistence.Migrations.OrganizeCaseSchemas">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.OrganizeCaseSchemas.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.OrganizeCaseSchemas.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.OrganizeCaseSchemas.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Core.Persistence.Migrations.ExtendCompanyProfile">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.ExtendCompanyProfile.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.ExtendCompanyProfile.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.ExtendCompanyProfile.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Core.Persistence.Migrations.RemoveUserApplicantType">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.RemoveUserApplicantType.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.RemoveUserApplicantType.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.RemoveUserApplicantType.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Core.Persistence.Migrations.FixInvestmentCaseXminConcurrency">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.FixInvestmentCaseXminConcurrency.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.FixInvestmentCaseXminConcurrency.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.FixInvestmentCaseXminConcurrency.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Core.Persistence.Migrations.LinkInvestmentCaseToCompany">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.LinkInvestmentCaseToCompany.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.LinkInvestmentCaseToCompany.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.LinkInvestmentCaseToCompany.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:Core.Persistence.Migrations.RemoveInvestmentCaseRowVersion">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.RemoveInvestmentCaseRowVersion.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.RemoveInvestmentCaseRowVersion.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:Core.Persistence.Migrations.RemoveInvestmentCaseRowVersion.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+    </members>
+</doc>

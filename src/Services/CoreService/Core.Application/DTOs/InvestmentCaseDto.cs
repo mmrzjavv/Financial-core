@@ -23,7 +23,9 @@ public sealed record InvestmentCaseApplicantDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
     DateTimeOffset? CompletedAt,
-    CompanyDto? Company)
+    CompanyDto? Company,
+    DataEntry1Dto? DataEntry1 = null,
+    DataEntry2Dto? DataEntry2 = null)
     : InvestmentCaseDto(Id, CaseNumber, ApplicantType, CurrentPhase, CurrentStatus, CreatedAt, UpdatedAt, CompletedAt);
 
 public sealed record InvestmentCaseInternalDto(

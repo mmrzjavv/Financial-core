@@ -340,17 +340,6 @@
             "application/pdf",
             "%PDF-1.4\n% Workflow preliminary contract\n"
           );
-          await panel.apiRequest({
-            method: "POST",
-            path:
-              panel.casesBasePath() +
-              "/" +
-              caseId +
-              "/contracts/preliminary/upload?s3Key=" +
-              encodeURIComponent(preContractKey),
-            body: null,
-            json: false,
-          });
         });
 
         await runStep("Applicant approves preliminary contract", async () => {
@@ -382,17 +371,6 @@
             "application/pdf",
             "%PDF-1.4\n% Workflow signed contract\n"
           );
-          await panel.apiRequest({
-            method: "POST",
-            path:
-              panel.casesBasePath() +
-              "/" +
-              caseId +
-              "/contracts/signed/upload?s3Key=" +
-              encodeURIComponent(signedContractKey),
-            body: null,
-            json: false,
-          });
         });
 
         await runStep("Financial worksheet and payment completion", async () => {

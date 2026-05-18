@@ -104,6 +104,60 @@
     return !!(node && node.checked);
   }
 
+  function setFieldValue(id, value) {
+    const node = qs("#" + id);
+    if (!node || value == null) return;
+    node.value = String(value);
+  }
+
+  function pickDataEntry1(obj) {
+    if (!obj || typeof obj !== "object") return null;
+    return obj.dataEntry1 || obj.DataEntry1 || null;
+  }
+
+  function pickDataEntry2(obj) {
+    if (!obj || typeof obj !== "object") return null;
+    return obj.dataEntry2 || obj.DataEntry2 || null;
+  }
+
+  function pickProp(obj, camel, pascal) {
+    if (!obj) return "";
+    const value = obj[camel] ?? obj[pascal];
+    return value == null ? "" : value;
+  }
+
+  function hasSavedDataEntry1() {
+    const de1 = pickDataEntry1(state.caseData);
+    if (!de1) return false;
+    const title = pickProp(de1, "startupTitle", "StartupTitle");
+    return String(title).trim().length > 0;
+  }
+
+  function populateFormsFromCase() {
+    const de1 = pickDataEntry1(state.caseData);
+    if (de1) {
+      setFieldValue("de1Title", pickProp(de1, "startupTitle", "StartupTitle"));
+      setFieldValue("de1Description", pickProp(de1, "businessDescription", "BusinessDescription"));
+      setFieldValue("de1Amount", pickProp(de1, "requestedAmount", "RequestedAmount"));
+      setFieldValue("de1Team", pickProp(de1, "teamSize", "TeamSize"));
+      setFieldValue("de1Website", pickProp(de1, "website", "Website"));
+      setFieldValue("de1Country", pickProp(de1, "country", "Country") || "IR");
+      setFieldValue("de1City", pickProp(de1, "city", "City"));
+    }
+
+    const de2 = pickDataEntry2(state.caseData);
+    if (de2) {
+      setFieldValue("de2Market", pickProp(de2, "marketAnalysis", "MarketAnalysis"));
+      setFieldValue("de2Revenue", pickProp(de2, "revenueModel", "RevenueModel"));
+      setFieldValue("de2Advantage", pickProp(de2, "competitiveAdvantage", "CompetitiveAdvantage"));
+      setFieldValue("de2Projection", pickProp(de2, "financialProjection", "FinancialProjection"));
+    }
+  }
+
+  /**
+   * Single upload path: presign → PUT to object storage → confirm (registers DB + workflow when applicable).
+   * Bytes are never sent through the API except via documents/upload (server proxy, debug panel only).
+   */
   async function uploadDocument(caseId, documentType, file) {
     const mimeType = file.type || "application/octet-stream";
     const presign = await state.panel.apiRequest({
@@ -139,15 +193,7 @@
 
   async function uploadContract(caseId, kind, file) {
     const docType = kind === "signed" ? 9 : 7;
-    const s3Key = await uploadDocument(caseId, docType, file);
-    const route = kind === "signed" ? "/contracts/signed/upload" : "/contracts/preliminary/upload";
-    await state.panel.apiRequest({
-      method: "POST",
-      path: casesPath("/" + caseId + route + "?s3Key=" + encodeURIComponent(s3Key)),
-      body: null,
-      json: false,
-    });
-    return s3Key;
+    return uploadDocument(caseId, docType, file);
   }
 
   async function postComment(caseId, phase, message, isInternal) {
@@ -252,6 +298,15 @@
     return (prefix || "upload") + "-" + uploadFieldCounter;
   }
 
+  function documentForType(documentType) {
+    return state.documents.find((d) => Number(d.documentType ?? d.DocumentType) === Number(documentType));
+  }
+
+  function documentTypeLabel(documentType) {
+    const meta = model.APPLICANT_DOCUMENTS.find((d) => d.type === Number(documentType));
+    return meta ? meta.label : String(documentType);
+  }
+
   function appendFileUploadRow(parent, options) {
     const row = el("div", "portal-upload-row");
     const inputId = options.id || nextUploadFieldId(options.idPrefix || "file");
@@ -282,9 +337,19 @@
     picker.textContent = options.buttonText || "انتخاب و بارگذاری فایل";
 
     const status = el("span", "portal-upload-row__status muted");
+    if (options.uploadedLabel) {
+      status.textContent = options.uploadedLabel;
+      status.classList.add("is-uploaded");
+      row.classList.add("portal-upload-row--done");
+    }
     input.addEventListener("change", () => {
       const file = input.files && input.files[0];
-      status.textContent = file ? "فایل انتخاب‌شده: " + file.name : "";
+      if (file) {
+        status.textContent = "در حال بارگذاری: " + file.name;
+        status.classList.remove("is-uploaded");
+      } else if (!options.uploadedLabel) {
+        status.textContent = "";
+      }
     });
 
     control.appendChild(input);
@@ -394,13 +459,26 @@
     const wrap = el("div", "card portal-card portal-card--nested");
     wrap.appendChild(el("div", "card__title", title || "بارگذاری مدارک"));
     wrap.appendChild(el("div", "muted", "پس از انتخاب فایل، بارگذاری به‌صورت خودکار انجام می‌شود."));
+    const uploadedCount = model.APPLICANT_DOCUMENTS.filter((doc) => documentForType(doc.type)).length;
+    wrap.appendChild(
+      el(
+        "div",
+        "muted",
+        uploadedCount + " از " + model.APPLICANT_DOCUMENTS.length + " مدرک در سامانه ثبت شده است."
+      )
+    );
     model.APPLICANT_DOCUMENTS.forEach((doc) => {
+      const existing = documentForType(doc.type);
+      const fileName = existing && (existing.fileName || existing.FileName);
       appendFileUploadRow(wrap, {
         id: prefix + "-doc-" + doc.type,
         title: doc.label,
         hint: doc.hint,
         uploadType: doc.type,
         idPrefix: prefix,
+        uploadedLabel: existing
+          ? "✓ بارگذاری شده" + (fileName ? ": " + fileName : "")
+          : null,
       });
     });
     card.appendChild(wrap);
@@ -415,8 +493,9 @@
       const list = el("div", "portal-doc-list");
       state.documents.forEach((doc) => {
         const item = el("div", "portal-doc-list__item");
-        const name = doc.fileName || doc.FileName || doc.documentType || doc.DocumentType || "سند";
-        item.textContent = name;
+        const type = Number(doc.documentType ?? doc.DocumentType);
+        const name = doc.fileName || doc.FileName || "فایل";
+        item.textContent = documentTypeLabel(type) + " — " + name;
         list.appendChild(item);
       });
       card.appendChild(list);
@@ -443,27 +522,37 @@
     host.appendChild(card);
   }
 
-  function renderDataEntryStage(card, prefix, phase, isReview) {
+  function renderDataEntryStage(card, prefix, phase, isReview, caseStatus) {
     if (!isReview) {
       if (prefix === "de1") {
-        card.appendChild(field("عنوان استارتاپ", "de1Title", "text"));
-        card.appendChild(field("شرح کسب‌وکار", "de1Description", "textarea"));
-        card.appendChild(field("مبلغ درخواستی", "de1Amount", "number"));
-        card.appendChild(field("تعداد تیم", "de1Team", "number"));
-        card.appendChild(field("وب‌سایت", "de1Website", "text"));
-        card.appendChild(field("کشور", "de1Country", "text", "IR"));
-        card.appendChild(field("شهر", "de1City", "text"));
+        const de1 = pickDataEntry1(state.caseData);
+        const countryDefault = de1 ? pickProp(de1, "country", "Country") || "IR" : "IR";
+        card.appendChild(field("عنوان استارتاپ", "de1Title", "text", pickProp(de1, "startupTitle", "StartupTitle")));
+        card.appendChild(field("شرح کسب‌وکار", "de1Description", "textarea", pickProp(de1, "businessDescription", "BusinessDescription")));
+        card.appendChild(field("مبلغ درخواستی", "de1Amount", "number", pickProp(de1, "requestedAmount", "RequestedAmount")));
+        card.appendChild(field("تعداد تیم", "de1Team", "number", pickProp(de1, "teamSize", "TeamSize")));
+        card.appendChild(field("وب‌سایت", "de1Website", "text", pickProp(de1, "website", "Website")));
+        card.appendChild(field("کشور", "de1Country", "text", countryDefault));
+        card.appendChild(field("شهر", "de1City", "text", pickProp(de1, "city", "City")));
+        const submitLabel =
+          caseStatus === 1 ? "ثبت و ادامه به فرم اولیه" : "ارسال برای بررسی کارشناس";
         card.appendChild(actionRow([
           createButton("ذخیره فرم اولیه", "btn--primary", "save-de1"),
-          createButton("ارسال برای بررسی", "", "submit-de1"),
+          createButton(submitLabel, caseStatus === 2 ? "btn--primary" : "", "submit-de1"),
         ]));
         card.appendChild(field("توضیح همراه ارسال", "de1SubmitComment", "text"));
+        const hint =
+          caseStatus === 1
+            ? "مرحله پیش‌نویس: ابتدا «ذخیره فرم اولیه»، سپس «ثبت و ادامه». مدارک اختیاری است."
+            : "فرم اولیه: پس از ذخیره، «ارسال برای بررسی کارشناس» پرونده را به کارشناس می‌فرستد. مدارک اختیاری است.";
+        card.appendChild(el("div", "muted", hint));
         renderUploads(card, "de1", "مدارک متقاضی (فرم اولیه)");
       } else {
-        card.appendChild(field("تحلیل بازار", "de2Market", "textarea"));
-        card.appendChild(field("مدل درآمد", "de2Revenue", "textarea"));
-        card.appendChild(field("مزیت رقابتی", "de2Advantage", "textarea"));
-        card.appendChild(field("پیش‌بینی مالی", "de2Projection", "textarea"));
+        const de2 = pickDataEntry2(state.caseData);
+        card.appendChild(field("تحلیل بازار", "de2Market", "textarea", pickProp(de2, "marketAnalysis", "MarketAnalysis")));
+        card.appendChild(field("مدل درآمد", "de2Revenue", "textarea", pickProp(de2, "revenueModel", "RevenueModel")));
+        card.appendChild(field("مزیت رقابتی", "de2Advantage", "textarea", pickProp(de2, "competitiveAdvantage", "CompetitiveAdvantage")));
+        card.appendChild(field("پیش‌بینی مالی", "de2Projection", "textarea", pickProp(de2, "financialProjection", "FinancialProjection")));
         card.appendChild(actionRow([
           createButton("ذخیره فرم تکمیلی", "btn--primary", "save-de2"),
           createButton("ارسال برای بررسی", "", "submit-de2"),
@@ -532,17 +621,27 @@
           el(
             "div",
             "portal-stage__hint",
-            "پرونده در پیش‌نویس است. فرم را ذخیره کنید؛ با اولین ارسال به مرحله فرم اولیه می‌روید و پس از تکمیل، دوباره ارسال برای بررسی کارشناس انجام دهید."
+            "پیش‌نویس: فرم و مدارک را تکمیل کنید، ذخیره کنید، سپس «ثبت و ادامه» را بزنید."
+          )
+        );
+      } else if (status === 2) {
+        card.appendChild(
+          el(
+            "div",
+            "portal-stage__hint",
+            hasSavedDataEntry1()
+              ? "فرم ذخیره شده است. برای ارسال به کارشناس، «ارسال برای بررسی کارشناس» را بزنید."
+              : "ابتدا «ذخیره فرم اولیه» را بزنید، سپس ارسال برای بررسی."
           )
         );
       }
-      renderDataEntryStage(card, "de1", 1, false);
+      renderDataEntryStage(card, "de1", 1, false, status);
     } else if (status === 3) {
-      renderDataEntryStage(card, "de1", 1, true);
+      renderDataEntryStage(card, "de1", 1, true, status);
     } else if (status === 4) {
-      renderDataEntryStage(card, "de2", 1, false);
+      renderDataEntryStage(card, "de2", 1, false, status);
     } else if (status === 5) {
-      renderDataEntryStage(card, "de2", 1, true);
+      renderDataEntryStage(card, "de2", 1, true, status);
     } else if (status === 6 || status === 7) {
       card.appendChild(field("مبلغ ارزش‌گذاری", "valuationAmount", "number"));
       card.appendChild(field("نوع (1 اولیه / 2 ثانویه)", "valuationType", "number", String(status === 6 ? 1 : 2)));
@@ -657,11 +756,7 @@
     }
 
     const current = pickStatus(state.caseData);
-    if (state.selectedUnit === "all") {
-      model.STEPS.filter((step) => step.status <= 15).forEach((step) => renderStageForStatus(host, step.status, false));
-    } else {
-      renderStageForStatus(host, current, true);
-    }
+    renderStageForStatus(host, current, true);
 
     renderDocumentsList(host);
     renderHistory(host);
@@ -686,6 +781,34 @@
     qs("#portalCaseStatus").textContent = step ? step.title : String(pickStatus(state.caseData));
     qs("#portalCasePhase").textContent = model.PHASES[pickPhase(state.caseData)] || "—";
     qs("#portalCaseRole").textContent = getSessionRole() || "بدون نقش";
+    renderActionHint();
+  }
+
+  function renderActionHint() {
+    const box = qs("#portalActionHint");
+    if (!box) return;
+    const status = pickStatus(state.caseData);
+    let text = "";
+    if (status === 1) {
+      text = hasSavedDataEntry1()
+        ? "گام بعدی: «ثبت و ادامه به فرم اولیه» (مدارک اختیاری)."
+        : "گام بعدی: «ذخیره فرم اولیه»، سپس «ثبت و ادامه».";
+    } else if (status === 2) {
+      const uploaded = model.APPLICANT_DOCUMENTS.filter((doc) => documentForType(doc.type)).length;
+      const total = model.APPLICANT_DOCUMENTS.length;
+      text = hasSavedDataEntry1()
+        ? "گام بعدی: «ارسال برای بررسی کارشناس». مدارک: " + uploaded + "/" + total + "."
+        : "ابتدا فرم را ذخیره کنید.";
+    } else if (status === 3) {
+      text = "پرونده در انتظار بررسی کارشناس است.";
+    }
+    if (!text) {
+      box.classList.add("hidden");
+      box.textContent = "";
+      return;
+    }
+    box.classList.remove("hidden");
+    box.textContent = text;
   }
 
   function render() {
@@ -693,6 +816,7 @@
     renderStepper();
     renderUnitTabs();
     renderStageHost();
+    populateFormsFromCase();
   }
 
   async function withBusy(fn) {
@@ -920,14 +1044,19 @@
       const commentField = input.dataset.contractCommentField;
       const commentPhase = Number(input.dataset.contractCommentPhase || model.phaseForStatus(pickStatus(state.caseData)));
       const comment = commentField ? readValue(commentField) : "";
-      if (comment) await postComment(caseId, commentPhase, comment, isInternalSession());
+      // Contract upload notes are public; do not block upload on internal-comment permission.
+      if (comment) await postComment(caseId, commentPhase, comment, false);
       await uploadContract(caseId, input.dataset.contractKind, file);
     } else {
       const documentType = Number(input.dataset.uploadType);
       await uploadDocument(caseId, documentType, file);
     }
     const status = input.closest(".portal-upload-row__control")?.querySelector(".portal-upload-row__status");
-    if (status) status.textContent = "بارگذاری شد: " + file.name;
+    if (status) {
+      status.textContent = "✓ بارگذاری شد: " + file.name;
+      status.classList.add("is-uploaded");
+      status.closest(".portal-upload-row")?.classList.add("portal-upload-row--done");
+    }
     await refreshCase();
   }
 

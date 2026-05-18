@@ -31,7 +31,8 @@ public sealed class LiaraObjectStorage : ILiaraObjectStorage
         var config = new AmazonS3Config
         {
             ServiceURL = _endpointUrl,
-            ForcePathStyle = true
+            ForcePathStyle = true,
+            AuthenticationRegion = "us-east-1"
         };
         _s3Client = new AmazonS3Client(credentials, config);
     }
@@ -80,21 +81,65 @@ public sealed class LiaraObjectStorage : ILiaraObjectStorage
 
     public async Task<bool> ExistsAsync(string key, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(key))
+            return false;
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            if (attempt > 0)
+                await Task.Delay(TimeSpan.FromMilliseconds(250 * attempt), cancellationToken);
+
+            if (await TryHeadObjectAsync(key, cancellationToken))
+                return true;
+
+            if (await TryListObjectAsync(key, cancellationToken))
+                return true;
+        }
+
+        return false;
+    }
+
+    private async Task<bool> TryHeadObjectAsync(string key, CancellationToken cancellationToken)
+    {
         try
         {
-            var response = await _s3Client.GetObjectMetadataAsync(new GetObjectMetadataRequest
+            await _s3Client.GetObjectMetadataAsync(new GetObjectMetadataRequest
             {
                 BucketName = _bucketName,
                 Key = key
             }, cancellationToken);
 
-            return response.HttpStatusCode is System.Net.HttpStatusCode.OK;
+            return true;
         }
-        catch (AmazonS3Exception ex) when (ex.StatusCode is System.Net.HttpStatusCode.NotFound)
+        catch (AmazonS3Exception ex) when (IsMissingObject(ex))
         {
             return false;
         }
     }
+
+    private async Task<bool> TryListObjectAsync(string key, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _s3Client.ListObjectsV2Async(new ListObjectsV2Request
+            {
+                BucketName = _bucketName,
+                Prefix = key,
+                MaxKeys = 1
+            }, cancellationToken);
+
+            return response.S3Objects.Exists(o => string.Equals(o.Key, key, StringComparison.Ordinal));
+        }
+        catch (AmazonS3Exception ex) when (IsMissingObject(ex))
+        {
+            return false;
+        }
+    }
+
+    private static bool IsMissingObject(AmazonS3Exception ex)
+        => ex.StatusCode is System.Net.HttpStatusCode.NotFound
+           || string.Equals(ex.ErrorCode, "NoSuchKey", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(ex.ErrorCode, "NotFound", StringComparison.OrdinalIgnoreCase);
 
     public string GetPermanentUrl(string key)
     {

@@ -163,24 +163,18 @@ public sealed class InvestmentCaseAppService(
                 request.Website);
             await dbContext.DataEntry1.AddAsync(dataEntry, cancellationToken);
         }
-        else
-        {
-            dataEntry.Update(
-                request.StartupTitle,
-                request.BusinessDescription,
-                request.RequestedAmount,
-                request.TeamSize,
-                request.Website,
-                request.Country,
-                request.City,
-                industry: null);
-        }
 
-        var now = clock.UtcNow;
-        await dbContext.InvestmentCases
-            .Where(x => x.Id == caseId)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.UpdatedAt, now), cancellationToken);
+        dataEntry.Update(
+            request.StartupTitle,
+            request.BusinessDescription,
+            request.RequestedAmount,
+            request.TeamSize,
+            request.Website,
+            request.Country,
+            request.City,
+            industry: null);
 
+        await dbContext.InvestmentCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         ApplicationLog.Completed(logger,
@@ -245,11 +239,7 @@ public sealed class InvestmentCaseAppService(
                 goToMarketStrategy: null);
         }
 
-        var now = clock.UtcNow;
-        await dbContext.InvestmentCases
-            .Where(x => x.Id == caseId)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.UpdatedAt, now), cancellationToken);
-
+        await dbContext.InvestmentCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         ApplicationLog.Completed(logger,
@@ -285,13 +275,19 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.Conflict(ApiMessages.FinancialWorksheetNotEditable));
         }
 
-        entity.UpsertFinancialWorksheet(
+        var wasNewWorksheet = entity.FinancialWorksheet is null;
+        var worksheet = entity.UpsertFinancialWorksheet(
             request.BankName,
             request.Iban,
             request.ApprovedAmount ?? 0m,
             request.PaymentSchedule ?? string.Empty,
             request.Notes);
 
+        if (wasNewWorksheet)
+            await dbContext.FinancialWorksheets.AddAsync(worksheet, cancellationToken);
+
+        UntrackCaseRoot(entity);
+        await dbContext.InvestmentCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         ApplicationLog.Completed(logger,
@@ -335,14 +331,16 @@ public sealed class InvestmentCaseAppService(
         return await ApplyTransitionAsync(caseId, WorkflowAction.Approve, comment, ct);
     }
 
+    /// <summary>
+    /// Legacy entry point when only <paramref name="s3Key"/> is known. Prefer presign → PUT storage → <see cref="ConfirmDocumentUploadedAsync"/>.
+    /// </summary>
     public async Task<Result> UploadPreliminaryContractAsync(Guid caseId, string s3Key, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageContracts))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var result = await ConfirmDocumentUploadedAsync(caseId, s3Key, ct);
-        if (result.IsFailure) return Result.Fail(result.Error!);
-        return await ApplyTransitionAsync(caseId, WorkflowAction.UploadPreliminaryContract, "Preliminary contract uploaded", ct);
+        return result.IsFailure ? Result.Fail(result.Error!) : Result.Ok();
     }
 
     public async Task<Result> ApprovePreliminaryContractAsync(Guid caseId, string? comment, CancellationToken ct)
@@ -367,14 +365,16 @@ public sealed class InvestmentCaseAppService(
         return await ApplyTransitionAsync(caseId, WorkflowAction.ConfirmSignature, comment, ct);
     }
 
+    /// <summary>
+    /// Legacy entry point when only <paramref name="s3Key"/> is known. Prefer presign → PUT storage → <see cref="ConfirmDocumentUploadedAsync"/>.
+    /// </summary>
     public async Task<Result> UploadSignedContractAsync(Guid caseId, string s3Key, CancellationToken ct)
     {
         if (!authorizationService.HasPermission(CasePermissions.ManageContracts))
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var result = await ConfirmDocumentUploadedAsync(caseId, s3Key, ct);
-        if (result.IsFailure) return Result.Fail(result.Error!);
-        return await ApplyTransitionAsync(caseId, WorkflowAction.UploadSignedContract, "Signed contract uploaded", ct);
+        return result.IsFailure ? Result.Fail(result.Error!) : Result.Ok();
     }
 
     public async Task<Result> SubmitFinancialWorksheetAsync(Guid caseId, string? comment, CancellationToken ct)
@@ -414,7 +414,8 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
         }
 
-        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, ct);
+        var entity = await unitOfWork.InvestmentCases.GetScopedForTransitionAsync(
+            caseId, authResult.Value!, isInternalUser: true, ct);
         if (entity is null)
         {
             ApplicationLog.Blocked(logger, "ConfirmPayment", "case not found", authResult.Value, caseId);
@@ -428,10 +429,21 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.NotFound(ApiMessages.PaymentNotFound));
         }
 
-        payment.Update(payment.Amount, payment.PaymentDate, payment.TransactionNumber, payment.ReceiptS3Key, payment.Notes, payment.Method, PaymentStatus.Completed);
+        var statusBefore = entity.CurrentStatus;
+        var historyBefore = entity.WorkflowHistory.Count;
 
+        payment.Update(payment.Amount, payment.PaymentDate, payment.TransactionNumber, payment.ReceiptS3Key, payment.Notes, payment.Method, PaymentStatus.Completed);
         entity.CheckPaymentCompletion(authResult.Value!);
+
+        UntrackCaseRoot(entity);
         await unitOfWork.SaveChangesAsync(ct);
+
+        if (entity.CurrentStatus != statusBefore || entity.WorkflowHistory.Count > historyBefore)
+        {
+            var persistResult = await PersistCaseTransitionAsync(entity, ct);
+            if (persistResult.IsFailure)
+                return persistResult;
+        }
 
         ApplicationLog.Completed(logger,
             "User {UserId} confirmed payment {PaymentId} on case {CaseId} ({CaseNumber}); case status is now {Status}",
@@ -468,6 +480,8 @@ public sealed class InvestmentCaseAppService(
         }
 
         payment.Update(payment.Amount, payment.PaymentDate, payment.TransactionNumber, payment.ReceiptS3Key, payment.Notes, payment.Method, PaymentStatus.Cancelled);
+        UntrackCaseRoot(entity);
+        await dbContext.InvestmentCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         ApplicationLog.Completed(logger,
@@ -500,7 +514,8 @@ public sealed class InvestmentCaseAppService(
         var actorRole = ResolveActorRole();
         ApplicationLog.Started(logger, $"Workflow:{action}", authResult.Value, caseId);
 
-        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, ct);
+        var entity = await unitOfWork.InvestmentCases.GetScopedForTransitionAsync(
+            caseId, authResult.Value!, authorizationService.IsInternalUser, ct);
         if (entity is null)
         {
             ApplicationLog.Blocked(logger, $"Workflow:{action}", "case not found or access denied", authResult.Value, caseId);
@@ -509,6 +524,7 @@ public sealed class InvestmentCaseAppService(
 
         var statusBefore = entity.CurrentStatus;
         var phaseBefore = entity.CurrentPhase;
+        var historyCountBefore = entity.WorkflowHistory.Count;
 
         var correlationId = ResolveCorrelationGuid(httpContextAccessor.HttpContext);
         var transition = await stateManager.TransitionAsync(entity, action, authResult.Value!, actorRole, comment, correlationId);
@@ -520,13 +536,28 @@ public sealed class InvestmentCaseAppService(
             return transition;
         }
 
-        await workflowOrchestrator.SignalAsync(
-            caseId,
-            WorkflowSignals.StatusChanged,
-            new { status = entity.CurrentStatus, action = action.ToString() },
-            ct);
+        if (entity.WorkflowHistory.Count > historyCountBefore)
+        {
+            var persistResult = await PersistCaseTransitionAsync(entity, ct);
+            if (persistResult.IsFailure)
+                return persistResult;
+        }
 
-        await unitOfWork.SaveChangesAsync(ct);
+        try
+        {
+            await workflowOrchestrator.SignalAsync(
+                caseId,
+                WorkflowSignals.StatusChanged,
+                payload: null,
+                ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Elsa workflow signal failed for case {CaseId}; domain transition is already saved.",
+                caseId);
+        }
 
         ApplicationLog.Completed(logger,
             "User {UserId} (role {Role}) applied {Action} on case {CaseId} ({CaseNumber}): {PhaseBefore}/{StatusBefore} → {PhaseAfter}/{StatusAfter}",
@@ -559,8 +590,12 @@ public sealed class InvestmentCaseAppService(
         if (userContext.Roles.Contains(SystemRoles.Admin)) return SystemRoles.Admin;
         if (userContext.Roles.Contains(SystemRoles.InvestmentManager)) return SystemRoles.InvestmentManager;
         if (userContext.Roles.Contains(SystemRoles.InvestmentExpert)) return SystemRoles.InvestmentExpert;
-        if (userContext.Roles.Contains(SystemRoles.LegalExpert)) return SystemRoles.LegalExpert;
-        if (userContext.Roles.Contains(SystemRoles.FinancialExpert)) return SystemRoles.FinancialExpert;
+        if (userContext.Roles.Contains(SystemRoles.LegalExpert) ||
+            userContext.Roles.Contains("LegalUnit", StringComparer.OrdinalIgnoreCase))
+            return SystemRoles.LegalExpert;
+        if (userContext.Roles.Contains(SystemRoles.FinancialExpert) ||
+            userContext.Roles.Contains("FinancialUnit", StringComparer.OrdinalIgnoreCase))
+            return SystemRoles.FinancialExpert;
         if (userContext.Roles.Contains(SystemRoles.Applicant)) return SystemRoles.Applicant;
         return userContext.Roles.FirstOrDefault() ?? string.Empty;
     }
@@ -578,7 +613,8 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
         }
 
-        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedForTransitionAsync(
+            caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
         {
             ApplicationLog.Blocked(logger, "RecordValuation", "case not found", authResult.Value, caseId);
@@ -593,7 +629,10 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.Conflict(string.Format(ApiMessages.ValuationStatusMismatch, requiredStatus)));
         }
 
-        entity.AddValuation(request.Type, request.Amount, request.Notes, authResult.Value!);
+        await dbContext.CaseValuations.AddAsync(
+            new CaseValuation(caseId, request.Type, request.Amount, request.Notes ?? string.Empty, authResult.Value!),
+            cancellationToken);
+        await dbContext.InvestmentCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         ApplicationLog.Completed(logger,
@@ -616,7 +655,8 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
         }
 
-        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, isInternalUser: true, cancellationToken);
+        var entity = await unitOfWork.InvestmentCases.GetScopedForTransitionAsync(
+            caseId, authResult.Value!, isInternalUser: true, cancellationToken);
         if (entity is null)
         {
             ApplicationLog.Blocked(logger, "RecordPayment", "case not found", authResult.Value, caseId);
@@ -629,7 +669,10 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.Conflict(ApiMessages.PaymentsOnlyInWaitingPayment));
         }
 
-        entity.AddPayment(
+        var statusBefore = entity.CurrentStatus;
+        var historyBefore = entity.WorkflowHistory.Count;
+
+        var payment = entity.AddPayment(
             request.Amount,
             request.PaymentDate,
             request.TransactionNumber,
@@ -639,7 +682,16 @@ public sealed class InvestmentCaseAppService(
             request.Status,
             authResult.Value!);
 
+        UntrackCaseRoot(entity);
+        await dbContext.InvestmentCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (entity.CurrentStatus != statusBefore || entity.WorkflowHistory.Count > historyBefore)
+        {
+            var persistResult = await PersistCaseTransitionAsync(entity, cancellationToken);
+            if (persistResult.IsFailure)
+                return persistResult;
+        }
 
         ApplicationLog.Completed(logger,
             "User {UserId} recorded payment {Amount} ({Status}) on case {CaseId} ({CaseNumber})",
@@ -684,6 +736,8 @@ public sealed class InvestmentCaseAppService(
             request.Method,
             request.Status);
 
+        UntrackCaseRoot(entity);
+        await dbContext.InvestmentCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         ApplicationLog.Completed(logger,
@@ -721,6 +775,10 @@ public sealed class InvestmentCaseAppService(
         }
 
         entity.Payments.Remove(payment);
+        if (dbContext is DbContext efContext)
+            efContext.Remove(payment);
+        UntrackCaseRoot(entity);
+        await dbContext.InvestmentCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         ApplicationLog.Completed(logger,
@@ -776,28 +834,30 @@ public sealed class InvestmentCaseAppService(
 
         var isInternal = isInternalRequested && authorizationService.HasPermission(CasePermissions.CreateInternalComment);
 
-        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
-        if (entity is null)
+        var caseMeta = await GetCaseMetaForChildWriteAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        if (caseMeta is null)
         {
             ApplicationLog.Blocked(logger, "AddComment", "case not found", authResult.Value, caseId);
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
         }
 
-        entity.Comments.Add(new CaseComment(
-            caseId,
-            request.Phase,
-            authResult.Value!,
-            senderRole: string.Join(",", userContext.Roles),
-            request.Message,
-            isRevisionRequest: false,
-            isInternal: isInternal,
-            parentId: request.ParentId));
+        await dbContext.CaseComments.AddAsync(
+            new CaseComment(
+                caseId,
+                request.Phase,
+                authResult.Value!,
+                senderRole: string.Join(",", userContext.Roles),
+                request.Message,
+                isRevisionRequest: false,
+                isInternal: isInternal,
+                parentId: request.ParentId),
+            cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         ApplicationLog.Completed(logger,
             "User {UserId} added {Visibility} comment on case {CaseId} ({CaseNumber}) in phase {Phase}",
-            authResult.Value, isInternal ? "internal" : "public", caseId, entity.CaseNumber, request.Phase);
+            authResult.Value, isInternal ? "internal" : "public", caseId, caseMeta.CaseNumber, request.Phase);
 
         return Result.Ok();
     }
@@ -815,21 +875,23 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
         }
 
-        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
-        if (entity is null)
+        var caseMeta = await GetCaseMetaForChildWriteAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        if (caseMeta is null)
         {
             ApplicationLog.Blocked(logger, "AddCommentAttachment", "case not found", authResult.Value, caseId);
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
         }
 
-        var comment = entity.Comments.FirstOrDefault(x => x.Id == commentId);
-        if (comment is null)
+        var commentExists = await dbContext.CaseComments
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == commentId && x.CaseId == caseId, cancellationToken);
+        if (!commentExists)
         {
             ApplicationLog.Blocked(logger, "AddCommentAttachment", $"comment {commentId} not found", authResult.Value, caseId);
             return Result.Fail(Error.NotFound(ApiMessages.CommentNotFound));
         }
 
-        var attachmentValidation = ValidateCommentAttachmentKey(entity.CaseNumber, commentId, s3Key, fileName);
+        var attachmentValidation = ValidateCommentAttachmentKey(caseMeta.CaseNumber, commentId, s3Key, fileName);
         if (attachmentValidation.IsFailure) return attachmentValidation;
 
         var exists = await documentStorage.ExistsAsync(s3Key, cancellationToken);
@@ -839,7 +901,9 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.Conflict(ApiMessages.UploadedFileNotFound));
         }
 
-        comment.AddAttachment(s3Key, fileName);
+        await dbContext.CaseCommentAttachments.AddAsync(
+            new CaseCommentAttachment(commentId, s3Key, fileName),
+            cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         ApplicationLog.Completed(logger,
@@ -1013,7 +1077,7 @@ public sealed class InvestmentCaseAppService(
 
         ApplicationLog.Started(logger, "PresignDocumentUpload", authResult.Value, caseId);
 
-        var entity = await unitOfWork.InvestmentCases.GetScopedWithDocumentsAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await GetCaseWithDocumentsForDocumentWriteAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
         {
             ApplicationLog.Blocked(logger, "PresignDocumentUpload", "case not found", authResult.Value, caseId);
@@ -1047,7 +1111,7 @@ public sealed class InvestmentCaseAppService(
 
         ApplicationLog.Started(logger, "UploadDocument", authResult.Value, caseId);
 
-        var entity = await unitOfWork.InvestmentCases.GetScopedWithDocumentsAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await GetCaseWithDocumentsForDocumentWriteAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
         {
             ApplicationLog.Blocked(logger, "UploadDocument", "case not found", authResult.Value, caseId);
@@ -1070,21 +1134,22 @@ public sealed class InvestmentCaseAppService(
 
         await documentStorage.UploadAsync(s3Key, content, normalized.MimeType, cancellationToken);
 
-        var document = entity.AddDocument(
+        var document = await PersistCaseDocumentAsync(
+            entity.Id,
             s3Key,
             Path.GetFileName(normalized.FileName),
             normalized.MimeType,
             normalized.FileSize,
             version,
             normalized.DocumentType,
-            authResult.Value!);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+            authResult.Value!,
+            cancellationToken);
 
         ApplicationLog.Completed(logger,
             "User {UserId} uploaded {DocumentType} v{Version} ({FileName}) to case {CaseId} ({CaseNumber})",
             authResult.Value, normalized.DocumentType, version, normalized.FileName, caseId, entity.CaseNumber);
 
-        return Result<CaseDocumentDto>.Ok(caseDtoMapper.MapDocument(document));
+        return await CompleteDocumentConfirmAsync(caseId, document, cancellationToken);
     }
 
     public async Task<Result<CaseDocumentDto>> ConfirmDocumentUploadedAsync(Guid caseId, string s3Key, CancellationToken cancellationToken)
@@ -1094,7 +1159,7 @@ public sealed class InvestmentCaseAppService(
 
         ApplicationLog.Started(logger, "ConfirmDocumentUpload", authResult.Value, caseId);
 
-        var entity = await unitOfWork.InvestmentCases.GetScopedWithDocumentsAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        var entity = await GetCaseWithDocumentsForDocumentWriteAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
         if (entity is null)
         {
             ApplicationLog.Blocked(logger, "ConfirmDocumentUpload", "case not found", authResult.Value, caseId);
@@ -1106,10 +1171,14 @@ public sealed class InvestmentCaseAppService(
 
         s3Key = keyValidation.Value!;
 
-        if (entity.Documents.Any(x => string.Equals(x.S3Key, s3Key, StringComparison.Ordinal)))
+        var existingDocument = entity.Documents.FirstOrDefault(x => string.Equals(x.S3Key, s3Key, StringComparison.Ordinal));
+        if (existingDocument is not null)
         {
-            ApplicationLog.Blocked(logger, "ConfirmDocumentUpload", "document already registered", authResult.Value, caseId);
-            return Result<CaseDocumentDto>.Fail(Error.Conflict(ApiMessages.DocumentAlreadyExists));
+            ApplicationLog.Completed(logger,
+                "User {UserId} confirmed existing {DocumentType} v{Version} on case {CaseId} ({CaseNumber})",
+                authResult.Value, existingDocument.DocumentType, existingDocument.Version, caseId, entity.CaseNumber);
+
+            return await CompleteDocumentConfirmAsync(caseId, existingDocument, cancellationToken);
         }
 
         var docType = ExtractDocumentTypeFromKey(s3Key);
@@ -1133,21 +1202,98 @@ public sealed class InvestmentCaseAppService(
         }
 
         var version = expectedVersion;
-        var document = entity.AddDocument(
+        var document = await PersistCaseDocumentAsync(
+            entity.Id,
             s3Key,
             Path.GetFileName(s3Key),
             "application/octet-stream",
             0,
             version,
             docType,
-            authResult.Value!);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+            authResult.Value!,
+            cancellationToken);
 
         ApplicationLog.Completed(logger,
             "User {UserId} confirmed {DocumentType} v{Version} on case {CaseId} ({CaseNumber})",
             authResult.Value, docType, version, caseId, entity.CaseNumber);
 
+        return await CompleteDocumentConfirmAsync(caseId, document, cancellationToken);
+    }
+
+    /// <summary>
+    /// After the file is in object storage and the document row exists, optionally advance workflow for contract types.
+    /// </summary>
+    private async Task<Result<CaseDocumentDto>> CompleteDocumentConfirmAsync(
+        Guid caseId,
+        CaseDocument document,
+        CancellationToken cancellationToken)
+    {
+        var workflow = await TryAdvanceWorkflowAfterDocumentConfirmAsync(caseId, document.DocumentType, cancellationToken);
+        if (workflow.IsFailure)
+            return Result<CaseDocumentDto>.Fail(workflow.Error!);
+
         return Result<CaseDocumentDto>.Ok(caseDtoMapper.MapDocument(document));
+    }
+
+    private async Task<Result> TryAdvanceWorkflowAfterDocumentConfirmAsync(
+        Guid caseId,
+        DocumentType documentType,
+        CancellationToken cancellationToken)
+    {
+        if (documentType is not (DocumentType.PreContract or DocumentType.SignedContract))
+            return Result.Ok();
+
+        if (!authorizationService.HasPermission(CasePermissions.ManageContracts))
+            return Result.Ok();
+
+        return documentType switch
+        {
+            DocumentType.PreContract => await TryAdvancePreliminaryContractWorkflowAsync(caseId, cancellationToken),
+            DocumentType.SignedContract => await TryAdvanceSignedContractWorkflowAsync(caseId, cancellationToken),
+            _ => Result.Ok()
+        };
+    }
+
+    private async Task<Result> TryAdvancePreliminaryContractWorkflowAsync(Guid caseId, CancellationToken cancellationToken)
+    {
+        var status = await dbContext.InvestmentCases
+            .AsNoTracking()
+            .Where(x => x.Id == caseId)
+            .Select(x => x.CurrentStatus)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (status == CaseStatus.WaitingUserReviewPreliminaryContract)
+            return Result.Ok();
+
+        if (status != CaseStatus.WaitingPreliminaryContract)
+            return Result.Ok();
+
+        return await ApplyTransitionAsync(
+            caseId,
+            WorkflowAction.UploadPreliminaryContract,
+            "Preliminary contract uploaded",
+            cancellationToken);
+    }
+
+    private async Task<Result> TryAdvanceSignedContractWorkflowAsync(Guid caseId, CancellationToken cancellationToken)
+    {
+        var status = await dbContext.InvestmentCases
+            .AsNoTracking()
+            .Where(x => x.Id == caseId)
+            .Select(x => x.CurrentStatus)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (status == CaseStatus.WaitingFinancialWorksheet)
+            return Result.Ok();
+
+        if (status != CaseStatus.WaitingSignedContractUpload)
+            return Result.Ok();
+
+        return await ApplyTransitionAsync(
+            caseId,
+            WorkflowAction.UploadSignedContract,
+            "Signed contract uploaded",
+            cancellationToken);
     }
 
     public async Task<Result<PresignDownloadResponse>> PresignDocumentDownloadAsync(Guid caseId, Guid documentId, CancellationToken cancellationToken)
@@ -1191,6 +1337,111 @@ public sealed class InvestmentCaseAppService(
         var auth = authorizationService.EnsureAuthenticated();
         if (auth.IsFailure) return Result<string>.Fail(auth.Error!);
         return Result<string>.Ok(authorizationService.UserId!);
+    }
+
+    private sealed record CaseMeta(string CaseNumber);
+
+    private void UntrackCaseRoot(InvestmentCase entity)
+    {
+        if (dbContext is not DbContext efContext)
+            return;
+
+        var entry = efContext.Entry(entity);
+        if (entry.State is EntityState.Modified or EntityState.Added)
+            entry.State = EntityState.Unchanged;
+    }
+
+    /// <summary>
+    /// Persists status/phase via ExecuteUpdate so legacy xmin/RowVersion on investment_cases cannot cause concurrency failures.
+    /// </summary>
+    private async Task<Result> PersistCaseTransitionAsync(InvestmentCase entity, CancellationToken cancellationToken)
+    {
+        var history = entity.WorkflowHistory[^1];
+
+        if (dbContext is DbContext efContext)
+            efContext.ChangeTracker.Clear();
+
+        var rows = await dbContext.InvestmentCases.ApplyStateAsync(
+            entity.Id,
+            entity.CurrentStatus,
+            entity.CurrentPhase,
+            entity.UpdatedAt ?? clock.UtcNow,
+            entity.CompletedAt,
+            cancellationToken);
+
+        if (rows == 0)
+            return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
+
+        await dbContext.CaseWorkflowHistories.AddAsync(history, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return Result.Ok();
+    }
+
+    private async Task<CaseMeta?> GetCaseMetaForChildWriteAsync(
+        Guid caseId,
+        string userId,
+        bool isInternalUser,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.InvestmentCases
+            .AsNoTracking()
+            .Where(x => x.Id == caseId);
+
+        if (!isInternalUser)
+            query = query.Where(x => x.ApplicantUserId == userId);
+
+        return await query
+            .Select(x => new CaseMeta(x.CaseNumber))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Read-only load for document presign/confirm. Avoids tracking <see cref="InvestmentCase"/> so saving a new
+    /// <see cref="CaseDocument"/> does not UPDATE the parent row (legacy xmin concurrency on investment_cases).
+    /// </summary>
+    private Task<InvestmentCase?> GetCaseWithDocumentsForDocumentWriteAsync(
+        Guid caseId,
+        string userId,
+        bool isInternalUser,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.InvestmentCases
+            .AsNoTracking()
+            .Include(x => x.Documents)
+            .Where(x => x.Id == caseId);
+
+        if (!isInternalUser)
+            query = query.Where(x => x.ApplicantUserId == userId);
+
+        return query.FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<CaseDocument> PersistCaseDocumentAsync(
+        Guid caseId,
+        string s3Key,
+        string fileName,
+        string mimeType,
+        long fileSize,
+        int version,
+        DocumentType documentType,
+        string uploadedByUserId,
+        CancellationToken cancellationToken)
+    {
+        var uploadedAt = clock.UtcNow;
+        var document = new CaseDocument(
+            caseId,
+            s3Key,
+            fileName,
+            mimeType,
+            fileSize,
+            version,
+            documentType,
+            uploadedByUserId,
+            uploadedAt);
+
+        await dbContext.CaseDocuments.AddAsync(document, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return document;
     }
 
     private static PresignUploadRequest NormalizePresignRequest(PresignUploadRequest request)
@@ -1274,7 +1525,13 @@ public sealed class InvestmentCaseAppService(
             if (documentType is DocumentType.PreContract or DocumentType.FinalContract or DocumentType.SignedContract or DocumentType.PaymentReceipt)
                 return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
-            if (entity.CurrentStatus is not (CaseStatus.Draft or CaseStatus.DataEntry1 or CaseStatus.DataEntry2))
+            // Allow confirm while review is pending so uploads started during data entry can finish after submit.
+            if (entity.CurrentStatus is not (
+                CaseStatus.Draft
+                or CaseStatus.DataEntry1
+                or CaseStatus.DataEntry2
+                or CaseStatus.ReviewDataEntry1
+                or CaseStatus.ReviewDataEntry2))
                 return Result.Fail(Error.Conflict(ApiMessages.DocumentConfirmationNotAllowed));
 
             return Result.Ok();

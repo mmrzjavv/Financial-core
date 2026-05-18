@@ -43,6 +43,30 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
                 isInternalUser)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
+    public Task<InvestmentCase?> GetScopedForTransitionAsync(
+        Guid id,
+        string userId,
+        bool isInternalUser,
+        CancellationToken cancellationToken)
+        => ApplyScopedFilter(
+                dbContext.InvestmentCases
+                    .Include(x => x.DataEntry1)
+                    .Include(x => x.DataEntry2)
+                    .Include(x => x.FinancialWorksheet)
+                    .Include(x => x.Documents)
+                    .Include(x => x.Payments)
+                    .Include(x => x.WorkflowHistory),
+                userId,
+                isInternalUser)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    public Task<string?> GetWorkflowInstanceIdAsync(Guid id, CancellationToken cancellationToken)
+        => dbContext.InvestmentCases
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => x.WorkflowInstanceId)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public Task<InvestmentCase?> GetScopedWithDocumentsAsync(Guid id, string userId, bool isInternalUser, CancellationToken cancellationToken)
         => ApplyScopedFilter(
                 dbContext.InvestmentCases

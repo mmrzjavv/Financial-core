@@ -1,3 +1,4 @@
+using Core.Workflow.Common;
 using Elsa.Workflows;
 using Elsa.Workflows.Models;
 
@@ -13,10 +14,10 @@ public sealed class WaitForCaseSignalActivity : Elsa.Workflows.Activity
         var caseId = context.Get(CaseId);
         var signal = context.Get(Signal);
 
-        var stimulus = new Dictionary<string, object>
+        var stimulus = new CaseSignalStimulus
         {
-            ["CaseId"] = caseId,
-            ["Signal"] = signal ?? string.Empty
+            CaseId = caseId,
+            Signal = signal ?? string.Empty
         };
 
         var bookmarkArgs = new CreateBookmarkArgs

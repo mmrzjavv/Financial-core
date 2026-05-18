@@ -23,6 +23,7 @@ public sealed class CoreDbContext : DbContextBase, ICoreDbContext
     public DbSet<FinancialWorksheet> FinancialWorksheets => Set<FinancialWorksheet>();
     public DbSet<CaseDocument> CaseDocuments => Set<CaseDocument>();
     public DbSet<CaseComment> CaseComments => Set<CaseComment>();
+    public DbSet<CaseCommentAttachment> CaseCommentAttachments => Set<CaseCommentAttachment>();
     public DbSet<CaseRevision> CaseRevisions => Set<CaseRevision>();
     public DbSet<CaseEvaluation> CaseEvaluations => Set<CaseEvaluation>();
     public DbSet<CaseEvaluationItem> CaseEvaluationItems => Set<CaseEvaluationItem>();
@@ -40,8 +41,13 @@ public sealed class CoreDbContext : DbContextBase, ICoreDbContext
         modelBuilder.ApplySoftDeleteQueryFilter();
 
         // Legacy migrations mapped RowVersion -> xmin; strip if any convention reintroduces it.
-        var rowVersion = modelBuilder.Entity<InvestmentCase>().Metadata.FindProperty("RowVersion");
-        if (rowVersion is not null)
-            modelBuilder.Entity<InvestmentCase>().Metadata.RemoveProperty(rowVersion);
+        var investmentCase = modelBuilder.Entity<InvestmentCase>();
+        foreach (var propertyName in new[] { "RowVersion", "xmin" })
+        {
+            var property = investmentCase.Metadata.FindProperty(propertyName);
+            if (property is not null)
+                investmentCase.Metadata.RemoveProperty(property);
+        }
+
     }
 }

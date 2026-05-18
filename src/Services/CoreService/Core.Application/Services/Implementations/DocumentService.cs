@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Services.CoreService.Core.Application.Abstractions;
 using Services.CoreService.Core.Application.Contracts.Documents;
 using Services.CoreService.Core.Domain.Constants;
+using Services.CoreService.Core.Domain.Entities;
 using Services.CoreService.Core.Domain.Enums;
 
 
@@ -72,27 +73,33 @@ public sealed class DocumentService : IDocumentService
         if (!validation.IsValid)
             return Result.Fail(Error.Validation(validation.ToErrorMessage()));
 
-        var entity = await _db.InvestmentCases
-            .Include(x => x.Documents)
-            .FirstOrDefaultAsync(x => x.Id == caseId, ct);
+        var caseMeta = await _db.InvestmentCases
+            .AsNoTracking()
+            .Where(x => x.Id == caseId)
+            .Select(x => new { x.ApplicantUserId })
+            .FirstOrDefaultAsync(ct);
 
-        if (entity is null)
+        if (caseMeta is null)
             return Result.Fail(Error.NotFound(ApiMessages.CaseNotFound));
 
-        if (entity.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(SystemRoles.Admin))
+        if (caseMeta.ApplicantUserId != _currentUser.UserId && !_currentUser.Roles.Contains(SystemRoles.Admin))
             return Result.Fail(Error.Forbidden());
 
-        if (entity.Documents.Any(d => d.S3Key == request.S3Key))
+        if (await _db.CaseDocuments.AsNoTracking().AnyAsync(d => d.S3Key == request.S3Key, ct))
             return Result.Fail(Error.Conflict(ApiMessages.DocumentAlreadyRegistered));
 
-        entity.AddDocument(
-            s3Key: request.S3Key,
-            fileName: request.FileName,
-            mimeType: request.MimeType,
-            fileSize: request.FileSize,
-            version: request.Version,
-            documentType: request.DocumentType,
-            uploadedByUserId: _currentUser.UserId);
+        await _db.CaseDocuments.AddAsync(
+            new CaseDocument(
+                caseId,
+                request.S3Key,
+                request.FileName,
+                request.MimeType,
+                request.FileSize,
+                request.Version,
+                request.DocumentType,
+                _currentUser.UserId,
+                DateTimeOffset.UtcNow),
+            ct);
 
         await _db.SaveChangesAsync(ct);
         return Result.Ok();

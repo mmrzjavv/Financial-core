@@ -260,7 +260,6 @@ public sealed class InvestmentCase : AggregateRoot<Guid>, IAuditableEntity, ISof
             uploadedAt: DateTimeOffset.UtcNow);
 
         Documents.Add(doc);
-        UpdatedAt = DateTimeOffset.UtcNow;
         return doc;
     }
 

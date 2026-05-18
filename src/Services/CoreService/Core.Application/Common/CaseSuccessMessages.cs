@@ -37,7 +37,7 @@ public static class CaseSuccessMessages
     public const string InvestmentCaseArchived = "پرونده سرمایه‌گذاری بایگانی شد.";
     public const string DocumentUploadPresigned = "آدرس بارگذاری سند آماده شد.";
     public const string DocumentUploaded = "سند با موفقیت بارگذاری شد.";
-    public const string DocumentUploadConfirmed = "بارگذاری سند تأیید شد.";
+    public const string DocumentUploadConfirmed = "بارگذاری سند تأیید شد و در صورت نیاز پرونده به مرحله بعد منتقل شد.";
     public const string DocumentsRetrieved = "فهرست اسناد دریافت شد.";
     public const string DocumentDownloadPresigned = "آدرس دریافت سند آماده شد.";
     public const string EvaluationSaved = "ارزیابی ذخیره شد.";

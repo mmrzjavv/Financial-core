@@ -17,7 +17,9 @@ public sealed class ApplicationMapsterConfig : IRegister
         config.NewConfig<CaseDocument, CaseDocumentInternalDto>();
 
         config.NewConfig<InvestmentCase, InvestmentCaseApplicantDto>()
-            .Map(dest => dest.Company, src => src.ApplicantCompany);
+            .Map(dest => dest.Company, src => src.ApplicantCompany)
+            .Map(dest => dest.DataEntry1, _ => (DataEntry1Dto?)null)
+            .Map(dest => dest.DataEntry2, _ => (DataEntry2Dto?)null);
         config.NewConfig<InvestmentCase, InvestmentCaseInternalDto>()
             .Map(dest => dest.Company, src => src.ApplicantCompany);
 
@@ -25,9 +27,9 @@ public sealed class ApplicationMapsterConfig : IRegister
         config.NewConfig<CaseCommentAttachment, CaseCommentAttachmentInternalDto>();
 
         config.NewConfig<CaseComment, CaseCommentApplicantDto>()
-            .Map(dest => dest.Attachments, src => src.Attachments);
+            .Ignore(dest => dest.Attachments);
         config.NewConfig<CaseComment, CaseCommentInternalDto>()
-            .Map(dest => dest.Attachments, src => src.Attachments);
+            .Ignore(dest => dest.Attachments);
 
         config.NewConfig<CaseWorkflowHistory, CaseWorkflowHistoryApplicantDto>();
         config.NewConfig<CaseWorkflowHistory, CaseWorkflowHistoryInternalDto>();

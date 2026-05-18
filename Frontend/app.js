@@ -1016,7 +1016,7 @@
         const id = requireCaseId();
         const s3Key = qs("#preContractS3Key").value.trim();
         if (!s3Key) throw new Error("s3Key الزامی است.");
-        await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/contracts/preliminary/upload?s3Key=" + encodeURIComponent(s3Key), body: null, json: false });
+        await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/documents/confirm?s3Key=" + encodeURIComponent(s3Key), body: null, json: false });
       })
     );
     qs("#btnApprovePreContract").addEventListener("click", () =>
@@ -1066,7 +1066,7 @@
         const id = requireCaseId();
         const s3Key = qs("#signedContractS3Key").value.trim();
         if (!s3Key) throw new Error("s3Key الزامی است.");
-        await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/contracts/signed/upload?s3Key=" + encodeURIComponent(s3Key), body: null, json: false });
+        await apiRequest({ method: "POST", path: casesBasePath() + "/" + id + "/documents/confirm?s3Key=" + encodeURIComponent(s3Key), body: null, json: false });
       })
     );
 

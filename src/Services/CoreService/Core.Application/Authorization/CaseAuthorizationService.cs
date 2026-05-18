@@ -36,24 +36,30 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
             {
                 CasePermissions.ReadAll,
                 CasePermissions.ViewInternalComments,
+                CasePermissions.CreateInternalComment,
                 CasePermissions.ManageValuations,
-                CasePermissions.DownloadDocuments
+                CasePermissions.DownloadDocuments,
+                CasePermissions.UploadCommentAttachments
             },
             [SystemRoles.LegalExpert] = new[]
             {
                 CasePermissions.ReadAll,
                 CasePermissions.ViewInternalComments,
+                CasePermissions.CreateInternalComment,
                 CasePermissions.ManageContracts,
                 CasePermissions.UploadDocuments,
-                CasePermissions.DownloadDocuments
+                CasePermissions.DownloadDocuments,
+                CasePermissions.UploadCommentAttachments
             },
             [SystemRoles.FinancialExpert] = new[]
             {
                 CasePermissions.ReadAll,
                 CasePermissions.ViewInternalComments,
+                CasePermissions.CreateInternalComment,
                 CasePermissions.ManagePayments,
                 CasePermissions.ManageFinancialWorksheet,
-                CasePermissions.DownloadDocuments
+                CasePermissions.DownloadDocuments,
+                CasePermissions.UploadCommentAttachments
             }
         };
 
@@ -64,7 +70,10 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
         userContext.Roles.Contains(SystemRoles.InvestmentExpert) ||
         userContext.Roles.Contains(SystemRoles.InvestmentManager) ||
         userContext.Roles.Contains(SystemRoles.FinancialExpert) ||
-        userContext.Roles.Contains(SystemRoles.LegalExpert);
+        userContext.Roles.Contains(SystemRoles.LegalExpert) ||
+        userContext.Roles.Contains("LegalUnit", StringComparer.OrdinalIgnoreCase) ||
+        userContext.Roles.Contains("FinancialUnit", StringComparer.OrdinalIgnoreCase) ||
+        userContext.Roles.Contains("InvestmentUnit", StringComparer.OrdinalIgnoreCase);
 
     public Result EnsureAuthenticated()
     {
@@ -87,13 +96,30 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
 
         foreach (var role in userContext.Roles)
         {
-            if (!RolePermissions.TryGetValue(role, out var permissions))
-                continue;
+            foreach (var permissionRole in ResolvePermissionRoles(role))
+            {
+                if (!RolePermissions.TryGetValue(permissionRole, out var permissions))
+                    continue;
 
-            if (permissions.Contains(permission, StringComparer.OrdinalIgnoreCase))
-                return true;
+                if (permissions.Contains(permission, StringComparer.OrdinalIgnoreCase))
+                    return true;
+            }
         }
 
         return false;
+    }
+
+    private static IEnumerable<string> ResolvePermissionRoles(string role)
+    {
+        yield return role;
+
+        if (role.Equals("LegalUnit", StringComparison.OrdinalIgnoreCase))
+            yield return SystemRoles.LegalExpert;
+
+        if (role.Equals("FinancialUnit", StringComparison.OrdinalIgnoreCase))
+            yield return SystemRoles.FinancialExpert;
+
+        if (role.Equals("InvestmentUnit", StringComparison.OrdinalIgnoreCase))
+            yield return SystemRoles.InvestmentExpert;
     }
 }

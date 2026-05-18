@@ -173,6 +173,7 @@ public sealed class InvestmentCasesController(
 
     #region Legal & Contracts
 
+    /// <summary>Legacy alias for documents/confirm when the file is already in storage. Prefer presign + PUT + confirm.</summary>
     [HttpPost("{id:guid}/contracts/preliminary/upload")]
     [Authorize(Policy = "InternalOnly")]
     public async Task<IActionResult> UploadPreliminaryContract(Guid id, [FromQuery] string s3Key, CancellationToken ct)
@@ -213,6 +214,7 @@ public sealed class InvestmentCasesController(
         return Respond(result, CaseSuccessMessages.ContractSignatureConfirmed, HttpStatusCode.Accepted);
     }
 
+    /// <summary>Legacy alias for documents/confirm when the file is already in storage. Prefer presign + PUT + confirm.</summary>
     [HttpPost("{id:guid}/contracts/signed/upload")]
     [Authorize(Policy = "InternalOnly")]
     public async Task<IActionResult> UploadSignedContract(Guid id, [FromQuery] string s3Key, CancellationToken ct)
@@ -335,6 +337,7 @@ public sealed class InvestmentCasesController(
         return Respond(result, CaseSuccessMessages.DocumentUploaded);
     }
 
+    /// <summary>Registers the object in DB after client PUT to presigned URL; advances workflow for contract document types when status allows.</summary>
     [HttpPost("{id:guid}/documents/confirm")]
     [Authorize]
     public async Task<IActionResult> Confirm(Guid id, [FromQuery] string s3Key, CancellationToken ct)
