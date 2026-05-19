@@ -11,6 +11,7 @@ using BuildingBlocks.Observability.Logging;
 using Core.API;
 using Core.API.Authorization;
 using Core.API.Http;
+using Core.API.Swagger;
 using Core.Application;
 using Core.Application.Abstractions;
 using Core.Domain.Identity;
@@ -113,32 +114,7 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "JWT Authorization header using the Bearer scheme."
-    });
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
+builder.Services.AddCoreSwagger();
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService(serviceName: "core-service"))
@@ -259,14 +235,19 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
+    options.DocumentTitle = OpenApiMetadata.Title;
+    options.DisplayRequestDuration();
+    options.EnableDeepLinking();
+    options.DefaultModelsExpandDepth(2);
+
     var descriptions = app.DescribeApiVersions();
     foreach (var description in descriptions)
     {
         var url = $"/swagger/{description.GroupName}/swagger.json";
-        var name = description.GroupName.ToUpperInvariant();
-        options.SwaggerEndpoint(url, name);
+        options.SwaggerEndpoint(url, $"{OpenApiMetadata.Title} ({description.GroupName})");
     }
-    options.RoutePrefix = "swagger"; // Explicitly set route prefix
+
+    options.RoutePrefix = "swagger";
 });
 
 app.UseCors("CorsPolicy");

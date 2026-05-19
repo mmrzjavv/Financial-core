@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Core.API.Controllers;
 
+/// <summary>Executive dashboards for fund leadership (CEO and board).</summary>
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/dashboard")]
 public sealed class DashboardController(IExecutiveDashboardService dashboardService) : ApiControllerBase
@@ -15,7 +16,7 @@ public sealed class DashboardController(IExecutiveDashboardService dashboardServ
     public async Task<IActionResult> GetCeoDashboard(CancellationToken ct)
     {
         var result = await dashboardService.GetCeoDashboardAsync(ct);
-        return Respond(result, "داشبورد مدیرعامل بارگذاری شد.");
+        return Respond(result, "CEO dashboard loaded.");
     }
 
     [HttpGet("board")]
@@ -23,6 +24,6 @@ public sealed class DashboardController(IExecutiveDashboardService dashboardServ
     public async Task<IActionResult> GetBoardDashboard(CancellationToken ct)
     {
         var result = await dashboardService.GetBoardDashboardAsync(ct);
-        return Respond(result, "داشبورد هیئت مدیره بارگذاری شد.");
+        return Respond(result, "Board dashboard loaded.");
     }
 }

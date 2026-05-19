@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Core.API.Controllers;
 
+/// <summary>Applicant company profiles linked to cases.</summary>
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/panel/companies")]
 [Authorize]

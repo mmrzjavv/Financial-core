@@ -13,6 +13,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Core.API.Controllers;
 
+/// <summary>
+/// Investment cases — workflow, documents, kanban, and payments (fund platform module).
+/// </summary>
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/cases")]
 public sealed class InvestmentCasesController(

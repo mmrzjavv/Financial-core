@@ -16,6 +16,9 @@ public class PermissionService : IPermissionService
 
     public async Task<bool> HasPermissionAsync(User user, string permission, CancellationToken cancellationToken = default)
     {
+        if (user.Role == UserRole.Admin)
+            return true;
+
         var userPermissions = await GetUserPermissionsAsync(user, cancellationToken);
         return userPermissions.Contains(permission);
     }
@@ -39,6 +42,9 @@ public class PermissionService : IPermissionService
     public Task<IEnumerable<string>> GetRolePermissionsAsync(string role, CancellationToken cancellationToken = default)
     {
         role = UserRoleClaims.Normalize(role);
+        if (string.Equals(role, UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase))
+            return Task.FromResult<IEnumerable<string>>(RolePermissions.AllPermissions);
+
         if (RolePermissions.RolePermissionMappings.TryGetValue(role, out var permissions))
         {
             return Task.FromResult<IEnumerable<string>>(permissions);

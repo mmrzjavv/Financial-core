@@ -137,7 +137,8 @@ public sealed class InvestmentCaseAppService(
 
         ApplicationLog.Started(logger, "UpdateDataEntry1", authResult.Value, caseId);
 
-        if (!userContext.Roles.Contains(UserRoleClaims.Applicant))
+        var isAdmin = userContext.Roles.Contains(UserRoleClaims.Admin);
+        if (!userContext.Roles.Contains(UserRoleClaims.Applicant) && !isAdmin)
         {
             ApplicationLog.Blocked(logger, "UpdateDataEntry1", "only applicants may edit data entry 1", authResult.Value, caseId);
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
@@ -145,7 +146,7 @@ public sealed class InvestmentCaseAppService(
 
         var caseStatus = await dbContext.InvestmentCases
             .AsNoTracking()
-            .Where(x => x.Id == caseId && x.ApplicantUserId == authResult.Value)
+            .Where(x => x.Id == caseId && (isAdmin || x.ApplicantUserId == authResult.Value))
             .Select(x => x.CurrentStatus)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -202,7 +203,8 @@ public sealed class InvestmentCaseAppService(
 
         ApplicationLog.Started(logger, "UpdateDataEntry2", authResult.Value, caseId);
 
-        if (!userContext.Roles.Contains(UserRoleClaims.Applicant))
+        var isAdmin = userContext.Roles.Contains(UserRoleClaims.Admin);
+        if (!userContext.Roles.Contains(UserRoleClaims.Applicant) && !isAdmin)
         {
             ApplicationLog.Blocked(logger, "UpdateDataEntry2", "only applicants may edit data entry 2", authResult.Value, caseId);
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
@@ -210,7 +212,7 @@ public sealed class InvestmentCaseAppService(
 
         var caseStatus = await dbContext.InvestmentCases
             .AsNoTracking()
-            .Where(x => x.Id == caseId && x.ApplicantUserId == authResult.Value)
+            .Where(x => x.Id == caseId && (isAdmin || x.ApplicantUserId == authResult.Value))
             .Select(x => x.CurrentStatus)
             .FirstOrDefaultAsync(cancellationToken);
 

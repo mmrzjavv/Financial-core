@@ -1,1241 +1,1013 @@
-# Investment Case API — Frontend Integration Guide
+# Investment Case API Guide — Frontend Integration  
+# راهنمای یکپارچه‌سازی فرانت‌اند — پرونده سرمایه‌گذاری
 
-This document describes the **end-to-end investment application lifecycle**, who acts at each step, which APIs to call, and how responses are shaped. It is written for frontend engineers integrating with **Financial-Core** (`Core.API`).
+**Audience / مخاطب:** Frontend engineers building the production SPA (or extending the reference test panel).  
+**Source of truth / منبع حقیقت:** `InvestmentCasesController`, `CaseStateManager`, `InvestmentCaseAppService`, and reference UI in `Frontend/js/portal.js`, `workflow-model.js`, `kanban.js`, `app.js`.
 
-**API version:** `v1.0`  
-**Base path:** `/api/v1.0/...`  
-**Authentication:** `Authorization: Bearer <access_token>` (JWT), except where noted.
-
----
-
-## Table of contents
-
-1. [How the system is structured](#1-how-the-system-is-structured)
-2. [Response envelope and errors](#2-response-envelope-and-errors)
-3. [Authentication and companies (prerequisites)](#3-authentication-and-companies-prerequisites)
-4. [Lifecycle overview](#4-lifecycle-overview)
-5. [Scenario guide — stage by stage](#5-scenario-guide--stage-by-stage)
-6. [Documents & client-side upload (mandatory pattern)](#6-documents--client-side-upload-mandatory-pattern)
-7. [Kanban (work queue)](#7-kanban-work-queue)
-8. [Management dashboards](#8-management-dashboards)
-9. [Terminal and exceptional flows](#9-terminal-and-exceptional-flows)
-10. [Reference tables](#10-reference-tables)
-11. [Complete API catalog](#11-complete-api-catalog)
-12. [Reference frontend implementation](#12-reference-frontend-implementation)
+| Part | Language |
+|------|----------|
+| [Part I — فارسی](#part-i--فارسی) | Persian — full scenarios & tables |
+| [Part II — English](#part-ii--english) | English — same structure |
 
 ---
 
-## 1. How the system is structured
+# Part I — فارسی
 
-Three layers drive behavior. The frontend should treat **`currentStatus`** on the case as the source of truth for UI routing.
+## فهرست
 
-| Layer | Responsibility | Frontend impact |
-|--------|----------------|-----------------|
-| **Domain state machine** (`CaseStateManager`) | Legal transitions: `(status, action, role) → next status`, business rules, permissions | Drive buttons, validation, and “what’s allowed now” |
-| **Application services** (`InvestmentCaseAppService`) | HTTP use cases, persistence, comments, documents, payments | Call the REST endpoints below |
-| **Elsa workflow** (`InvestmentCaseWorkflow`) | Background orchestration; resumes on `status-changed` signal | You do **not** call Elsa directly; transitions already signal it |
+1. [خلاصه برای فرانت](#1-خلاصه-برای-فرانت)
+2. [معماری UI مرجع (همان چیزی که الان داریم)](#2-معماری-ui-مرجع)
+3. [تنظیمات API و envelope](#3-تنظیمات-api-و-envelope)
+4. [ورود، نقش‌ها، دسترسی](#4-ورود-نقش‌ها-دسترسی)
+5. [نقشه گردش کار (وضعیت‌ها)](#5-نقشه-گردش-کار)
+6. [سناریوی end-to-end (با پورتال)](#6-سناریوی-end-to-end)
+7. [مرحله‌به‌مرحله: وضعیت → UI → API](#7-مرحله‌به‌مرحله-وضعیت--ui--api)
+8. [جدول action پورتال → API](#8-جدول-action-پورتال--api)
+9. [مدارک (presign / confirm)](#9-مدارک)
+10. [کانبان، داشبورد، استثناها](#10-کانبان-داشبورد-استثناها)
+11. [جداول مرجع enum](#11-جداول-مرجع-enum)
+12. [فهرست API](#12-فهرست-api)
+13. [چک‌لیست SPA](#13-چک‌لیست-spa)
 
-```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> Draft
-    Draft --> DataEntry1: Applicant Submit
-    DataEntry1 --> ReviewDataEntry1: Applicant Submit
-    ReviewDataEntry1 --> DataEntry2: Expert Approve
-    ReviewDataEntry1 --> DataEntry1: Expert Revision
-    ReviewDataEntry2 --> InitialValuation: Expert Approve
-    InitialValuation --> SecondaryValuation: Manager Approve
-    SecondaryValuation --> WaitingPreliminaryContract: Manager Approve
-    WaitingPreliminaryContract --> WaitingUserReviewPreliminaryContract: Legal upload
-    WaitingUserReviewPreliminaryContract --> ContractDrafting: Applicant Approve
-    ContractDrafting --> WaitingContractSignature: Legal finalize
-    WaitingContractSignature --> WaitingSignedContractUpload: Legal confirm signature
-    WaitingSignedContractUpload --> WaitingFinancialWorksheet: Legal upload signed
-    WaitingFinancialWorksheet --> FinancialWorksheetReview: Expert submit worksheet
-    FinancialWorksheetReview --> WaitingCeoApproval: Finance approve
-    WaitingCeoApproval --> WaitingPayment: CEO approve
-    WaitingPayment --> Completed: Payments complete
+---
+
+## 1. خلاصه برای فرانت
+
+### اصل طلایی
+
+1. **وضعیت پرونده** را از `currentStatus` (عدد) بخوانید — نه فقط `currentPhase`.
+2. **UI مرحله** را از `workflow-model.js` → `STEPS` / `getStepperSteps()` بسازید (همان stepper پورتال).
+3. **دکمه‌های اقدام** فقط وقتی نقش JWT با «واحد» آن مرحله جور باشد فعال شوند (`canActOnCase` / فیلتر تب واحد).
+4. بعد از هر **transition موفق** (معمولاً HTTP **202**): دوباره `GET /cases/{id}` + کانبان را رفرش کنید.
+5. **آپلود فایل** همیشه: `presign` → `PUT` به S3 **بدون Bearer** → `confirm`.
+
+### پایه URL
+
+| مورد | مقدار |
+|------|--------|
+| پرونده | `{baseUrl}/api/v1/cases` |
+| کاربر / OTP | `{baseUrl}/api/v1/panel/users` |
+| شرکت | `{baseUrl}/api/v1/panel/companies` |
+| داشبورد | `{baseUrl}/api/v1/dashboard` |
+| هدر | `Authorization: Bearer {accessToken}` |
+
+تست محلی: `Frontend/config.js` → `baseUrl` (پیش‌فرض `http://localhost:5081`)، `casesVersion: "1"`.
+
+### فیلدهای کلیدی `GET /cases/{id}`
+
+| فیلد | کاربرد UI |
+|------|-----------|
+| `id` | مسیر همه APIهای فرعی |
+| `caseNumber` | نمایش در هدر / کانبان |
+| `currentStatus` | کدام کارت مرحله و کدام دکمه‌ها |
+| `currentPhase` | گروه‌بندی فاز (درخواست / ارزش‌گذاری / …) |
+| `dataEntry1` / `dataEntry2` | پر کردن فرم‌های readonly یا edit |
+| `company` | متقاضی حقوقی |
+
+---
+
+## 2. معماری UI مرجع
+
+این همان فرانتی است که الان در repo دارید — SPA تولیدی می‌تواند همین الگو را کپی کند.
+
+```text
+index.html
+├── تب Auth          → app.js (OTP، sessions چندنقشی)
+├── تب Cases         → app.js (ایجاد/جستجوی پرونده، caseId)
+├── تب Portal        → portal.js ★ UI اصلی مرحله‌ای
+├── تب Kanban        → kanban.js (action-required / watching)
+├── تب Dashboard     → app.js (CEO / Board)
+└── workflow-runner.js → E2E خودکار کل مسیر
 ```
 
-> **Note:** `WaitingCeoApproval` exists in the domain model but is not a separate node in the Elsa flowchart. UI must follow `currentStatus`, not Elsa activity IDs.
+### `portal.js` — state بعد از `refreshCase()`
 
-### Phases vs statuses
+| state | منبع API |
+|-------|----------|
+| `caseData` | `GET /cases/{id}` |
+| `history` | `GET /cases/{id}/history` |
+| `documents` | `GET /cases/{id}/documents` |
+| `documentsLatest` | `GET /cases/{id}/documents/latest` ← چک‌لیست قبل از Submit |
+| `documentVersionGroups` | `GET .../version-groups?scope=` (بسته به status/نقش) |
+| `comments` | `GET /cases/{id}/comments?includeInternal=true|false` |
+| `payments` / `paymentsSummary` | `GET /cases/{id}/payments` (فقط کاربر داخلی؛ عملاً status 15) |
 
-- **`CasePhase`** — coarse grouping for UI sections (Application → Valuation → Legal → Finance → Closing).
-- **`CaseStatus`** — fine-grained step; always check this for actions.
+**رویداد:** بعد از transition، `document.dispatchEvent(new CustomEvent("testpanel:case-changed"))` → کانبان رفرش.
 
-| Phase | Value | Typical statuses |
-|-------|-------|------------------|
-| Application | 1 | Draft, DataEntry1, ReviewDataEntry1, DataEntry2, ReviewDataEntry2 |
-| Valuation | 2 | InitialValuation, SecondaryValuation |
-| Legal | 3 | WaitingPreliminaryContract … WaitingSignedContractUpload |
-| Finance | 4 | WaitingFinancialWorksheet, FinancialWorksheetReview, WaitingCeoApproval |
-| Closing | 5 | WaitingPayment, Completed |
+### تب‌های «واحد» در پورتال (`WorkflowModel.UNITS`)
 
-### Roles (JWT `role` claim)
+| unit id | نقش‌های مجاز (claim) |
+|---------|----------------------|
+| `applicant` | Applicant, Admin |
+| `investment` | InvestmentExpert, Admin |
+| `manager` | InvestmentManager, Admin |
+| `legal` | LegalExpert, LegalManager, LegalUnit, Admin |
+| `financial` | FinancialExpert, FinancialManager, FinancialUnit, Admin |
+| `ceo` | CEO, Admin |
 
-| Role | Typical actor |
-|------|----------------|
-| `Applicant` | Startup / company applicant (`User` in registration may map here) |
-| `InvestmentExpert` | Reviews application forms |
-| `InvestmentManager` | Valuation approvals |
-| `LegalExpert` / `LegalManager` | Contracts (manager can mirror expert actions) |
-| `FinancialExpert` / `FinancialManager` | Worksheet & payments |
-| `CEO` | Final approval before payment |
-| `Admin` | Broad override + archive |
+`Admin` در `canActOnCase` همیشه `true` است.
 
-**Manager mirroring:** `InvestmentManager` can perform `InvestmentExpert` transitions; same for Legal and Financial pairs.
+### `renderStageHost()` — منطق UI
+
+- `currentStatus` را می‌گیرد.
+- یک **کارت مرحله** با فیلدها + دکمه‌های `data-action="..."` می‌سازد.
+- کلیک → `handleAction(action)` → `apiRequest` → `refreshCase()`.
 
 ---
 
-## 2. Response envelope and errors
+## 3. تنظیمات API و envelope
 
-Successful investment-case endpoints return **`ApiOperationResult<T>`**:
+### پاسخ استاندارد
 
 ```json
 {
   "success": true,
-  "message": "Human-readable success message",
-  "operationDate": "2026-05-14T06:00:00Z",
+  "message": "پیام فارسی",
   "status": 200,
   "data": { },
-  "list": null,
-  "totalCount": null,
-  "validationErrors": null,
-  "exMessage": null
+  "validationErrors": { "field": ["..."] }
 }
 ```
 
-Failures set `success: false`. HTTP status follows the error code:
+در پورتال: `unwrap(body).payload` یا `unwrap(body)` بسته به endpoint.
 
-| `exMessage` / error code | HTTP status |
-|--------------------------|-------------|
-| `validation_error` | 400 |
-| `unauthorized` | 401 |
-| `forbidden` | 403 |
-| `not_found` | 404 |
-| `conflict` | 409 (invalid transition, incomplete data, etc.) |
+| HTTP | معنی |
+|------|------|
+| 200 | خواندن |
+| 201 | ایجاد پرونده |
+| 202 | transition گردش کار |
+| 400 | JSON / validation (مثلاً `paymentDate` غلط) |
+| 403 | نقش یا permission |
+| 404 | پرونده نیست |
+| 409 | وضعیت اشتباه، مدرک کم، concurrency |
 
-**Correlation:** Workflow transitions use the `X-Correlation-Id` header (or trace id) for idempotency on retries.
-
-**Transition HTTP codes:** Most workflow actions return **202 Accepted** with an empty/minimal body; reads return **200**.
-
----
-
-## 3. Authentication and companies (prerequisites)
-
-### 3.1 Auth flow (applicant & staff)
-
-| Step | Method | Endpoint | Body | Notes |
-|------|--------|----------|------|-------|
-| Send OTP | `POST` | `/api/v1.0/panel/users/send-otp` | `{ "phoneNumber": "09..." }` | Anonymous |
-| Verify OTP | `POST` | `/api/v1.0/panel/users/verify-otp` | `{ "phoneNumber", "otpCode" }` | Returns `LoginDto` with tokens |
-| Refresh | `POST` | `/api/v1.0/panel/users/refresh-token` | `{ refresh token fields }` | Optional `Authorization: Bearer` access token |
-| Profile | `GET` | `/api/v1.0/panel/users/profile` | — | Authorized |
-| Logout | `POST` | `/api/v1.0/panel/users/logout` | — | Authorized |
-
-Store **`accessToken`** from `loginDto.tokenModel` and send it on all case APIs.
-
-### 3.2 Company profile (company applicants only)
-
-Before creating a **company** case, register the company:
-
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| `GET` | `/api/v1.0/panel/companies/mine` | List applicant’s companies |
-| `POST` | `/api/v1.0/panel/companies` | Create company |
-| `PUT` | `/api/v1.0/panel/companies/{id}` | Update company |
-
-**`SaveCompanyRequest`:** `name`, `economicCode`, optional `registrationNumber`, `nationalId`, `phoneNumber`, `address`, `city`, `province`, `postalCode`.
-
----
-
-## 4. Lifecycle overview
-
-High-level happy path:
-
-1. Applicant **creates** case → `Draft`
-2. Applicant fills **Data Entry 1** + pitch deck → **submits** → expert review
-3. Expert **approves** → applicant fills **Data Entry 2** + documents → **submits**
-4. Expert **approves** → **valuation** (record + manager approvals ×2)
-5. Legal **preliminary contract** → applicant **reviews** → drafting → signature → **signed contract**
-6. Investment expert **financial worksheet** → finance **review** → **CEO approval**
-7. Finance **records/confirms payments** → case **Completed**
-
-At any non-terminal stage, internal roles may **reject**; applicant/staff may **cancel** (where allowed); admin may **archive**.
-
----
-
-## 5. Scenario guide — stage by stage
-
-For each stage: **who**, **status**, **what to do in the UI**, **APIs in order**.
-
----
-
-### Stage 0 — Create the case
-
-**Actor:** Applicant (`ApplicantOnly` policy)  
-**Starting status:** `Draft` (1)  
-**Phase:** Application
-
-#### UI goals
-
-- Choose applicant type: Individual (1) or Company (2).
-- For company: pick `companyId` from `/panel/companies/mine`.
-- After create, show case detail and Data Entry 1 form.
-
-#### APIs
-
-| Order | Method | Endpoint | Request | Response |
-|-------|--------|----------|---------|----------|
-| 1 | `POST` | `/api/v1.0/cases` | `CreateInvestmentCaseRequest` | `201` + `InvestmentCaseApplicantDto` |
+### بدنه‌های مشترک transition
 
 ```json
-{
-  "applicantType": 2,
-  "companyId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-}
+// SemanticTransitionRequest — approve / submit comment
+{ "comment": "اختیاری", "internalComment": "فقط داخلی" }
+
+// SemanticRevisionRequest
+{ "message": "الزامی برای revision-request" }
+
+// Submit بدون body هم OK — پورتال {} می‌فرستد
 ```
 
-- `applicantType`: `1` = Individual, `2` = Company (`companyId` required for company).
-- Backend starts Elsa workflow and sets `workflowInstanceId` internally.
-
-#### Optional: open application from Draft
-
-`POST .../data-entry1/submit` while status is **`Draft`** moves to **`DataEntry1`** (no full validation). Use once if you need an explicit “Start application” step.
-
----
-
-### Stage 1 — Data Entry 1 (application form)
-
-**Actor:** Applicant  
-**Statuses:** `Draft` or `DataEntry1` (editable), then `ReviewDataEntry1` after submit  
-**Phase:** Application
-
-#### UI goals
-
-- Form fields: business stage, requested amount (representative name/email come from user profile).
-- Upload **PitchDeck** (`documentType: 1`) before submit using the **client presign → PUT → confirm** flow (see [§6](#6-documents--client-side-upload-mandatory-pattern)).
-- Submit sends case to investment expert queue.
-
-#### APIs
-
-| Step | Method | Endpoint | Body / notes |
-|------|--------|----------|--------------|
-| Save draft | `PUT` | `/api/v1.0/cases/{id}/data-entry1` | See below |
-| Upload pitch deck | — | [§6 Documents](#6-documents--client-side-upload-mandatory-pattern) | `documentType: 1`; upload from browser, not API |
-| Submit | `POST` | `/api/v1.0/cases/{id}/data-entry1/submit` | Optional JSON: `{ "comment": "..." }` or empty body |
-| Poll detail | `GET` | `/api/v1.0/cases/{id}` | Check `currentStatus` |
-
-**`UpdateDataEntry1Request`:**
-
-```json
-{
-  "businessStage": 1,
-  "requestedAmount": 5000000000
-}
-```
-
-**`businessStage`:** `1` = Idea, `2` = HasPrototype.
-
-#### Submit validation (409 if failed)
-
-- Data entry 1 saved.
-- `representativeFullName`, `contactEmail`, `requestedAmount > 0`, `businessStage` is Idea or HasPrototype.
-- At least one document with `documentType: PitchDeck` (1).
-
-#### Expert side (next stage)
-
-Expert sees case in kanban **action required** when status is `ReviewDataEntry1`.
-
----
-
-### Stage 2 — Review Data Entry 1
-
-**Actor:** Investment Expert (or Manager / Admin)  
-**Status:** `ReviewDataEntry1` (3)
-
-#### UI goals
-
-- Show submitted DE1 + documents.
-- Approve, request revision (message required), or reject.
-
-#### APIs
-
-| Action | Method | Endpoint | Body |
-|--------|--------|----------|------|
-| Approve | `POST` | `.../data-entry1/approve` | `{ "comment": "...", "internalComment": "..." }` |
-| Revision | `POST` | `.../data-entry1/revision-request` | `{ "message": "required" }` |
-| Reject | `POST` | `.../reject` | `{ "reason": "..." }` |
-
-**Outcomes:**
-
-| Action | Next status |
-|--------|-------------|
-| Approve | `DataEntry2` (4) |
-| Revision | `DataEntry1` (2) |
-| Reject | `Rejected` (17) |
-
-`internalComment` on approve is stored as an internal comment (experts only); requires `cases:create_internal_comment`.
-
----
-
-### Stage 3 — Data Entry 2 + documents
-
-**Actor:** Applicant  
-**Status:** `DataEntry2` (4) → `ReviewDataEntry2` (5) after submit
-
-#### UI goals
-
-- Text field: investment attraction basis.
-- Upload **all required document types** (see table below).
-- Submit for expert review.
-
-#### APIs
-
-| Step | Method | Endpoint |
-|------|--------|----------|
-| Save | `PUT` | `/api/v1.0/cases/{id}/data-entry2` |
-| Documents | Presign/upload/confirm | See §6 |
-| Submit | `POST` | `/api/v1.0/cases/{id}/data-entry2/submit` |
-
-**`UpdateDataEntry2Request`:**
-
-```json
-{
-  "investmentAttractionBasis": "..."
-}
-```
-
-#### Required documents for submit
-
-| DocumentType | Value |
-|--------------|-------|
-| CompanyIntroduction | 12 |
-| EmployeeInsuranceList | 13 |
-| TrialBalanceScan | 14 |
-| TaxDocuments | 3 |
-| ActivityLicenses | 15 |
-| CompanyRegistration | 4 |
-| CapitalRaisingPlans | 19 |
-
-#### Expert review
-
-Same pattern as Stage 2:
-
-- `POST .../data-entry2/approve`
-- `POST .../data-entry2/revision-request`
-- `POST .../reject`
-
-Approve → **`InitialValuation` (6)**.
-
----
-
-### Stage 4 — Valuation (primary & secondary)
-
-**Actors:** Investment Manager (approve transitions); experts typically **record** amounts first  
-**Statuses:** `InitialValuation` (6) → `SecondaryValuation` (7) → `WaitingPreliminaryContract` (8)  
-**Phase:** Valuation
-
-#### UI goals
-
-1. While status is `InitialValuation`: record primary valuation, then manager approves.
-2. While status is `SecondaryValuation`: record secondary valuation, then manager approves.
-
-#### APIs
-
-| Step | Method | Endpoint | When |
-|------|--------|----------|------|
-| Record primary | `POST` | `/api/v1.0/cases/{id}/valuations` | Status = `InitialValuation` |
-| Approve primary | `POST` | `/api/v1.0/cases/{id}/valuations/initial/approve` | After record |
-| Record secondary | `POST` | `/api/v1.0/cases/{id}/valuations` | Status = `SecondaryValuation` |
-| Approve secondary | `POST` | `/api/v1.0/cases/{id}/valuations/secondary/approve` | After record |
-
-**`RecordValuationRequest`:**
-
-```json
-{
-  "type": 1,
-  "amount": 10000000000,
-  "notes": "optional"
-}
-```
-
-`type`: `1` = Primary, `2` = Secondary.
-
-**Optional:** `POST .../evaluations` and `GET .../evaluations` for structured expert evaluations (`CaseEvaluationUpsertRequest` with `phase`, `notes`, `items[]`).
-
----
-
-### Stage 5 — Legal: preliminary contract
-
-**Actor:** Legal expert  
-**Status:** `WaitingPreliminaryContract` (8) → `WaitingUserReviewPreliminaryContract` (9)  
-**Phase:** Legal
-
-#### UI goals
-
-- Upload pre-contract document (`PreContract` = 7).
-- Confirm upload; workflow can auto-advance when legal has `cases:manage_contracts`.
-
-#### APIs
-
-**Required flow:** [§6.1 three-step upload](#61-the-three-step-upload-contract) — presign → **browser PUT** → confirm.  
-After confirm, status may move to `WaitingUserReviewPreliminaryContract` automatically.
-
-**Do not** use legacy `contracts/preliminary/upload?s3Key=` unless the file is already in storage from another system.
-
----
-
-### Stage 6 — Applicant reviews preliminary contract
-
-**Actor:** Applicant  
-**Status:** `WaitingUserReviewPreliminaryContract` (9)
-
-#### APIs
-
-| Action | Method | Endpoint |
-|--------|--------|----------|
-| Accept | `POST` | `.../contracts/preliminary/approve` | `{ "comment": "..." }` |
-| Request changes | `POST` | `.../contracts/preliminary/revision-request` | `{ "message": "..." }` → back to `WaitingPreliminaryContract` |
-| Cancel | `POST` | `.../cancel` | `{ "reason": "..." }` |
-
-Approve → **`ContractDrafting` (10)**.
-
-**Comments:** `POST .../comments` allowed in this legal review phase (applicant feedback).
-
----
-
-### Stage 7 — Contract drafting, signature, signed upload
-
-**Actor:** Legal expert  
-**Statuses:** `ContractDrafting` (10) → `WaitingContractSignature` (11) → `WaitingSignedContractUpload` (12) → `WaitingFinancialWorksheet` (13)
-
-#### APIs (sequential)
-
-| Step | Method | Endpoint | Transition |
-|------|--------|----------|------------|
-| Finalize draft | `POST` | `.../contracts/finalize-draft` | → `WaitingContractSignature` |
-| Confirm signature ready | `POST` | `.../contracts/confirm-signature` | → `WaitingSignedContractUpload` |
-| Upload signed contract | Document flow or `POST .../contracts/signed/upload?s3Key=` | `SignedContract` (9) | → `WaitingFinancialWorksheet` |
-
----
-
-### Stage 8 — Financial worksheet
-
-**Actors:** Investment Expert (submit), Financial Expert (approve / revision)  
-**Statuses:** `WaitingFinancialWorksheet` (13) → `FinancialWorksheetReview` (14) → `WaitingCeoApproval` (20)
-
-#### UI goals
-
-- Expert fills worksheet (bank, IBAN, approved amount).
-- Expert submits → finance reviews.
-- Finance approves → CEO queue.
-
-#### APIs
-
-| Step | Method | Endpoint |
-|------|--------|----------|
-| Update worksheet | `PUT` | `/api/v1.0/cases/{id}/financial-worksheet` |
-| Submit | `POST` | `.../financial-worksheet/submit` |
-| Approve (finance) | `POST` | `.../financial-worksheet/approve` |
-| Revision | `POST` | `.../financial-worksheet/revision-request` |
-
-**`UpdateFinancialWorksheetRequest`:**
-
-```json
-{
-  "bankName": "...",
-  "iban": "IR...",
-  "approvedAmount": 8000000000,
-  "paymentSchedule": "optional",
-  "notes": "optional"
-}
-```
-
-Submit/approve require `approvedAmount > 0`.
-
----
-
-### Stage 9 — CEO approval
-
-**Actor:** CEO (`InvestmentCases.CeoApprove` policy + `cases:ceo_approve` permission)  
-**Status:** `WaitingCeoApproval` (20)
-
-#### APIs
-
-| Action | Method | Endpoint |
-|--------|--------|----------|
-| Approve | `POST` | `/api/v1.0/cases/{id}/ceo-approval/approve` |
-| Send back | `POST` | `/api/v1.0/cases/{id}/ceo-approval/revision-request` |
-
-Approve → **`WaitingPayment` (15)**.
-
-**Dashboard:** `GET /api/v1.0/dashboard/ceo` — pipeline metrics including `pendingCeoApprovals`.
-
----
-
-### Stage 10 — Payments & completion
-
-**Actor:** Financial expert  
-**Status:** `WaitingPayment` (15) → `Completed` (16)  
-**Phase:** Closing
-
-#### UI goals
-
-- Show `approvedAmount`, recorded vs confirmed totals (`GET .../payments`).
-- Record installments; confirm each payment.
-- When sum of **completed** payments ≥ `approvedAmount`, backend **auto-completes** the case.
-
-#### APIs
-
-| Step | Method | Endpoint |
-|------|--------|----------|
-| List + summary | `GET` | `/api/v1.0/cases/{id}/payments` |
-| Record payment | `POST` | `/api/v1.0/cases/{id}/payments` |
-| Confirm payment | `POST` | `/api/v1.0/cases/{id}/payments/{paymentId}/confirm` |
-| Cancel payment | `POST` | `/api/v1.0/cases/{id}/payments/{paymentId}/cancel` |
-
-**`RecordPaymentRequest`:**
+### پرداخت — `POST /payments`
 
 ```json
 {
   "amount": 2000000000,
-  "paymentDate": "2026-05-01",
+  "paymentDate": "2026-05-19",
   "transactionNumber": "TX-001",
-  "receiptS3Key": "optional",
-  "notes": null,
   "method": 1,
-  "status": 1
+  "status": 1,
+  "notes": null,
+  "receiptS3Key": "cases/.../10/file.pdf"
 }
 ```
 
-- `method`: `1` BankTransfer, `2` Cheque, `3` Cash, `4` Other  
-- `status`: `1` Pending, `2` Completed, `3` Cancelled, `4` Failed  
-
-**Tip:** Recording with `status: 2` (Completed) may trigger auto-complete immediately if totals suffice; otherwise use **confirm** after review.
-
-**`CasePaymentsDto`:**
-
-- `payments[]` — line items  
-- `summary`: `approvedAmount`, `totalRecorded`, `totalConfirmed`, `remainingToComplete`
+- `paymentDate`: **فقط** `YYYY-MM-DD` (در پورتال: `buildRecordPaymentPayload()` — اگر خالی باشد = امروز).
+- `method`: 1=انتقال، 2=چک، 3=نقد، 4=سایر.
+- `status`: 1=Pending، 2=Completed، 3=Cancelled، 4=Failed.
 
 ---
 
-### Ongoing — Case detail, search, history
+## 4. ورود، نقش‌ها، دسترسی
 
-| Need | Method | Endpoint |
-|------|--------|----------|
-| Full case (role-shaped DTO) | `GET` | `/api/v1.0/cases/{id}` |
-| Applicant list/search | `GET` | `/api/v1.0/cases?caseNumber=&phase=&status=&page=&pageSize=` |
-| Audit trail (internal sees actor/action) | `GET` | `/api/v1.0/cases/{id}/history` |
+### سناریو A — متقاضی (اولین بار)
 
-**Applicant `GET` case** includes: `company`, `applicant`, `dataEntry1`, `dataEntry2` when applicable.  
-**Internal `GET`** adds `applicantUserId`, `workflowInstanceId`.
+| گام | کاربر | API |
+|-----|--------|-----|
+| 1 | شماره موبایل | `POST /panel/users/send-otp` `{ "phoneNumber": "09..." }` |
+| 2 | کد OTP | `POST /panel/users/verify-otp` → `accessToken` |
+| 3 | شرکت | `GET /panel/companies/mine` سپس در صورت نیاز `POST /panel/companies` |
+| 4 | پرونده جدید | `POST /cases` `{ "applicantType": 2, "companyId": "guid" }` |
+| 5 | پورتال | `setCurrentCaseId(id)` → تب Portal → status **1 Draft** |
+
+### سناریو B — کارشناس / مدیر / حقوقی / مالی / CEO
+
+| گام | API / UI |
+|-----|----------|
+| 1 | OTP با persona در `config.js` (`workflowPersonas`) |
+| 2 | `GET /cases/kanban/action-required` |
+| 3 | کلیک کارت → همان `caseId` در پورتال |
+
+**چند نقش در تست:** Auth → Saved Sessions → **Use** (`app.js`).
+
+### نقش JWT
+
+| claim | DB `User.Role` | واحد پورتال |
+|-------|----------------|-------------|
+| `Applicant` | 1 | applicant |
+| `InvestmentExpert` | 10 | investment |
+| `InvestmentManager` | 11 | manager |
+| `CEO` | 12 | ceo |
+| `LegalExpert` / `LegalManager` | 20 / 21 | legal |
+| `FinancialExpert` / `FinancialManager` | 30 / 31 | financial |
+| `Admin` | 100 | همه |
+
+نام‌های قدیمی: `User`→`Applicant`, `LegalUnit`→`LegalExpert` (`UserRoleClaims.Normalize`).
+
+### Policyهای API (Gateway)
+
+| Policy | نقش‌ها |
+|--------|--------|
+| `ApplicantOnly` | Applicant + Admin |
+| `InternalOnly` | همه داخلی + Admin |
+| `InvestmentCases.CeoApprove` | CEO + Admin |
+| `Dashboard.Ceo` | CEO + Admin |
+| `Dashboard.Board` | CEO + InvestmentManager + Admin |
+
+### Permission داخل سرویس (`CaseAuthorizationService`)
+
+مثال: `cases:manage_payments`, `cases:ceo_approve`. **Admin:** `HasPermission` همیشه `true`.
 
 ---
 
-## 6. Documents & client-side upload (mandatory pattern)
-
-> **Critical rule for production UI:** File bytes must be uploaded **from the browser (or mobile client) directly to object storage** using the presigned URL. The API server does **not** receive the file during normal applicant/legal flows except when you explicitly choose the optional multipart shortcut.
-
-The reference implementation lives in:
-
-| File | Responsibility |
-|------|----------------|
-| `Frontend/js/portal.js` | `uploadDocument()`, `downloadDocument()`, document UI per stage, `refreshCase()` |
-| `Frontend/js/workflow-model.js` | Document lists per stage (`DATA_ENTRY_1_DOCUMENTS`, `DATA_ENTRY_2_DOCUMENTS`) |
-| `Frontend/app.js` | Low-level presign/PUT/confirm debugger, CEO/board dashboards |
-| `Frontend/js/kanban.js` | Kanban lists + navigation to case portal |
-| `Frontend/workflow-runner.js` | E2E automation using the same upload helper |
-
----
-
-### 6.1 The three-step upload contract
-
-Every upload in the portal follows the same sequence:
+## 5. نقشه گردش کار
 
 ```mermaid
-sequenceDiagram
-    participant UI as Frontend
-    participant API as Core.API
-    participant S3 as Object Storage
-
-    UI->>API: POST /cases/{id}/documents/presign (JWT)
-    API-->>UI: s3Key, url, expiresAtUtc, version
-    UI->>S3: PUT url (file bytes, Content-Type)
-    Note over UI,S3: No Authorization header on PUT
-    S3-->>UI: 200 OK
-    UI->>API: POST /cases/{id}/documents/confirm?s3Key=... (JWT)
-    API-->>UI: CaseDocumentDto (+ optional workflow advance)
+stateDiagram-v2
+  direction LR
+  [*] --> Draft
+  Draft --> DataEntry1: Applicant submit
+  DataEntry1 --> ReviewDataEntry1: Applicant submit + PitchDeck
+  ReviewDataEntry1 --> DataEntry2: Investment approve
+  ReviewDataEntry1 --> DataEntry1: revision
+  DataEntry2 --> ReviewDataEntry2: Applicant submit + docs
+  ReviewDataEntry2 --> InitialValuation: Investment approve
+  InitialValuation --> SecondaryValuation: Manager approve initial
+  SecondaryValuation --> WaitingPreliminaryContract: Manager approve secondary
+  WaitingPreliminaryContract --> WaitingUserReview: Legal upload PreContract
+  WaitingUserReview --> ContractDrafting: Applicant approve
+  ContractDrafting --> WaitingContractSignature: Legal finalize
+  WaitingContractSignature --> WaitingSignedContractUpload: Legal confirm signature
+  WaitingSignedContractUpload --> WaitingFinancialWorksheet: Legal upload Signed
+  WaitingFinancialWorksheet --> FinancialWorksheetReview: Investment submit worksheet
+  FinancialWorksheetReview --> WaitingCeoApproval: Financial approve
+  WaitingCeoApproval --> WaitingPayment: CEO approve
+  WaitingPayment --> Completed: Payments confirmed sum >= approved
 ```
 
-#### Step 1 — Presign (authenticated API call)
+**Happy path متنی:**
 
-```http
-POST /api/v1.0/cases/{caseId}/documents/presign
-Authorization: Bearer {accessToken}
-Content-Type: application/json
+```text
+متقاضی: ایجاد → DE1 + پیچ‌دک → ارسال
+کارشناس سرمایه‌گذاری: بررسی DE1 → تأیید
+متقاضی: DE2 + مدارک → ارسال
+کارشناس: بررسی DE2 → تأیید
+مدیر سرمایه‌گذاری: ارزش‌گذاری اولیه + ثانویه
+حقوقی: پیش‌قرارداد → متقاضی تأیید → تدوین → امضا → قرارداد امضاشده
+کارشناس: کاربرگ مالی → ارسال
+مالی: تأیید کاربرگ
+CEO: تأیید نهایی
+مالی: اقساط پرداخت (ثبت + confirm) → Completed
+```
 
+---
+
+## 6. سناریوی end-to-end
+
+فرض: تیم QA از **همان پورتال** (`index.html`) تست می‌کند.
+
+| # | نقش (session) | تب | کار در UI | APIهای اصلی |
+|---|---------------|-----|-----------|-------------|
+| 1 | Applicant | Cases | ایجاد پرونده | `POST /cases` |
+| 2 | Applicant | Portal | Draft: ذخیره DE1، آپلود type=1، Submit | `PUT .../data-entry1`, presign/confirm, `POST .../submit` |
+| 3 | InvestmentExpert | Kanban → Portal | Review DE1: Approve | `POST .../data-entry1/approve` |
+| 4 | Applicant | Portal | DE2: متن + ۷ مدرک اجباری، Submit | `PUT .../data-entry2`, `POST .../submit` |
+| 5 | InvestmentExpert | Portal | Review DE2: Approve | `POST .../data-entry2/approve` |
+| 6 | InvestmentManager | Portal | Valuation type=1، Approve initial؛ type=2، Approve secondary | `POST .../valuations`, `.../initial/approve`, `.../secondary/approve` |
+| 7 | LegalExpert | Portal | آپلود PreContract (7) | presign → PUT → confirm → auto status 9 |
+| 8 | Applicant | Portal | Approve pre-contract | `POST .../contracts/preliminary/approve` |
+| 9 | LegalExpert | Portal | Finalize draft → Confirm signature → Upload Signed (9) | `finalize-draft`, `confirm-signature`, confirm |
+| 10 | InvestmentExpert | Portal | Worksheet PUT + Submit | `PUT .../financial-worksheet`, `POST .../submit` |
+| 11 | FinancialExpert | Portal | Approve worksheet | `POST .../financial-worksheet/approve` |
+| 12 | CEO | Portal / Dashboard | Approve CEO | `POST .../ceo-approval/approve`, `GET /dashboard/ceo` |
+| 13 | FinancialExpert | Portal | Record payment + Confirm | `POST .../payments`, `POST .../payments/{id}/confirm` |
+| 14 | هر نقش | Portal | Completed — فقط مشاهده | `GET /cases/{id}` |
+
+**اتوماسیون:** `workflow-runner.js` همین ترتیب را با `config.workflowPersonas` اجرا می‌کند.
+
+---
+
+## 7. مرحله‌به‌مرحله: وضعیت → UI → API
+
+در هر ردیف: **Status** | **مسئول** | **پورتال (`renderStageHost`)** | **APIها**
+
+---
+
+### 1 — `Draft` (1)
+
+| | |
+|--|--|
+| **مسئول** | Applicant |
+| **UI** | فیلد `de1Stage` (1=ایده، 2=نمونه اولیه)، `de1Amount`، آپلود اختیاری پیچ‌دک |
+| **ذخیره** | `PUT /cases/{id}/data-entry1` → `{ "businessStage": 1\|2, "requestedAmount": number }` |
+| **ادامه** | `POST /cases/{id}/data-entry1/submit` body `{}` |
+| **بعد** | status **2** |
+
+---
+
+### 2 — `DataEntry1` (2)
+
+| | |
+|--|--|
+| **مسئول** | Applicant |
+| **شرط Submit** | `GET .../documents/latest` شامل **PitchDeck (type=1)** |
+| **UI** | چک‌لیست مدارک DE1، دکمه «ارسال برای بررسی» |
+| **API** | `PUT .../data-entry1` (اختیاری)، `POST .../data-entry1/submit` |
+| **بعد** | status **3** — کارت در کانبان کارشناس |
+
+---
+
+### 3 — `ReviewDataEntry1` (3)
+
+| | |
+|--|--|
+| **مسئول** | InvestmentExpert (+ Manager/Admin) |
+| **UI** | خلاصه readonly، `approve-de1` / `revise-de1` |
+| **تأیید** | `POST .../data-entry1/approve` → `{ "internalComment": "..." }` |
+| **اصلاح** | `POST .../data-entry1/revision-request` → `{ "message": "الزامی" }` |
+| **بعد** | تأیید → **4**؛ اصلاح → **2** |
+
+**مدارک:** `version-groups?scope=data-entry` برای داخلی.
+
+---
+
+### 4 — `DataEntry2` (4)
+
+| | |
+|--|--|
+| **مسئول** | Applicant |
+| **UI** | `de2Basis` (متن)، جدول آپلود DE2 (`DATA_ENTRY_2_DOCUMENTS`) |
+| **ذخیره** | `PUT .../data-entry2` → `{ "investmentAttractionBasis": "..." }` |
+| **Submit** | پورتال `de2RequiredDocumentsComplete()` — types **12,13,14,3,15,4,19** |
+| **API Submit** | `POST .../data-entry2/submit` |
+| **بعد** | **5** |
+
+---
+
+### 5 — `ReviewDataEntry2` (5)
+
+مثل مرحله 3 با prefix `de2`: `approve` / `revision-request` → بعد از تأیید **6**.
+
+---
+
+### 6 — `InitialValuation` (6)
+
+| | |
+|--|--|
+| **مسئول** | InvestmentManager |
+| **UI** | `record-valuation` سپس `approve-val-initial` |
+| **ثبت** | `POST .../valuations` → `{ "type": 1, "amount": n, "notes": "..." }` |
+| **تأیید** | `POST .../valuations/initial/approve` → `{ "comment": null }` OK |
+| **بعد** | **7** |
+
+---
+
+### 7 — `SecondaryValuation` (7)
+
+`POST .../valuations` با `"type": 2` → `POST .../valuations/secondary/approve` → **8**.
+
+---
+
+### 8 — `WaitingPreliminaryContract` (8)
+
+| | |
+|--|--|
+| **مسئول** | LegalExpert |
+| **UI** | آپلود فایل — **بدون دکمه submit جدا** |
+| **API** | presign/confirm با `documentType: 7` (PreContract) |
+| **بعد confirm** | معمولاً خودکار **9** |
+
+Legacy: `POST .../contracts/preliminary/upload?s3Key=` اگر فایل از قبل در storage است.
+
+---
+
+### 9 — `WaitingUserReviewPreliminaryContract` (9)
+
+| | |
+|--|--|
+| **مسئول** | Applicant |
+| **UI** | تاریخچه نسخه‌های پیش‌قرارداد (`scope=preliminary`)، تأیید / اصلاح |
+| **تأیید** | `POST .../contracts/preliminary/approve` `{}` |
+| **اصلاح** | `POST .../contracts/preliminary/revision-request` `{ "message" }` → **8** |
+| **نظر** | `POST .../comments` — `phase: 3`, `isInternal: false` |
+| **بعد تأیید** | **10** |
+
+---
+
+### 10 — `ContractDrafting` (10)
+
+Legal: اختیاری `FinalContract (8)` → `POST .../contracts/finalize-draft` → **11**.
+
+---
+
+### 11 — `WaitingContractSignature` (11)
+
+`POST .../contracts/confirm-signature` → **12**.
+
+---
+
+### 12 — `WaitingSignedContractUpload` (12)
+
+آپلود `SignedContract (9)` با presign/confirm → **13**.
+
+---
+
+### 13 — `WaitingFinancialWorksheet` (13)
+
+| | |
+|--|--|
+| **مسئول** | InvestmentExpert |
+| **ذخیره** | `PUT .../financial-worksheet` |
+| **ارسال** | `POST .../financial-worksheet/submit` |
+| **بدنه نمونه** | `{ "bankName", "iban", "approvedAmount", "paymentSchedule", "notes" }` |
+| **بعد** | **14** |
+
+---
+
+### 14 — `FinancialWorksheetReview` (14)
+
+FinancialExpert: `approve` / `revision-request` on worksheet → تأیید **20 (WaitingCeoApproval)**.
+
+---
+
+### 20 — `WaitingCeoApproval` (20)
+
+| | |
+|--|--|
+| **مسئول** | CEO |
+| **Policy** | `InvestmentCases.CeoApprove` |
+| **تأیید** | `POST .../ceo-approval/approve` |
+| **اصلاح** | `POST .../ceo-approval/revision-request` → برگشت به کاربرگ |
+| **داشبورد** | `GET /dashboard/ceo` — `pendingCeoApprovals` |
+| **بعد** | **15** |
+
+---
+
+### 15 — `WaitingPayment` (15)
+
+| | |
+|--|--|
+| **مسئول** | FinancialExpert |
+| **UI** | `renderPaymentsSection` + فرم قسط + confirm/cancel روی هر ردیف |
+| **خواندن** | `GET .../payments` → `payments[]` + `summary` |
+| **ثبت** | `POST .../payments` (بدنه §3) |
+| **تأیید قسط** | `POST .../payments/{paymentId}/confirm` — بدنه خالی |
+| **تکمیل** | وقتی `summary.totalConfirmed >= summary.approvedAmount` → **16** |
+
+**رسید:** آپلود type **10** قبل از submit → `receiptS3Key` در body.
+
+---
+
+### 16 — `Completed` (16)
+
+فقط مشاهده؛ کانبان «اقدام لازم» خالی.
+
+---
+
+### وضعیت‌های پایانی دیگر
+
+| Status | API |
+|--------|-----|
+| 17 Rejected | `POST .../reject` `{ "reason" }` |
+| 18 Cancelled | `POST .../cancel` |
+| 19 Archived | `POST .../archive` |
+
+---
+
+## 8. جدول action پورتال → API
+
+منبع: `portal.js` → `handleAction(action)`
+
+| `data-action` | Method | Path |
+|---------------|--------|------|
+| `save-de1` | PUT | `/cases/{id}/data-entry1` |
+| `submit-de1` | POST | `/cases/{id}/data-entry1/submit` |
+| `approve-de1` | POST | `/cases/{id}/data-entry1/approve` |
+| `revise-de1` | POST | `/cases/{id}/data-entry1/revision-request` |
+| `save-de2` | PUT | `/cases/{id}/data-entry2` |
+| `submit-de2` | POST | `/cases/{id}/data-entry2/submit` |
+| `approve-de2` | POST | `/cases/{id}/data-entry2/approve` |
+| `revise-de2` | POST | `/cases/{id}/data-entry2/revision-request` |
+| `record-valuation` | POST | `/cases/{id}/valuations` |
+| `approve-val-initial` | POST | `/cases/{id}/valuations/initial/approve` |
+| `approve-val-secondary` | POST | `/cases/{id}/valuations/secondary/approve` |
+| `approve-pre-contract` | POST | `/cases/{id}/contracts/preliminary/approve` |
+| `revise-pre-contract` | POST | `/cases/{id}/contracts/preliminary/revision-request` |
+| `finalize-contract` | POST | `/cases/{id}/contracts/finalize-draft` |
+| `confirm-signature` | POST | `/cases/{id}/contracts/confirm-signature` |
+| `save-worksheet` | PUT | `/cases/{id}/financial-worksheet` |
+| `submit-worksheet` | POST | `/cases/{id}/financial-worksheet/submit` |
+| `approve-worksheet` | POST | `/cases/{id}/financial-worksheet/approve` |
+| `revise-worksheet` | POST | `/cases/{id}/financial-worksheet/revision-request` |
+| `approve-ceo` | POST | `/cases/{id}/ceo-approval/approve` |
+| `revise-ceo` | POST | `/cases/{id}/ceo-approval/revision-request` |
+| `record-payment` | POST | `/cases/{id}/payments` |
+| `confirm-payment` | POST | `/cases/{id}/payments/{paymentId}/confirm` |
+| `cancel-payment` | POST | `/cases/{id}/payments/{paymentId}/cancel` |
+| `post-comment` | POST | `/cases/{id}/comments` |
+
+**ایجاد پرونده** (تب Cases، `app.js`): `POST /cases`
+
+---
+
+## 9. مدارک
+
+### الگوی سه‌مرحله‌ای (`uploadDocument` در portal.js)
+
+```text
+1. POST /cases/{id}/documents/presign     ← JWT
+2. PUT  {url}                             ← بدون Authorization
+3. POST /cases/{id}/documents/confirm?s3Key=...  ← JWT، body خالی
+```
+
+**Presign body:**
+
+```json
 {
   "documentType": 1,
-  "fileName": "pitch-deck.pdf",
+  "fileName": "pitch.pdf",
   "mimeType": "application/pdf",
   "fileSize": 1048576
 }
 ```
 
-**Response `data`:**
+### DE1 (متقاضی)
 
-```json
-{
-  "s3Key": "cases/CASE-2026-00042/1/1.pdf",
-  "url": "https://storage.example.com/...",
-  "expiresAtUtc": "2026-05-14T10:15:00Z",
-  "version": 1
-}
+| type | نام | Submit DE1 |
+|-----:|-----|:----------:|
+| 1 | PitchDeck | **بله** |
+| 11 | BusinessPlan | خیر |
+| 99 | Other | خیر |
+
+### DE2 — اجباری (پورتال)
+
+12, 13, 14, 3, 15, 4, 19 — جزئیات برچسب در `workflow-model.js`.
+
+### حقوقی / پرداخت
+
+| type | نام | اثر confirm |
+|-----:|-----|-------------|
+| 7 | PreContract | 8 → 9 |
+| 9 | SignedContract | 12 → 13 |
+| 10 | PaymentReceipt | فقط metadata برای `receiptS3Key` |
+
+### دانلود
+
+- Stream: `GET .../documents/{documentId}/download`
+- Presigned URL: همان مسیر با `?presign=true`
+
+---
+
+## 10. کانبان، داشبورد، استثناها
+
+### کانبان
+
+| بورد | API |
+|------|-----|
+| نیاز به اقدام | `GET /cases/kanban/action-required` |
+| در حال پیگیری | `GET /cases/kanban/watching` |
+
+کلیک کارت → `setCurrentCaseId` + `testpanel:case-changed`.
+
+### داشبورد (`app.js` → `wireDashboard`)
+
+| API | نقش |
+|-----|-----|
+| `GET /dashboard/ceo` | CEO, Admin |
+| `GET /dashboard/board` | CEO, InvestmentManager, Admin |
+
+### جستجو
+
+`GET /cases?caseNumber=&phase=&status=&page=&pageSize=`
+
+---
+
+## 11. جداول مرجع enum
+
+### CaseStatus
+
+| Value | Key | unit (stepper) |
+|------:|-----|----------------|
+| 1 | Draft | applicant |
+| 2 | DataEntry1 | applicant |
+| 3 | ReviewDataEntry1 | investment |
+| 4 | DataEntry2 | applicant |
+| 5 | ReviewDataEntry2 | investment |
+| 6 | InitialValuation | manager |
+| 7 | SecondaryValuation | manager |
+| 8 | WaitingPreliminaryContract | legal |
+| 9 | WaitingUserReviewPreliminaryContract | applicant |
+| 10 | ContractDrafting | legal |
+| 11 | WaitingContractSignature | legal |
+| 12 | WaitingSignedContractUpload | legal |
+| 13 | WaitingFinancialWorksheet | investment |
+| 14 | FinancialWorksheetReview | financial |
+| 20 | WaitingCeoApproval | ceo |
+| 15 | WaitingPayment | financial |
+| 16 | Completed | all |
+| 17–19 | Rejected / Cancelled / Archived | all |
+
+### CasePhase
+
+| Value | عنوان |
+|------:|-------|
+| 1 | درخواست |
+| 2 | ارزش‌گذاری |
+| 3 | حقوقی |
+| 4 | مالی |
+| 5 | اختتام |
+
+### Persona تست (`config.js`)
+
+| key | role | phone (نمونه) |
+|-----|------|----------------|
+| applicant | 1 | 09100000002 |
+| investmentExpert | 10 | 09100000003 |
+| investmentManager | 11 | 09100000004 |
+| legalExpert | 20 | 09100000005 |
+| financialExpert | 30 | 09100000006 |
+| ceo | 12 | 09100000007 |
+| admin | 100 | 09100000001 |
+
+---
+
+## 12. فهرست API
+
+پایه: **`/api/v1/cases`**
+
+| گروه | Endpoints |
+|------|-----------|
+| Kanban | `GET /kanban/action-required`, `/kanban/watching` |
+| Core | `POST /`, `GET /`, `GET /{id}`, `GET /{id}/history` |
+| DE1/DE2 | `PUT|POST .../data-entry1|2` (+ submit, approve, revision-request) |
+| Valuation | `POST .../valuations`, `.../initial/approve`, `.../secondary/approve` |
+| Contracts | preliminary approve/revision, finalize-draft, confirm-signature, legacy upload |
+| Finance | worksheet PUT/submit/approve/revision, ceo-approval, payments |
+| Documents | presign, upload, confirm, list, latest, version-groups, download |
+| Comments | `GET|POST .../comments`, attachments |
+| Evaluations | `GET|POST .../evaluations` |
+| Negative | reject, cancel, archive |
+
+کاربران: `/api/v1/panel/users/*` — OTP، profile، sessions  
+شرکت: `/api/v1/panel/companies/mine`, `POST`, `PUT`
+
+---
+
+## 13. چک‌لیست SPA
+
+1. [ ] `WorkflowModel.normalizeRole` روی claim/login
+2. [ ] صفحه داخلی: کانبان؛ متقاضی: لیست + ایجاد
+3. [ ] Stepper از `getStepperSteps()` — نه hardcode ناقص
+4. [ ] هر فایل: presign → PUT (بدون Bearer) → confirm
+5. [ ] قبل از submit DE1/DE2: `GET documents/latest`
+6. [ ] بعد از POST transition (202): refresh case + kanban event
+7. [ ] قرارداد: بعد از confirm، status را دوباره بخوانید
+8. [ ] پرداخت: `paymentDate` = `YYYY-MM-DD`
+9. [ ] `includeInternal=true` فقط برای نقش داخلی
+10. [ ] 403 → «نقش/session را عوض کنید»
+11. [ ] Admin: همه policyها + `HasPermission` در سرویس
+
+---
+
+# Part II — English
+
+## Table of contents
+
+1. [Frontend essentials](#1-frontend-essentials)
+2. [Reference UI architecture](#2-reference-ui-architecture)
+3. [API setup & envelope](#3-api-setup--envelope)
+4. [Auth, roles, access](#4-auth-roles-access)
+5. [Workflow map](#5-workflow-map)
+6. [End-to-end scenario (portal)](#6-end-to-end-scenario-portal)
+7. [Stage-by-stage: status → UI → API](#7-stage-by-stage-status--ui--api)
+8. [Portal actions → API](#8-portal-actions--api)
+9. [Documents](#9-documents)
+10. [Kanban, dashboards, exceptions](#10-kanban-dashboards-exceptions)
+11. [Reference enums](#11-reference-enums)
+12. [API index](#12-api-index)
+13. [SPA checklist](#13-spa-checklist)
+
+---
+
+## 1. Frontend essentials
+
+### Golden rules
+
+1. Drive UI from **`currentStatus`** (int), not only `currentPhase`.
+2. Build the stepper from `workflow-model.js` → `STEPS` / `getStepperSteps()` (same as the portal).
+3. Enable actions when the JWT role matches the step **unit** (`canActOnCase` / unit tabs).
+4. After every successful **workflow transition** (usually HTTP **202**), reload `GET /cases/{id}` and refresh kanban.
+5. **File upload** is always: `presign` → `PUT` to storage **without Bearer** → `confirm`.
+
+### Base URLs
+
+| Resource | Path |
+|----------|------|
+| Cases | `{baseUrl}/api/v1/cases` |
+| Users / OTP | `{baseUrl}/api/v1/panel/users` |
+| Companies | `{baseUrl}/api/v1/panel/companies` |
+| Dashboard | `{baseUrl}/api/v1/dashboard` |
+| Header | `Authorization: Bearer {accessToken}` |
+
+Local test panel: `Frontend/config.js` → `baseUrl`, `casesVersion: "1"`.
+
+### Key fields on `GET /cases/{id}`
+
+| Field | UI use |
+|-------|--------|
+| `id` | All sub-resource paths |
+| `caseNumber` | Header / kanban card |
+| `currentStatus` | Which stage card & buttons |
+| `currentPhase` | Phase grouping |
+| `dataEntry1` / `dataEntry2` | Forms |
+| `company` | Legal applicant |
+
+---
+
+## 2. Reference UI architecture
+
+This is the **in-repo reference frontend** — production SPA can mirror it.
+
+```text
+index.html
+├── Auth tab       → app.js (OTP, multi-role sessions)
+├── Cases tab      → app.js (create/search, caseId)
+├── Portal tab     → portal.js ★ main stage UI
+├── Kanban tab     → kanban.js
+├── Dashboard tab  → app.js (CEO / Board)
+└── workflow-runner.js → automated E2E
 ```
 
-- URL is valid for **~15 minutes**.
-- Backend pre-computes `s3Key` and `version`; the client must use **exactly** this key at confirm time.
-- **Pattern:** `cases/{caseNumber}/{documentType}/{version}{extension}`
+### `portal.js` state after `refreshCase()`
 
-#### Step 2 — PUT file to storage (browser `fetch`, not `apiRequest`)
+| State | API |
+|-------|-----|
+| `caseData` | `GET /cases/{id}` |
+| `history` | `GET /cases/{id}/history` |
+| `documents` | `GET /cases/{id}/documents` |
+| `documentsLatest` | `GET /cases/{id}/documents/latest` |
+| `documentVersionGroups` | `GET .../version-groups?scope=` |
+| `comments` | `GET /cases/{id}/comments?includeInternal=` |
+| `payments` | `GET /cases/{id}/payments` (internal users; status 15) |
 
-```javascript
-// Reference: Frontend/js/portal.js → uploadDocument()
-const putRes = await fetch(uploadUrl, {
-  method: "PUT",
-  headers: { "Content-Type": mimeType },
-  body: file, // File or Blob from <input type="file">
-});
-if (!putRes.ok) throw new Error("Upload failed: " + putRes.status);
-```
+Event: `testpanel:case-changed` refreshes kanban after transitions.
 
-| Do | Don't |
-|----|--------|
-| Use `fetch` / `XMLHttpRequest` to the presigned `url` | Send `Authorization: Bearer` on the PUT (often breaks signature) |
-| Set `Content-Type` to the same mime you sent to presign | Proxy the file through your API server in production |
-| Upload the raw file body | JSON-encode the file |
+### Unit tabs (`WorkflowModel.UNITS`)
 
-#### Step 3 — Confirm (authenticated API call)
+| unit | Roles |
+|------|-------|
+| applicant | Applicant, Admin |
+| investment | InvestmentExpert, Admin |
+| manager | InvestmentManager, Admin |
+| legal | LegalExpert, LegalManager, LegalUnit, Admin |
+| financial | FinancialExpert, FinancialManager, FinancialUnit, Admin |
+| ceo | CEO, Admin |
 
-```http
-POST /api/v1.0/cases/{caseId}/documents/confirm?s3Key={encodeURIComponent(s3Key)}
-Authorization: Bearer {accessToken}
-```
+`Admin` → `canActOnCase` is always true.
 
-- Body is empty (`json: false` in the test panel).
-- Backend verifies the object exists in storage, creates the `CaseDocument` row, and may **auto-advance workflow** for contract types (see §6.5).
+### `renderStageHost()`
 
-**Portal behavior after confirm:** `refreshCase()` reloads `GET /cases/{id}`, `/documents`, `/documents/latest`, and version groups so the UI shows checkmarks before submit.
+Reads `currentStatus`, builds one **stage card** with `data-action` buttons → `handleAction()` → API → `refreshCase()`.
 
 ---
 
-### 6.2 Reference helper (copy this pattern)
+## 3. API setup & envelope
 
-```javascript
-async function uploadDocument(api, caseId, documentType, file) {
-  const mimeType = file.type || "application/octet-stream";
+Standard wrapper: `success`, `message`, `status`, `data`, `validationErrors`.
 
-  const presign = unwrap(await api.post(`/cases/${caseId}/documents/presign`, {
-    documentType: Number(documentType),
-    fileName: file.name,
-    mimeType,
-    fileSize: file.size,
-  }));
+Portal helper: `unwrap(body).payload`.
 
-  const uploadUrl = presign.url ?? presign.Url;
-  const s3Key = presign.s3Key ?? presign.S3Key;
-  if (!uploadUrl || !s3Key) throw new Error("Presign response missing url or s3Key");
-
-  const putRes = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": mimeType },
-    body: file,
-  });
-  if (!putRes.ok) throw new Error(`Storage PUT failed: ${putRes.status}`);
-
-  await api.post(
-    `/cases/${caseId}/documents/confirm?s3Key=${encodeURIComponent(s3Key)}`,
-    null,
-    { json: false }
-  );
-
-  return s3Key; // keep on input.dataset.s3Key for payments, etc.
-}
-```
-
-**UX recommendation (portal pattern):** trigger upload on `<input type="file" change>` → show “uploading…” → on success mark row ✓ → call `refreshCase()`.
-
----
-
-### 6.3 Which documents, when (aligned with `workflow-model.js`)
-
-#### Data Entry 1 — applicant (`Draft` / `DataEntry1`)
-
-| documentType | Label (FA) | Required for submit |
-|-------------:|--------------|---------------------|
-| 1 | Pitch deck | **Yes** |
-| 11 | Business plan | No |
-| 99 | Other | No |
-
-Backend submit rule: at least one `PitchDeck` (1) must exist.
-
-#### Data Entry 2 — applicant (`DataEntry2`)
-
-| documentType | Label (FA) | Required for submit |
-|-------------:|--------------|---------------------|
-| 12 | Company introduction | **Yes** |
-| 13 | Employee insurance list | **Yes** |
-| 14 | Trial balance scan | **Yes** |
-| 3 | Tax documents | **Yes** |
-| 15 | Activity licenses | **Yes** |
-| 4 | Company registration | **Yes** |
-| 19 | Capital raising plans | **Yes** |
-| 2, 6, 16, 17, 18 | Various optional docs | No |
-
-Portal checks completeness via `documents/latest` before enabling submit (`de2RequiredDocumentsComplete()`).
-
-#### Legal — internal only
-
-| documentType | Status gate | Auto workflow on confirm |
-|-------------:|-------------|---------------------------|
-| 7 `PreContract` | `WaitingPreliminaryContract` (8) | → `WaitingUserReviewPreliminaryContract` |
-| 8 `FinalContract` | `ContractDrafting` / `WaitingContractSignature` | No auto transition |
-| 9 `SignedContract` | `WaitingSignedContractUpload` (12) | → `WaitingFinancialWorksheet` |
-
-Legal uploads use `data-contract-kind="preliminary"` or `"signed"` in the portal (maps to types 7 and 9).
-
-#### Payments — internal
-
-| documentType | Status gate |
-|-------------:|-------------|
-| 10 `PaymentReceipt` | `WaitingPayment` (15) |
-
-Receipt upload uses the same presign flow; `receiptS3Key` is sent in `RecordPaymentRequest`.
-
----
-
-### 6.4 Who may upload what (server validation)
-
-| Actor | Allowed document types | Allowed statuses (summary) |
-|-------|------------------------|----------------------------|
-| Applicant | DE1/DE2 types (not contracts/receipts) | `Draft`, `DataEntry1`, `DataEntry2` (+ confirm during review while upload finishes) |
-| Legal (`cases:manage_contracts`) | 7, 8, 9 | Per contract stage (see §6.3) |
-| Financial (`cases:manage_payments`) | 10 | `WaitingPayment` |
-| Other internal (`cases:upload_documents`) | As permitted by status | Varies |
-
-Applicants receive **403** if they try to presign `PreContract`, `SignedContract`, or `PaymentReceipt`.
-
----
-
-### 6.5 Confirm side effects (workflow)
-
-After `confirm`, the API may call internal transitions **without a separate button**:
-
-| Document type | If status is | Action applied |
-|---------------|--------------|----------------|
-| `PreContract` (7) | `WaitingPreliminaryContract` | `UploadPreliminaryContract` |
-| `SignedContract` (9) | `WaitingSignedContractUpload` | `UploadSignedContract` |
-
-If the case is already past that step, confirm is idempotent (document row only).
-
-**Frontend implication:** after legal uploads, refresh case status — the card may jump to the next stage automatically.
-
----
-
-### 6.6 Reading documents (download & lists)
-
-After any case load, the portal fetches:
-
-| Call | Purpose |
+| HTTP | Meaning |
 |------|---------|
-| `GET /cases/{id}/documents` | Full list |
-| `GET /cases/{id}/documents/latest` | Highest version per type — used for ✓/✗ checklist |
-| `GET /cases/{id}/documents/version-groups?scope={scope}` | Version history UI |
+| 200 | OK read |
+| 201 | Case created |
+| 202 | Workflow transition |
+| 400 | Validation / bad JSON (e.g. invalid `paymentDate`) |
+| 403 | Role / permission |
+| 404 | Case not found |
+| 409 | Wrong status, missing docs, concurrency |
 
-**Version group `scope` query** (see `DocumentVersionScopes`):
+### Common transition bodies
 
-| scope | Includes |
-|-------|----------|
-| `data-entry` | Pitch deck, financials, tax, registration, etc. |
-| `preliminary` | Pre-contract only |
-| `contracts` | Pre-contract, final, signed |
-| omitted / `all` | All types on case |
-
-**Portal scope selection logic** (`refreshCase` in `portal.js`):
-
-- Internal + status `ReviewDataEntry1` or `ReviewDataEntry2` → `data-entry`
-- Applicant + `WaitingUserReviewPreliminaryContract` → `preliminary`
-- Internal + legal statuses 8–12 → `contracts`
-
-#### Download options
-
-| Pattern | When to use | API |
-|---------|-------------|-----|
-| **Stream through API** (portal default) | Same-origin download with JWT | `GET .../documents/{documentId}/download` → binary + `Content-Disposition` |
-| **Presigned URL** | Open in new tab / CDN | `GET .../documents/{documentId}/download?presign=true` → `{ url, expiresAtUtc }` |
-
-```javascript
-// Reference: portal.js → downloadDocument() — authenticated GET, no presign
-const res = await fetch(apiUrl + `/cases/${caseId}/documents/${documentId}/download`, {
-  headers: { Authorization: "Bearer " + token },
-});
-const blob = await res.blob();
-// trigger browser download from blob
+```json
+{ "comment": "optional", "internalComment": "internal only" }
+{ "message": "required for revision-request" }
 ```
 
----
-
-### 6.7 Re-uploads and versioning
-
-- Each presign for the same `documentType` increments **version** (`…/type/2.pdf`, `…/3.pdf`).
-- Submit validators use **latest** document per required type (`documents/latest`).
-- Experts see older versions via `version-groups` (e.g. applicant revised pitch deck after revision request).
-
-**Do not** reuse an old `s3Key` after a failed PUT — always presign again.
-
----
-
-### 6.8 Optional: server-side multipart (not the main product path)
-
-```
-POST /api/v1.0/cases/{caseId}/documents/upload
-Content-Type: multipart/form-data
-  documentType: 1
-  file: (binary)
-```
-
-The API uploads to storage and confirms in one shot. The **production portal does not use this** for case forms; it exists for tooling/tests (`Frontend/app.js` multipart debugger). Prefer presign for scalability and progress UI.
-
-**Legacy contract shortcuts** (only if file already in storage with known key):
-
-- `POST .../contracts/preliminary/upload?s3Key=`
-- `POST .../contracts/signed/upload?s3Key=`
-
-These delegate to `confirm` internally.
-
----
-
-### 6.9 Comment attachments (same storage pattern)
-
-1. Presign + PUT + confirm (or reuse upload helper) to obtain `s3Key`.
-2. `POST /cases/{id}/comments/{commentId}/attachments?s3Key=...&fileName=...`
-
----
-
-### 6.10 Document checklist for frontend QA
-
-- [ ] Presign sends exact `fileSize` and `mimeType` from the selected `File`
-- [ ] PUT uses **no** JWT header
-- [ ] Confirm URL-encodes `s3Key`
-- [ ] After confirm, refresh `documents/latest` before enabling Submit
-- [ ] Legal contract upload refreshes case status (auto-transition)
-- [ ] Applicant cannot presign contract types
-- [ ] Download uses JWT stream OR presign for external viewers
-- [ ] Show version history when `scope` applies (expert review / contract rounds)
-
----
-
-## 7. Kanban (work queue)
-
-The kanban is the **internal/applicant home** for “what needs my attention” vs “what am I tracking”. Implementation: `Frontend/js/kanban.js` + APIs backed by `KanbanAppService` / `CaseKanbanRules`.
-
-### 7.1 Two boards
-
-| Board | Endpoint | Meaning |
-|-------|----------|---------|
-| **Action required** | `GET /api/v1.0/cases/kanban/action-required` | Cases where **your role owns** the current status |
-| **Watching** | `GET /api/v1.0/cases/kanban/watching` | Active cases you don’t own right now but may care about |
-
-Load both in parallel on dashboard mount (see `kanban.js` → `load()`).
-
-**Access:**
-
-- Authenticated users with `cases:read_own` (applicants) or `cases:read_all` (internal).
-- Applicants only see **their** cases; internal users see scoped lists per repository rules.
-
-### 7.2 Card shapes
-
-**Action required — `KanbanCaseCardDto`:**
+### Record payment — `POST /payments`
 
 ```json
 {
-  "id": "guid",
-  "caseNumber": "CASE-2026-00001",
-  "currentPhase": 1,
-  "phaseTitle": "درخواست",
-  "currentStatus": 3,
-  "statusTitle": "بررسی فرم اولیه",
-  "applicantType": 2,
-  "startupTitle": null,
-  "companyName": "Acme Co",
-  "createdAt": "...",
-  "updatedAt": "...",
-  "pendingActionLabel": "بررسی و تأیید/اصلاح فرم اولیه",
-  "allowedActions": ["Approve", "RequestRevision", "Reject"]
+  "amount": 2000000000,
+  "paymentDate": "2026-05-19",
+  "transactionNumber": "TX-001",
+  "method": 1,
+  "status": 1,
+  "notes": null,
+  "receiptS3Key": "cases/.../10/file.pdf"
 }
 ```
 
-**Watching — `KanbanCaseSummaryDto`:** same metadata without `allowedActions` / company fields (lighter).
-
-### 7.3 How “action required” is computed
-
-Backend maps each `CaseStatus` → **owner role** (e.g. `ReviewDataEntry1` → `InvestmentExpert`, `WaitingCeoApproval` → `CEO`).  
-Your JWT roles are collapsed to one **workflow role** via `CaseKanbanRules.ResolveWorkflowRole` (CEO > managers > experts > applicant).
-
-- **Action required** = current status is non-terminal AND your workflow role owns that status.
-- **Managers** mirror experts (Investment Manager sees expert queues, etc.).
-- **Admin** sees all statuses as action-required (broad visibility).
-
-`allowedActions` comes from `CaseStateManager.GetAllowedActions(currentStatus, role)` — use it to render quick-action chips on the card (portal shows up to 6).
-
-`pendingActionLabel` is a Persian UX string (e.g. “در انتظار واحد حقوقی”) — display prominently on the card.
-
-### 7.4 Navigation pattern (portal integration)
-
-```javascript
-// kanban.js — clicking a card:
-panel.setCurrentCaseId(caseId);
-document.dispatchEvent(new CustomEvent("testpanel:case-changed", { detail: { caseId } }));
-// switch to case portal tab → initPortal loads full case + stage UI
-```
-
-**Refresh kanban when:**
-
-- Session changes (login/logout)
-- Case transitions complete (`testpanel:case-changed` event from portal)
-- User clicks refresh (`kanbanRefresh()`)
-
-### 7.5 Applicant vs internal kanban UX
-
-| Role | Action required typical content | Watching typical content |
-|------|--------------------------------|--------------------------|
-| Applicant | Draft, DataEntry1/2, preliminary contract review | Cases waiting on experts/legal/finance |
-| InvestmentExpert | ReviewDataEntry1/2, financial worksheet prep | Valuation, legal, payment stages |
-| InvestmentManager | Initial/secondary valuation | Application reviews, legal |
-| LegalExpert | Contract upload/drafting/signature steps | Application & finance |
-| FinancialExpert | Worksheet review, payments | CEO queue, application |
-| CEO | WaitingCeoApproval | Most other active cases |
-
-### 7.6 Kanban vs case detail page
-
-| Concern | Kanban | Case portal (`portal.js`) |
-|---------|--------|---------------------------|
-| Purpose | Queue / triage | Full stage form + actions |
-| Actions | Display `allowedActions` hints only | Executes POST transitions |
-| Documents | Not listed | Full upload/download |
-| Stepper | No | `WorkflowModel.getStepperSteps()` |
-
-**Recommended flow:** Kanban card click → case detail → perform uploads/transitions → return to kanban (auto-refresh).
+- `paymentDate`: **only** `YYYY-MM-DD` (portal: `buildRecordPaymentPayload()` defaults to today if empty).
+- `method`: 1=BankTransfer, 2=Cheque, 3=Cash, 4=Other.
+- `status`: 1=Pending, 2=Completed, 3=Cancelled, 4=Failed.
 
 ---
 
-## 8. Management dashboards
+## 4. Auth, roles, access
 
-Executive views are **read-only aggregates** for leadership; they do not replace kanban or case detail.
+### Scenario A — Applicant (first time)
 
-**Reference UI:** `Frontend/app.js` → `wireDashboard()`  
-**API:** `DashboardController` + `ExecutiveDashboardService`
+| Step | API |
+|------|-----|
+| OTP send | `POST /panel/users/send-otp` |
+| OTP verify | `POST /panel/users/verify-otp` → token |
+| Company | `GET /panel/companies/mine`, then `POST` if needed |
+| Create case | `POST /cases` `{ "applicantType": 2, "companyId": "guid" }` |
+| Portal | status **1 Draft** |
 
-### 8.1 CEO dashboard
+### Scenario B — Internal user
 
-```http
-GET /api/v1.0/dashboard/ceo
-Authorization: Bearer {token}
-Policy: Dashboard.Ceo (roles: CEO, Admin)
-```
+OTP with persona → `GET /cases/kanban/action-required` → open case in portal.
 
-**`CeoDashboardDto` fields (use camelCase or PascalCase from JSON):**
+Multi-role testing: Auth → Saved Sessions → **Use**.
 
-| Field | Meaning |
-|-------|---------|
-| `totalActiveCases` | Non-terminal cases |
-| `completedCases` | Count in `Completed` |
-| `casesThisMonth` | Created this calendar month |
-| `averageDaysInReview` | Avg review duration metric |
-| `totalRequestedAmount` | Sum of DE1 requested amounts |
-| `approvedPaymentsSum` | Sum of completed payments |
-| `pendingCeoApprovals` | Cases in `WaitingCeoApproval` (20) |
-| `waitingPaymentCount` | Cases in `WaitingPayment` (15) |
-| `rejectedCount` | Rejected cases |
-| `completionRate` | % completed vs total |
-| `activePipelineRequestedAmount` | Requested amount on active pipeline |
-| `pipelineByStatus` | `[{ status, statusTitle, count }]` — funnel chart |
-| `topStatuses` | Subset for highlights |
-| `recentActivity` | `[{ caseId, caseNumber, fromStatus, toStatus, action, createdAt }]` |
+### JWT roles
 
-**Frontend widgets (reference):**
+| Claim | DB role | Portal unit |
+|-------|---------|-------------|
+| Applicant | 1 | applicant |
+| InvestmentExpert | 10 | investment |
+| InvestmentManager | 11 | manager |
+| CEO | 12 | ceo |
+| LegalExpert / LegalManager | 20 / 21 | legal |
+| FinancialExpert / FinancialManager | 30 / 31 | financial |
+| Admin | 100 | all |
 
-- Metric grid (active, completed, CEO pending, payment pending, amounts).
-- Bar chart from `pipelineByStatus` (`renderBarChart` in `app.js`).
-- Recent activity list — link `caseId` to case portal.
+Legacy: `User`→`Applicant`, `LegalUnit`→`LegalExpert`.
 
-### 8.2 Board dashboard
+### API policies
 
-```http
-GET /api/v1.0/dashboard/board
-Policy: Dashboard.Board (CEO, InvestmentManager, Admin)
-```
+| Policy | Who |
+|--------|-----|
+| ApplicantOnly | Applicant + Admin |
+| InternalOnly | All internal + Admin |
+| InvestmentCases.CeoApprove | CEO + Admin |
+| Dashboard.Ceo / Board | As in Program.cs |
 
-**`BoardDashboardDto`:**
-
-| Field | Meaning |
-|-------|---------|
-| `totalCases` | All non-deleted cases |
-| `completionRate` | % completed |
-| `countsByStatus` | Bar chart data |
-| `countsByPhase` | Phase distribution |
-| `monthlyTrend` | `[{ year, month, count }]` — registration trend |
-
-Use for leadership “macro” view; drill-down is still per-case via kanban or search.
-
-### 8.3 Dashboard vs kanban vs portal
-
-```mermaid
-flowchart TB
-    subgraph leadership [Leadership]
-        CEO[CEO Dashboard]
-        Board[Board Dashboard]
-    end
-    subgraph ops [Operations]
-        Kanban[Kanban queues]
-        Portal[Case portal]
-    end
-  CEO -->|pendingCeoApprovals| Kanban
-    Kanban -->|open case| Portal
-    Portal -->|transitions + uploads| API[Core.API]
-```
+**Admin:** `CaseAuthorizationService.HasPermission` always returns true.
 
 ---
 
-## 9. Terminal and exceptional flows
+## 5. Workflow map
 
-### Reject (internal)
+See Mermaid diagram in [Persian section](#5-نقشه-گردش-کار) — same state machine.
 
-- **When:** Most review/valuation/legal/finance steps  
-- **API:** `POST /api/v1.0/cases/{id}/reject` — `{ "reason": "..." }`  
-- **Result:** `Rejected` (17) — terminal
+**Happy path (text):**
 
-### Cancel
-
-- **Who:** Applicant (early stages), financial expert (waiting payment), others per state machine  
-- **API:** `POST /api/v1.0/cases/{id}/cancel` — `{ "reason": "..." }`  
-- **Result:** `Cancelled` (18)
-
-### Archive (admin)
-
-- **API:** `POST /api/v1.0/cases/{id}/archive` — `{ "reason": "..." }`  
-- **Result:** `Archived` (19)
-
-### Comments
-
-| Endpoint | Notes |
-|----------|-------|
-| `GET .../comments?includeInternal=false` | Applicants must use `false` |
-| `POST .../comments` | `{ "phase", "message", "isInternal", "parentId?" }` |
-| `POST .../comments/{commentId}/attachments?s3Key=&fileName=` | After presign upload |
+Applicant create → DE1 + pitch deck → Investment review → DE2 + docs → Investment review → Manager valuations → Legal pre-contract → Applicant approve → Legal finalize/sign/upload → Investment worksheet → Financial review → CEO approve → Financial installments → **Completed**.
 
 ---
 
-## 10. Reference tables
+## 6. End-to-end scenario (portal)
 
-### CaseStatus enum
+| # | Role | Tab | UI | Main APIs |
+|---|------|-----|-----|-----------|
+| 1 | Applicant | Cases | Create case | `POST /cases` |
+| 2 | Applicant | Portal | Draft DE1 + upload type 1 + submit | `PUT .../data-entry1`, presign/confirm, submit |
+| 3 | InvestmentExpert | Kanban | Approve DE1 | `POST .../data-entry1/approve` |
+| 4 | Applicant | Portal | DE2 + required docs + submit | `PUT .../data-entry2`, submit |
+| 5 | InvestmentExpert | Portal | Approve DE2 | approve DE2 |
+| 6 | InvestmentManager | Portal | Valuations 1 & 2 | valuations + approve initial/secondary |
+| 7 | LegalExpert | Portal | Upload PreContract (7) | presign → PUT → confirm |
+| 8 | Applicant | Portal | Approve pre-contract | preliminary/approve |
+| 9 | LegalExpert | Portal | Finalize, signature, signed upload | finalize, confirm-signature, confirm type 9 |
+| 10 | InvestmentExpert | Portal | Worksheet + submit | PUT worksheet, submit |
+| 11 | FinancialExpert | Portal | Approve worksheet | approve |
+| 12 | CEO | Portal/Dashboard | CEO approve | ceo-approval/approve |
+| 13 | FinancialExpert | Portal | Record + confirm payments | POST payments, confirm |
+| 14 | Any | Portal | Completed (read-only) | GET case |
 
-| Value | Name | Owner role (kanban) |
-|------:|------|---------------------|
-| 1 | Draft | Applicant |
-| 2 | DataEntry1 | Applicant |
-| 3 | ReviewDataEntry1 | InvestmentExpert |
-| 4 | DataEntry2 | Applicant |
-| 5 | ReviewDataEntry2 | InvestmentExpert |
-| 6 | InitialValuation | InvestmentManager |
-| 7 | SecondaryValuation | InvestmentManager |
-| 8 | WaitingPreliminaryContract | LegalExpert |
-| 9 | WaitingUserReviewPreliminaryContract | Applicant |
-| 10 | ContractDrafting | LegalExpert |
-| 11 | WaitingContractSignature | LegalExpert |
-| 12 | WaitingSignedContractUpload | LegalExpert |
-| 13 | WaitingFinancialWorksheet | InvestmentExpert |
-| 14 | FinancialWorksheetReview | FinancialExpert |
-| 20 | WaitingCeoApproval | CEO |
-| 15 | WaitingPayment | FinancialExpert |
-| 16 | Completed | — |
-| 17 | Rejected | — |
-| 18 | Cancelled | — |
-| 19 | Archived | — |
-
-### WorkflowAction → typical API mapping
-
-| Action | Value | Example endpoint |
-|--------|------:|------------------|
-| Submit | 1 | `data-entry1/submit`, `data-entry2/submit`, `financial-worksheet/submit` |
-| Approve | 2 | `data-entry1/approve`, `valuations/initial/approve`, `ceo-approval/approve` |
-| RequestRevision | 3 | `*/revision-request` |
-| UploadPreliminaryContract | 4 | Auto via `PreContract` confirm |
-| FinalizeContractDraft | 5 | `contracts/finalize-draft` |
-| ConfirmSignature | 6 | `contracts/confirm-signature` |
-| UploadSignedContract | 7 | Auto via `SignedContract` confirm |
-| SubmitFinancialWorksheet | 8 | `financial-worksheet/submit` |
-| ApproveFinancialWorksheet | 9 | `financial-worksheet/approve` |
-| CompletePayment | 10 | Auto when payments confirmed |
-| Reject | 11 | `reject` |
-| Cancel | 12 | `cancel` |
-| Archive | 13 | `archive` |
-
-### Authorization policies (route level)
-
-| Policy | Roles |
-|--------|-------|
-| `ApplicantOnly` | Applicant, Admin |
-| `InternalOnly` | All expert/manager/CEO/admin internal roles |
-| `InvestmentCases.CeoApprove` | CEO, Admin |
-| `Dashboard.Ceo` | CEO, Admin |
-| `Dashboard.Board` | CEO, InvestmentManager, Admin |
-
-Fine-grained checks use permission strings such as `cases:create`, `cases:read_own`, `cases:manage_valuations`, `cases:manage_contracts`, `cases:manage_financial_worksheet`, `cases:manage_payments`, `cases:ceo_approve`.
+Automation: `workflow-runner.js`.
 
 ---
 
-## 11. Complete API catalog
+## 7. Stage-by-stage: status → UI → API
 
-### Investment cases — `/api/v1.0/cases`
+Mirror of [Persian §7](#7-مرحله‌به‌مرحله-وضعیت--ui--api). Summary table:
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| **Kanban** |
-| GET | `/kanban/action-required` | ✓ | Cases needing current user’s action |
-| GET | `/kanban/watching` | ✓ | Cases user is tracking |
-| **Core** |
-| POST | `/` | Applicant | Create case |
-| GET | `/` | ✓ | Search/list cases |
-| GET | `/{id}` | ✓ | Get case by id |
-| GET | `/{id}/history` | ✓ | Workflow history |
-| **Data entry 1** |
-| PUT | `/{id}/data-entry1` | Applicant | Save DE1 |
-| POST | `/{id}/data-entry1/submit` | Applicant | Submit DE1 / leave Draft |
-| POST | `/{id}/data-entry1/approve` | Internal | Expert approve |
-| POST | `/{id}/data-entry1/revision-request` | Internal | Expert revision |
-| **Data entry 2** |
-| PUT | `/{id}/data-entry2` | Applicant | Save DE2 |
-| POST | `/{id}/data-entry2/submit` | Applicant | Submit DE2 |
-| POST | `/{id}/data-entry2/approve` | Internal | Expert approve |
-| POST | `/{id}/data-entry2/revision-request` | Internal | Expert revision |
-| **Valuation** |
-| POST | `/{id}/valuations` | Internal | Record valuation amount |
-| POST | `/{id}/valuations/initial/approve` | Internal | Manager approve primary |
-| POST | `/{id}/valuations/secondary/approve` | Internal | Manager approve secondary |
-| **Contracts** |
-| POST | `/{id}/contracts/preliminary/upload` | Internal | Legacy: confirm pre-contract by s3Key |
-| POST | `/{id}/contracts/preliminary/approve` | Applicant | Applicant accepts pre-contract |
-| POST | `/{id}/contracts/preliminary/revision-request` | Applicant | Applicant sends back |
-| POST | `/{id}/contracts/finalize-draft` | Internal | Legal finalize draft |
-| POST | `/{id}/contracts/confirm-signature` | Internal | Legal confirms signature step |
-| POST | `/{id}/contracts/signed/upload` | Internal | Legacy: confirm signed contract |
-| **Finance** |
-| PUT | `/{id}/financial-worksheet` | Internal | Upsert worksheet |
-| POST | `/{id}/financial-worksheet/submit` | Internal | Submit for finance review |
-| POST | `/{id}/financial-worksheet/approve` | Internal | Finance approve → CEO |
-| POST | `/{id}/financial-worksheet/revision-request` | Internal | Finance revision |
-| POST | `/{id}/ceo-approval/approve` | CEO policy | CEO approve → payment |
-| POST | `/{id}/ceo-approval/revision-request` | CEO policy | CEO send back to worksheet |
-| GET | `/{id}/payments` | Internal | List payments + summary |
-| POST | `/{id}/payments` | Internal | Record payment |
-| POST | `/{id}/payments/{paymentId}/confirm` | Internal | Confirm payment |
-| POST | `/{id}/payments/{paymentId}/cancel` | Internal | Cancel payment |
-| **Terminal** |
-| POST | `/{id}/reject` | Internal | Reject case |
-| POST | `/{id}/cancel` | ✓ | Cancel case |
-| POST | `/{id}/archive` | ✓ | Archive (admin) |
-| **Documents** |
-| POST | `/{id}/documents/presign` | ✓ | Get upload URL |
-| POST | `/{id}/documents/upload` | ✓ | Multipart direct upload |
-| POST | `/{id}/documents/confirm` | ✓ | Register uploaded file |
-| GET | `/{id}/documents` | ✓ | List documents |
-| GET | `/{id}/documents/latest` | ✓ | Latest per type |
-| GET | `/{id}/documents/version-groups` | ✓ | Version groups |
-| GET | `/{id}/documents/types/{documentType}/versions` | ✓ | Versions for type |
-| GET | `/{id}/documents/{documentId}/download` | ✓ | Download / presign |
-| **Evaluations & comments** |
-| POST | `/{id}/evaluations` | Internal | Upsert evaluation |
-| GET | `/{id}/evaluations` | ✓ | List evaluations |
-| GET | `/{id}/comments` | ✓ | List comments |
-| POST | `/{id}/comments` | ✓ | Add comment |
-| POST | `/{id}/comments/{commentId}/attachments` | ✓ | Attach file to comment |
+| Status | Value | Owner | Primary APIs |
+|--------|------:|-------|----------------|
+| Draft | 1 | Applicant | PUT/POST data-entry1 |
+| DataEntry1 | 2 | Applicant | PUT DE1, submit (needs PitchDeck) |
+| ReviewDataEntry1 | 3 | InvestmentExpert | approve / revision-request DE1 |
+| DataEntry2 | 4 | Applicant | PUT DE2, submit (required doc types) |
+| ReviewDataEntry2 | 5 | InvestmentExpert | approve / revision DE2 |
+| InitialValuation | 6 | InvestmentManager | POST valuations type=1, initial approve |
+| SecondaryValuation | 7 | InvestmentManager | valuations type=2, secondary approve |
+| WaitingPreliminaryContract | 8 | LegalExpert | confirm doc type 7 |
+| WaitingUserReviewPreliminaryContract | 9 | Applicant | preliminary approve / revision |
+| ContractDrafting | 10 | LegalExpert | finalize-draft |
+| WaitingContractSignature | 11 | LegalExpert | confirm-signature |
+| WaitingSignedContractUpload | 12 | LegalExpert | confirm doc type 9 |
+| WaitingFinancialWorksheet | 13 | InvestmentExpert | PUT worksheet, submit |
+| FinancialWorksheetReview | 14 | FinancialExpert | worksheet approve / revision |
+| WaitingCeoApproval | 20 | CEO | ceo-approval approve |
+| WaitingPayment | 15 | FinancialExpert | GET/POST payments, confirm |
+| Completed | 16 | — | read-only |
 
-### Users — `/api/v1.0/panel/users`
-
-| Method | Path | Auth |
-|--------|------|------|
-| POST | `/send-otp` | Anonymous |
-| POST | `/verify-otp` | Anonymous |
-| POST | `/refresh-token` | Anonymous |
-| POST | `/logout` | ✓ |
-| GET | `/profile` | ✓ |
-| GET | `/sessions` | ✓ |
-| POST | `/sessions/revoke` | ✓ |
-| POST | `/sessions/revoke-all` | ✓ |
-| GET | `/{id}` | ✓ |
-| GET | `/` | ✓ |
-| POST | `/` | Anonymous (register) |
-| PUT | `/{id}` | ✓ |
-| DELETE | `/{id}` | ✓ |
-
-### Companies — `/api/v1.0/panel/companies`
-
-| Method | Path |
-|--------|------|
-| GET | `/mine` |
-| POST | `/` |
-| PUT | `/{id}` |
-
-### Dashboard — `/api/v1.0/dashboard`
-
-| Method | Path | Policy |
-|--------|------|--------|
-| GET | `/ceo` | Dashboard.Ceo |
-| GET | `/board` | Dashboard.Board |
+**Payment completion:** when `summary.totalConfirmed >= summary.approvedAmount` → status 16.
 
 ---
 
-## 12. Reference frontend implementation
+## 8. Portal actions → API
 
-The repository includes a working **test panel** under `Frontend/` that mirrors the intended production integration:
+Same table as [Persian §8](#8-جدول-action-پورتال--api): `save-de1`, `submit-de1`, … `record-payment`, `confirm-payment`, `post-comment`, etc.
 
-| Module | File | Use it to understand |
-|--------|------|----------------------|
-| Upload pipeline | `js/portal.js` | `uploadDocument`, `handleUpload`, contract uploads |
-| Stage definitions | `js/workflow-model.js` | Status stepper, document matrices, role units |
-| Kanban | `js/kanban.js` | Dual boards, card click → portal |
-| Dashboards | `app.js` | CEO/board metrics rendering |
-| E2E runner | `workflow-runner.js` | Full lifecycle including uploads |
-| API debugger | `app.js` | Raw presign/PUT/confirm steps |
-
-**Shared panel API wrapper** (`app.js`): `apiRequest()` adds JWT; storage PUT always uses separate `fetch()`.
-
-When building the real SPA (React/Vue/etc.), port these behaviors—not the HTML layout:
-
-1. Presign → PUT → confirm for every file.
-2. `refreshCase()` aggregate loads (case + documents/latest + scoped version-groups).
-3. Kanban refresh on `case-changed`.
-4. Role-normalization consistent with `WorkflowModel.normalizeRole()`.
+Case creation from **Cases** tab: `POST /cases` (not a portal action).
 
 ---
 
-## Frontend implementation checklist
+## 9. Documents
 
-1. **After login**, load profile + role; route applicants vs internal (kanban + portal vs dashboards).
-2. **On case page**, `GET /cases/{id}` and branch UI on `currentStatus` (not phase alone).
-3. **Kanban first** for internal users; open case portal from card click.
-4. **Documents:** implement `uploadDocument()` exactly as §6 — never post file bytes to Core.API in production.
-5. **Before submit**, gate on `documents/latest` + form fields (mirror `portal.js` validators).
-6. **After every transition**, refresh case + kanban; expect **202** on workflow POSTs.
-7. **Legal contracts:** expect status jump after `confirm` without extra POST.
-8. **Payments:** upload receipt (type 10) via same presign flow; pass `receiptS3Key` to `RecordPayment`.
-9. **CEO/Board:** load dashboards only for authorized roles; link metrics to filtered case lists where useful.
-10. **Idempotency:** send stable `X-Correlation-Id` on transitions when retrying.
+Three-step upload (see Persian §9):
+
+1. `POST .../documents/presign`
+2. `PUT` presigned URL (no JWT)
+3. `POST .../documents/confirm?s3Key=`
+
+**DE1:** type 1 required for submit.  
+**DE2:** types 12, 13, 14, 3, 15, 4, 19 required (labels in `workflow-model.js`).  
+**Legal:** 7, 9 — workflow advances on confirm.  
+**Payment receipt:** type 10 for `receiptS3Key`.
+
+Download: `GET .../documents/{id}/download` or `?presign=true`.
 
 ---
 
-*Generated from Financial-Core source (Core.API v1.0) and `Frontend/` reference panel. When backend enums or transitions change, sync with `CaseStateManager`, `InvestmentCasesController`, and `workflow-model.js`.*
+## 10. Kanban, dashboards, exceptions
+
+| Board | API |
+|-------|-----|
+| Action required | `GET /cases/kanban/action-required` |
+| Watching | `GET /cases/kanban/watching` |
+
+Dashboards: `GET /dashboard/ceo`, `GET /dashboard/board`.
+
+Search: `GET /cases?...`
+
+Reject / cancel / archive: `POST .../reject|cancel|archive`.
+
+---
+
+## 11. Reference enums
+
+Same numeric tables as [Persian §11](#11-جداول-مرجع-enum) for `CaseStatus`, `CasePhase`, test personas.
+
+**DocumentType (common):**
+
+| Value | Name |
+|------:|------|
+| 1 | PitchDeck |
+| 7 | PreContract |
+| 9 | SignedContract |
+| 10 | PaymentReceipt |
+| 11 | BusinessPlan |
+| 12–19 | DE2 bundle (see workflow-model) |
+| 99 | Other |
+
+---
+
+## 12. API index
+
+Base **`/api/v1/cases`**: kanban, CRUD, data-entry, valuations, contracts, financial worksheet, CEO, payments, documents, comments, evaluations, reject/cancel/archive.
+
+Users: `/api/v1/panel/users/*`  
+Companies: `/api/v1/panel/companies/*`  
+Dashboard: `/api/v1/dashboard/ceo|board`
+
+Full route list matches `InvestmentCasesController.cs`.
+
+---
+
+## 13. SPA checklist
+
+1. Normalize roles via `WorkflowModel.normalizeRole`
+2. Internal home → kanban; applicant → list + create
+3. Stepper from `getStepperSteps()`
+4. presign → PUT (no Bearer) → confirm
+5. Before DE1/DE2 submit: `documents/latest`
+6. After 202 transitions: refresh case + kanban
+7. Re-read status after contract document confirm
+8. Payment date: `YYYY-MM-DD`
+9. `includeInternal` only for internal roles
+10. Handle 403 with role/session switch hint
+11. Admin bypass in policies + `HasPermission`
+
+---
+

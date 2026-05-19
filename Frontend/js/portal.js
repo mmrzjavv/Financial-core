@@ -103,6 +103,53 @@
     return Number.isFinite(value) ? value : 0;
   }
 
+  function todayIsoDate() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    return yyyy + "-" + mm + "-" + dd;
+  }
+
+  /** API expects yyyy-MM-dd for DateOnly (HTML date input or fallback to today). */
+  function readPaymentDateIso(id) {
+    const raw = readValue(id);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    if (raw) throw new Error("تاریخ پرداخت باید به صورت YYYY-MM-DD باشد (از تقویم فیلد انتخاب کنید).");
+    return todayIsoDate();
+  }
+
+  function buildRecordPaymentPayload() {
+    const amount = readNumber("payAmount");
+    if (!(amount > 0)) throw new Error("مبلغ قسط باید بزرگ‌تر از صفر باشد.");
+
+    const transactionNumber = readValue("payTxn");
+    if (!transactionNumber) throw new Error("شماره تراکنش الزامی است.");
+
+    const method = readNumber("payMethod");
+    if (!(method >= 1 && method <= 4)) throw new Error("روش پرداخت نامعتبر است (۱ انتقال، ۲ چک، ۳ نقد، ۴ سایر).");
+
+    const status = readNumber("payStatus");
+    if (!(status >= 1 && status <= 4)) throw new Error("وضعیت پرداخت نامعتبر است (۱ در انتظار، ۲ تأییدشده، …).");
+
+    const receiptInput = qs('input[data-upload-type="10"]');
+    const receiptDoc = documentForType(10);
+    const receiptS3Key =
+      (receiptInput && receiptInput.dataset.s3Key) ||
+      (receiptDoc && (receiptDoc.s3Key || receiptDoc.S3Key)) ||
+      null;
+
+    return {
+      amount,
+      paymentDate: readPaymentDateIso("payDate"),
+      transactionNumber,
+      method,
+      status,
+      notes: null,
+      receiptS3Key,
+    };
+  }
+
   function readChecked(id) {
     const node = qs("#" + id);
     return !!(node && node.checked);
@@ -1289,9 +1336,9 @@
       renderPaymentsSection(card);
       card.appendChild(el("motion", "card__title", "ثبت قسط جدید"));
       card.appendChild(field("مبلغ این قسط", "payAmount", "number"));
-      card.appendChild(field("تاریخ پرداخت", "payDate", "date"));
+      card.appendChild(field("تاریخ پرداخت", "payDate", "date", todayIsoDate()));
       card.appendChild(field("شماره تراکنش (یکتا)", "payTxn", "text"));
-      card.appendChild(field("روش (1 نقد / 2 انتقال / 3 چک / 4 سایر)", "payMethod", "number", "2"));
+      card.appendChild(field("روش (1 انتقال / 2 چک / 3 نقد / 4 سایر)", "payMethod", "number", "1"));
       card.appendChild(field("وضعیت (1 در انتظار / 2 تأییدشده)", "payStatus", "number", "1"));
       const receiptDoc = documentForType(10);
       appendFileUploadRow(card, {
@@ -1576,24 +1623,10 @@
         body: { message },
       });
     } else if (action === "record-payment") {
-      const receiptInput = qs('input[data-upload-type="10"]');
-      const receiptDoc = documentForType(10);
-      const receiptS3Key =
-        (receiptInput && receiptInput.dataset.s3Key) ||
-        (receiptDoc && (receiptDoc.s3Key || receiptDoc.S3Key)) ||
-        null;
       await state.panel.apiRequest({
         method: "POST",
         path: casesPath("/" + caseId + "/payments"),
-        body: {
-          amount: readNumber("payAmount"),
-          paymentDate: readValue("payDate"),
-          transactionNumber: readValue("payTxn"),
-          method: readNumber("payMethod"),
-          status: readNumber("payStatus"),
-          notes: null,
-          receiptS3Key,
-        },
+        body: buildRecordPaymentPayload(),
       });
     } else if (action === "confirm-payment") {
       const paymentId = trigger.dataset.paymentId || readValue("payId");

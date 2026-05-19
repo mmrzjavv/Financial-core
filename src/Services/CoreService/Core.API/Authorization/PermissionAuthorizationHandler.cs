@@ -41,6 +41,12 @@ public sealed class PermissionAuthorizationHandler(IIdentityClient identityClien
         if (roles.Count == 0)
             return false;
 
+        if (roles.Contains(UserRoleClaims.Admin))
+        {
+            context.Succeed(requirement);
+            return true;
+        }
+
         if (string.Equals(requirement.Permission, Permissions.InvestmentCases_CeoApprove, StringComparison.OrdinalIgnoreCase))
         {
             if (roles.Contains(UserRoleClaims.Ceo) || roles.Contains("CEO") || roles.Contains(UserRoleClaims.Admin))

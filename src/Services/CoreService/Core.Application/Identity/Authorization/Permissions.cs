@@ -32,6 +32,30 @@ public static class Permissions
 
 public static class RolePermissions
 {
+    /// <summary>Every API permission string — assigned to <see cref="UserRoleClaims.Admin"/>.</summary>
+    public static readonly IReadOnlyCollection<string> AllPermissions =
+    [
+        Permissions.Users_Read,
+        Permissions.Users_Write,
+        Permissions.Users_Delete,
+        Permissions.Users_ManageRoles,
+        Permissions.Companies_Read,
+        Permissions.Companies_Write,
+        Permissions.Companies_Delete,
+        Permissions.Sessions_Read,
+        Permissions.Sessions_Write,
+        Permissions.Sessions_Revoke,
+        Permissions.Otp_Send,
+        Permissions.Otp_Verify,
+        Permissions.Admin_FullAccess,
+        Permissions.InvestmentCases_Read,
+        Permissions.InvestmentCases_Write,
+        Permissions.InvestmentCases_Review,
+        Permissions.InvestmentCases_FinanceReview,
+        Permissions.InvestmentCases_LegalReview,
+        Permissions.InvestmentCases_CeoApprove
+    ];
+
     private static readonly string[] LegalUnitPermissions =
     [
         Permissions.Users_Read,
@@ -64,22 +88,7 @@ public static class RolePermissions
     public static readonly IReadOnlyDictionary<string, IReadOnlyCollection<string>> RolePermissionMappings =
         new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase)
         {
-            [UserRoleClaims.Admin] =
-            [
-                Permissions.Users_Read,
-                Permissions.Users_Write,
-                Permissions.Users_Delete,
-                Permissions.Users_ManageRoles,
-                Permissions.Companies_Read,
-                Permissions.Companies_Write,
-                Permissions.Companies_Delete,
-                Permissions.Sessions_Read,
-                Permissions.Sessions_Write,
-                Permissions.Sessions_Revoke,
-                Permissions.Otp_Send,
-                Permissions.Otp_Verify,
-                Permissions.Admin_FullAccess
-            ],
+            [UserRoleClaims.Admin] = AllPermissions,
             [UserRoleClaims.Applicant] =
             [
                 Permissions.Users_Read,

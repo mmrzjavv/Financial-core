@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Core.API.Controllers;
 
+/// <summary>Panel users — OTP login, JWT sessions, and profile.</summary>
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/panel/users")]
 public sealed class UserController(IUserService userService) : ApiControllerBase
