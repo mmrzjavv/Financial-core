@@ -33,7 +33,7 @@ If you don’t have Python, use any static file server you already have (IIS, ng
 Top bar → **Edit**:
 
 - **API Gateway Base URL**: default `http://localhost:5141`
-- **Cases API version segment**: default `1` (routes are `/api/v{version}/cases`)
+- **Cases API version segment**: default `1` (routes are `/api/v{version}/investmentcases`)
 
 Config is stored in `localStorage`.
 
@@ -42,16 +42,16 @@ Config is stored in `localStorage`.
 This panel wires to the existing gateway/service endpoints and supports:
 
 - **Auth**
-  - Send OTP: `POST /api/v1/panel/users/send-otp`
-  - Verify OTP: `POST /api/v1/panel/users/verify-otp`
-  - Refresh token: `POST /api/v1/panel/users/refresh-token`
+  - Send OTP: `POST /api/v1/identity/users/send-otp`
+  - Verify OTP: `POST /api/v1/identity/users/verify-otp`
+  - Refresh token: `POST /api/v1/identity/users/refresh-token`
   - Logout + sessions + profile
 - **Users**
-  - Create user: `POST /api/v1/panel/users`
-  - Update user (role/active): `PUT /api/v1/panel/users/{id}`
+  - Create user: `POST /api/v1/identity/users`
+  - Update user (role/active): `PUT /api/v1/identity/users/{id}`
   - Get/list users
 - **Investment cases**
-  - Create / get / search / history: `/api/v{v}/cases...`
+  - Create / get / search / history: `/api/v{v}/investmentcases...`
   - DataEntry1 / DataEntry2: update, submit, approve, revision-request
   - Valuation: record + initial/secondary approvals
   - Contracts: preliminary upload, applicant approve/revision, finalize draft, confirm signature, signed upload

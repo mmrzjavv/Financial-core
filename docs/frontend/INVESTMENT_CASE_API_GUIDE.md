@@ -18,7 +18,7 @@
 1. [خلاصه برای فرانت](#1-خلاصه-برای-فرانت)
 2. [معماری UI مرجع (همان چیزی که الان داریم)](#2-معماری-ui-مرجع)
 3. [تنظیمات API و envelope](#3-تنظیمات-api-و-envelope)
-4. [ورود، نقش‌ها، دسترسی](#4-ورود-نقش‌ها-دسترسی)
+4. [ورود، نقش‌ها، دسترسی](#4-ورود-نقش‌ها-دسترسی) (شامل Identity، نشست، Admin kick)
 5. [نقشه گردش کار (وضعیت‌ها)](#5-نقشه-گردش-کار)
 6. [سناریوی end-to-end (با پورتال)](#6-سناریوی-end-to-end)
 7. [مرحله‌به‌مرحله: وضعیت → UI → API](#7-مرحله‌به‌مرحله-وضعیت--ui--api)
@@ -38,22 +38,22 @@
 1. **وضعیت پرونده** را از `currentStatus` (عدد) بخوانید — نه فقط `currentPhase`.
 2. **UI مرحله** را از `workflow-model.js` → `STEPS` / `getStepperSteps()` بسازید (همان stepper پورتال).
 3. **دکمه‌های اقدام** فقط وقتی نقش JWT با «واحد» آن مرحله جور باشد فعال شوند (`canActOnCase` / فیلتر تب واحد).
-4. بعد از هر **transition موفق** (معمولاً HTTP **202**): دوباره `GET /cases/{id}` + کانبان را رفرش کنید.
+4. بعد از هر **transition موفق** (معمولاً HTTP **202**): دوباره `GET /investmentcases/{id}` + کانبان را رفرش کنید.
 5. **آپلود فایل** همیشه: `presign` → `PUT` به S3 **بدون Bearer** → `confirm`.
 
 ### پایه URL
 
 | مورد | مقدار |
 |------|--------|
-| پرونده | `{baseUrl}/api/v1/cases` |
-| کاربر / OTP | `{baseUrl}/api/v1/panel/users` |
-| شرکت | `{baseUrl}/api/v1/panel/companies` |
+| پرونده | `{baseUrl}/api/v1/investmentcases` |
+| کاربر / OTP | `{baseUrl}/api/v1/identity/users` |
+| شرکت | `{baseUrl}/api/v1/identity/companies` |
 | داشبورد | `{baseUrl}/api/v1/dashboard` |
 | هدر | `Authorization: Bearer {accessToken}` |
 
 تست محلی: `Frontend/config.js` → `baseUrl` (پیش‌فرض `http://localhost:5081`)، `casesVersion: "1"`.
 
-### فیلدهای کلیدی `GET /cases/{id}`
+### فیلدهای کلیدی `GET /investmentcases/{id}`
 
 | فیلد | کاربرد UI |
 |------|-----------|
@@ -66,31 +66,20 @@
 
 ---
 
-## 2. معماری UI مرجع
 
-این همان فرانتی است که الان در repo دارید — SPA تولیدی می‌تواند همین الگو را کپی کند.
-
-```text
-index.html
-├── تب Auth          → app.js (OTP، sessions چندنقشی)
-├── تب Cases         → app.js (ایجاد/جستجوی پرونده، caseId)
-├── تب Portal        → portal.js ★ UI اصلی مرحله‌ای
-├── تب Kanban        → kanban.js (action-required / watching)
-├── تب Dashboard     → app.js (CEO / Board)
-└── workflow-runner.js → E2E خودکار کل مسیر
 ```
 
-### `portal.js` — state بعد از `refreshCase()`
+
 
 | state | منبع API |
 |-------|----------|
-| `caseData` | `GET /cases/{id}` |
-| `history` | `GET /cases/{id}/history` |
-| `documents` | `GET /cases/{id}/documents` |
-| `documentsLatest` | `GET /cases/{id}/documents/latest` ← چک‌لیست قبل از Submit |
+| `caseData` | `GET /investmentcases/{id}` |
+| `history` | `GET /investmentcases/{id}/history` |
+| `documents` | `GET /investmentcases/{id}/documents` |
+| `documentsLatest` | `GET /investmentcases/{id}/documents/latest` ← چک‌لیست قبل از Submit |
 | `documentVersionGroups` | `GET .../version-groups?scope=` (بسته به status/نقش) |
-| `comments` | `GET /cases/{id}/comments?includeInternal=true|false` |
-| `payments` / `paymentsSummary` | `GET /cases/{id}/payments` (فقط کاربر داخلی؛ عملاً status 15) |
+| `comments` | `GET /investmentcases/{id}/comments?includeInternal=true|false` |
+| `payments` / `paymentsSummary` | `GET /investmentcases/{id}/payments` (فقط کاربر داخلی؛ عملاً status 15) |
 
 **رویداد:** بعد از transition، `document.dispatchEvent(new CustomEvent("testpanel:case-changed"))` → کانبان رفرش.
 
@@ -179,10 +168,10 @@ index.html
 
 | گام | کاربر | API |
 |-----|--------|-----|
-| 1 | شماره موبایل | `POST /panel/users/send-otp` `{ "phoneNumber": "09..." }` |
-| 2 | کد OTP | `POST /panel/users/verify-otp` → `accessToken` |
-| 3 | شرکت | `GET /panel/companies/mine` سپس در صورت نیاز `POST /panel/companies` |
-| 4 | پرونده جدید | `POST /cases` `{ "applicantType": 2, "companyId": "guid" }` |
+| 1 | شماره موبایل | `POST /identity/users/send-otp` `{ "phoneNumber": "09..." }` |
+| 2 | کد OTP | `POST /identity/users/verify-otp` → `accessToken` |
+| 3 | شرکت | `GET /identity/companies/mine` سپس در صورت نیاز `POST /identity/companies` |
+| 4 | پرونده جدید | `POST /investmentcases` `{ "applicantType": 2, "companyId": "guid" }` |
 | 5 | پورتال | `setCurrentCaseId(id)` → تب Portal → status **1 Draft** |
 
 ### سناریو B — کارشناس / مدیر / حقوقی / مالی / CEO
@@ -190,7 +179,7 @@ index.html
 | گام | API / UI |
 |-----|----------|
 | 1 | OTP با persona در `config.js` (`workflowPersonas`) |
-| 2 | `GET /cases/kanban/action-required` |
+| 2 | `GET /investmentcases/kanban/action-required` |
 | 3 | کلیک کارت → همان `caseId` در پورتال |
 
 **چند نقش در تست:** Auth → Saved Sessions → **Use** (`app.js`).
@@ -218,6 +207,118 @@ index.html
 | `InvestmentCases.CeoApprove` | CEO + Admin |
 | `Dashboard.Ceo` | CEO + Admin |
 | `Dashboard.Board` | CEO + InvestmentManager + Admin |
+| `AdminOnly` | فقط `Admin` |
+
+### Identity — OTP، نشست، کاربر، شرکت
+
+پایه: **`{baseUrl}/api/v1/identity`**. کنترلرها: `UserController`, `CompaniesController`.
+
+#### چند نشست همزمان
+
+- هر بار **`POST /identity/users/verify-otp`** موفق = یک **نشست جدید** (`SessionId` جدید در JWT claim `sid` + ردیف در `UserSessions`).
+- کاربر می‌تواند روی چند دستگاه/مرورگر هم‌زمان لاگین باشد.
+- **حداکثر نشست فعال:** از تنظیم سرور `Session:MaxActiveSessions` (پیش‌فرض **۳** در `appsettings.json`). اگر با login چهارم از حد بگذرد، **قدیمی‌ترین** نشست (کم‌فعال‌ترین `LastActivityAt`) خودکار قطع می‌شود (`session_limit_exceeded`).
+- فرانت باید بعد از **403/401** روی API محافظت‌شده، کاربر را به OTP هدایت کند (نشست revoke شده یا token منقضی).
+
+#### Claimهای JWT (پس از `verify-otp` / `refresh-token`)
+
+| Claim | معنی |
+|-------|------|
+| `nameid` | `User.Id` |
+| `unique_name` / name | معمولاً شماره موبایل |
+| `role` | یک نقش: `Applicant`, `InvestmentExpert`, `CEO`, `Admin`, … |
+| `sid` | `SessionId` (Guid) — برای logout و revoke |
+| `userData` | JSON اطلاعات تکمیلی (نام، …) |
+
+هدر درخواست‌های بعدی: `Authorization: Bearer {accessToken}`.
+
+#### پاسخ ورود (`LoginDto` در `data`)
+
+```json
+{
+  "tokenModel": {
+    "accessToken": "...",
+    "accessTokenExpiration": "2026-05-20T12:00:00Z",
+    "refreshToken": "...",
+    "refreshTokenExpiration": "2026-06-03T12:00:00Z"
+  },
+  "user": {
+    "id": "guid",
+    "phoneNumber": "09...",
+    "role": "Applicant",
+    "roleNumber": 1,
+    "isActive": true
+  }
+}
+```
+
+#### API — OTP و توکن (بدون ورود)
+
+| متد | مسیر | Body | پاسخ `data` |
+|-----|------|------|-------------|
+| `POST` | `/identity/users/send-otp` | `{ "phoneNumber": "09..." }` | — (پیام موفق) |
+| `POST` | `/identity/users/verify-otp` | `{ "phoneNumber", "otpCode" }` | `LoginDto` |
+| `POST` | `/identity/users/refresh-token` | `{ "refreshToken" }` + هدر **`Authorization: Bearer {accessToken}`** (حتی منقضی) | `LoginDto` |
+| `POST` | `/identity/users` | `CreateUserDto` (ثبت‌نام) | `UserDto` |
+
+#### API — نشست و پروفایل (کاربر لاگین‌شده)
+
+| متد | مسیر | کار |
+|-----|------|-----|
+| `POST` | `/identity/users/logout` | خروج از **نشست فعلی** (همان `sid` در JWT) |
+| `GET` | `/identity/users/sessions` | لیست نشست‌های **فعال خودم** → آرایه `SessionDto` |
+| `POST` | `/identity/users/sessions/revoke` | قطع یک نشست خودم: `{ "sessionId": "guid" }` |
+| `POST` | `/identity/users/sessions/revoke-all` | قطع **همه** نشست‌های خودم |
+| `GET` | `/identity/users/profile` | پروفایل کاربر جاری |
+| `GET` | `/identity/users/{id}` | جزئیات یک کاربر (با JWT) |
+| `GET` | `/identity/users?take=&skip=` | صفحه‌بندی کاربران |
+| `PUT` | `/identity/users/{id}` | به‌روزرسانی — تغییر `role` فقط **Admin** |
+| `DELETE` | `/identity/users/{id}` | حذف کاربر |
+
+**`SessionDto` (هر آیتم در لیست نشست):**
+
+| فیلد | توضیح |
+|------|--------|
+| `sessionId` | شناسه نشست — برای revoke |
+| `userId` | مالک نشست |
+| `deviceId`, `userAgent`, `ipAddress` | متادیتای دستگاه |
+| `createdAt`, `lastActivityAt` | زمان‌ها |
+| `isActive` | `revokedAt == null` |
+
+#### API — مدیریت نشست توسط Admin (`AdminOnly`)
+
+فقط JWT با نقش **`Admin`**.
+
+| متد | مسیر | کار |
+|-----|------|-----|
+| `GET` | `/identity/users/{userId}/sessions` | لیست نشست‌های فعال **آن کاربر** |
+| `POST` | `/identity/users/{userId}/sessions/revoke-all` | **بیرون انداختن کامل** — قطع همه نشست‌ها + refresh tokenهای مرتبط + کش Redis |
+| `POST` | `/identity/users/{userId}/sessions/revoke` | قطع یک نشست: `{ "sessionId": "guid" }` |
+
+پیام موفق revoke-all ادمین: `نشست‌های کاربر توسط مدیر قطع شد.`
+
+**رفتار فرانت پس از kick ادمین:** کاربر هدف در دستگاه‌هایش با refresh بعدی یا درخواست API → **401/403**؛ باید دوباره OTP بزند.
+
+#### API — شرکت متقاضی (`/identity/companies`)
+
+همه endpointها **`[Authorize]`** (هر نقش لاگین‌شده).
+
+| متد | مسیر | کار |
+|-----|------|-----|
+| `GET` | `/identity/companies/mine` | شرکت‌های متعلق به کاربر جاری |
+| `POST` | `/identity/companies` | ایجاد شرکت (`SaveCompanyRequest`) |
+| `PUT` | `/identity/companies/{id}` | ویرایش شرکت |
+
+قبل از `POST /investmentcases` برای متقاضی حقوقی معمولاً `companyId` از همین API لازم است.
+
+#### نگهداری تنظیمات سرور (مرجع برای فرانت/اپراتور)
+
+| کلید `appsettings` | پیش‌فرض | اثر |
+|---------------------|---------|-----|
+| `Session:MaxActiveSessions` | `3` | سقف نشست همزمان |
+| `Session:AbsoluteExpirationDays` | `15` | انقضای نشست در Redis |
+| `Session:RedisEnabled` | `true` (پروداکشن) | OTP/Session/Permission روی Redis |
+| `Otp:DevBypassEnabled` | `false` (پروداکشن) | بدون bypass، OTP واقعی از SMS |
 
 ### Permission داخل سرویس (`CaseAuthorizationService`)
 
@@ -273,7 +374,7 @@ CEO: تأیید نهایی
 
 | # | نقش (session) | تب | کار در UI | APIهای اصلی |
 |---|---------------|-----|-----------|-------------|
-| 1 | Applicant | Cases | ایجاد پرونده | `POST /cases` |
+| 1 | Applicant | Cases | ایجاد پرونده | `POST /investmentcases` |
 | 2 | Applicant | Portal | Draft: ذخیره DE1، آپلود type=1، Submit | `PUT .../data-entry1`, presign/confirm, `POST .../submit` |
 | 3 | InvestmentExpert | Kanban → Portal | Review DE1: Approve | `POST .../data-entry1/approve` |
 | 4 | Applicant | Portal | DE2: متن + ۷ مدرک اجباری، Submit | `PUT .../data-entry2`, `POST .../submit` |
@@ -286,7 +387,7 @@ CEO: تأیید نهایی
 | 11 | FinancialExpert | Portal | Approve worksheet | `POST .../financial-worksheet/approve` |
 | 12 | CEO | Portal / Dashboard | Approve CEO | `POST .../ceo-approval/approve`, `GET /dashboard/ceo` |
 | 13 | FinancialExpert | Portal | Record payment + Confirm | `POST .../payments`, `POST .../payments/{id}/confirm` |
-| 14 | هر نقش | Portal | Completed — فقط مشاهده | `GET /cases/{id}` |
+| 14 | هر نقش | Portal | Completed — فقط مشاهده | `GET /investmentcases/{id}` |
 
 **اتوماسیون:** `workflow-runner.js` همین ترتیب را با `config.workflowPersonas` اجرا می‌کند.
 
@@ -304,8 +405,8 @@ CEO: تأیید نهایی
 |--|--|
 | **مسئول** | Applicant |
 | **UI** | فیلد `de1Stage` (1=ایده، 2=نمونه اولیه)، `de1Amount`، آپلود اختیاری پیچ‌دک |
-| **ذخیره** | `PUT /cases/{id}/data-entry1` → `{ "businessStage": 1\|2, "requestedAmount": number }` |
-| **ادامه** | `POST /cases/{id}/data-entry1/submit` body `{}` |
+| **ذخیره** | `PUT /investmentcases/{id}/data-entry1` → `{ "businessStage": 1\|2, "requestedAmount": number }` |
+| **ادامه** | `POST /investmentcases/{id}/data-entry1/submit` body `{}` |
 | **بعد** | status **2** |
 
 ---
@@ -485,33 +586,33 @@ FinancialExpert: `approve` / `revision-request` on worksheet → تأیید **20
 
 | `data-action` | Method | Path |
 |---------------|--------|------|
-| `save-de1` | PUT | `/cases/{id}/data-entry1` |
-| `submit-de1` | POST | `/cases/{id}/data-entry1/submit` |
-| `approve-de1` | POST | `/cases/{id}/data-entry1/approve` |
-| `revise-de1` | POST | `/cases/{id}/data-entry1/revision-request` |
-| `save-de2` | PUT | `/cases/{id}/data-entry2` |
-| `submit-de2` | POST | `/cases/{id}/data-entry2/submit` |
-| `approve-de2` | POST | `/cases/{id}/data-entry2/approve` |
-| `revise-de2` | POST | `/cases/{id}/data-entry2/revision-request` |
-| `record-valuation` | POST | `/cases/{id}/valuations` |
-| `approve-val-initial` | POST | `/cases/{id}/valuations/initial/approve` |
-| `approve-val-secondary` | POST | `/cases/{id}/valuations/secondary/approve` |
-| `approve-pre-contract` | POST | `/cases/{id}/contracts/preliminary/approve` |
-| `revise-pre-contract` | POST | `/cases/{id}/contracts/preliminary/revision-request` |
-| `finalize-contract` | POST | `/cases/{id}/contracts/finalize-draft` |
-| `confirm-signature` | POST | `/cases/{id}/contracts/confirm-signature` |
-| `save-worksheet` | PUT | `/cases/{id}/financial-worksheet` |
-| `submit-worksheet` | POST | `/cases/{id}/financial-worksheet/submit` |
-| `approve-worksheet` | POST | `/cases/{id}/financial-worksheet/approve` |
-| `revise-worksheet` | POST | `/cases/{id}/financial-worksheet/revision-request` |
-| `approve-ceo` | POST | `/cases/{id}/ceo-approval/approve` |
-| `revise-ceo` | POST | `/cases/{id}/ceo-approval/revision-request` |
-| `record-payment` | POST | `/cases/{id}/payments` |
-| `confirm-payment` | POST | `/cases/{id}/payments/{paymentId}/confirm` |
-| `cancel-payment` | POST | `/cases/{id}/payments/{paymentId}/cancel` |
-| `post-comment` | POST | `/cases/{id}/comments` |
+| `save-de1` | PUT | `/investmentcases/{id}/data-entry1` |
+| `submit-de1` | POST | `/investmentcases/{id}/data-entry1/submit` |
+| `approve-de1` | POST | `/investmentcases/{id}/data-entry1/approve` |
+| `revise-de1` | POST | `/investmentcases/{id}/data-entry1/revision-request` |
+| `save-de2` | PUT | `/investmentcases/{id}/data-entry2` |
+| `submit-de2` | POST | `/investmentcases/{id}/data-entry2/submit` |
+| `approve-de2` | POST | `/investmentcases/{id}/data-entry2/approve` |
+| `revise-de2` | POST | `/investmentcases/{id}/data-entry2/revision-request` |
+| `record-valuation` | POST | `/investmentcases/{id}/valuations` |
+| `approve-val-initial` | POST | `/investmentcases/{id}/valuations/initial/approve` |
+| `approve-val-secondary` | POST | `/investmentcases/{id}/valuations/secondary/approve` |
+| `approve-pre-contract` | POST | `/investmentcases/{id}/contracts/preliminary/approve` |
+| `revise-pre-contract` | POST | `/investmentcases/{id}/contracts/preliminary/revision-request` |
+| `finalize-contract` | POST | `/investmentcases/{id}/contracts/finalize-draft` |
+| `confirm-signature` | POST | `/investmentcases/{id}/contracts/confirm-signature` |
+| `save-worksheet` | PUT | `/investmentcases/{id}/financial-worksheet` |
+| `submit-worksheet` | POST | `/investmentcases/{id}/financial-worksheet/submit` |
+| `approve-worksheet` | POST | `/investmentcases/{id}/financial-worksheet/approve` |
+| `revise-worksheet` | POST | `/investmentcases/{id}/financial-worksheet/revision-request` |
+| `approve-ceo` | POST | `/investmentcases/{id}/ceo-approval/approve` |
+| `revise-ceo` | POST | `/investmentcases/{id}/ceo-approval/revision-request` |
+| `record-payment` | POST | `/investmentcases/{id}/payments` |
+| `confirm-payment` | POST | `/investmentcases/{id}/payments/{paymentId}/confirm` |
+| `cancel-payment` | POST | `/investmentcases/{id}/payments/{paymentId}/cancel` |
+| `post-comment` | POST | `/investmentcases/{id}/comments` |
 
-**ایجاد پرونده** (تب Cases، `app.js`): `POST /cases`
+**ایجاد پرونده** (تب Cases، `app.js`): `POST /investmentcases`
 
 ---
 
@@ -520,9 +621,9 @@ FinancialExpert: `approve` / `revision-request` on worksheet → تأیید **20
 ### الگوی سه‌مرحله‌ای (`uploadDocument` در portal.js)
 
 ```text
-1. POST /cases/{id}/documents/presign     ← JWT
+1. POST /investmentcases/{id}/documents/presign     ← JWT
 2. PUT  {url}                             ← بدون Authorization
-3. POST /cases/{id}/documents/confirm?s3Key=...  ← JWT، body خالی
+3. POST /investmentcases/{id}/documents/confirm?s3Key=...  ← JWT، body خالی
 ```
 
 **Presign body:**
@@ -569,8 +670,8 @@ FinancialExpert: `approve` / `revision-request` on worksheet → تأیید **20
 
 | بورد | API |
 |------|-----|
-| نیاز به اقدام | `GET /cases/kanban/action-required` |
-| در حال پیگیری | `GET /cases/kanban/watching` |
+| نیاز به اقدام | `GET /investmentcases/kanban/action-required` |
+| در حال پیگیری | `GET /investmentcases/kanban/watching` |
 
 کلیک کارت → `setCurrentCaseId` + `testpanel:case-changed`.
 
@@ -583,7 +684,7 @@ FinancialExpert: `approve` / `revision-request` on worksheet → تأیید **20
 
 ### جستجو
 
-`GET /cases?caseNumber=&phase=&status=&page=&pageSize=`
+`GET /investmentcases?caseNumber=&phase=&status=&page=&pageSize=`
 
 ---
 
@@ -638,7 +739,7 @@ FinancialExpert: `approve` / `revision-request` on worksheet → تأیید **20
 
 ## 12. فهرست API
 
-پایه: **`/api/v1/cases`**
+پایه: **`/api/v1/investmentcases`**
 
 | گروه | Endpoints |
 |------|-----------|
@@ -653,8 +754,36 @@ FinancialExpert: `approve` / `revision-request` on worksheet → تأیید **20
 | Evaluations | `GET|POST .../evaluations` |
 | Negative | reject, cancel, archive |
 
-کاربران: `/api/v1/panel/users/*` — OTP، profile، sessions  
-شرکت: `/api/v1/panel/companies/mine`, `POST`, `PUT`
+### Identity — `/api/v1/identity`
+
+**Users** (`/identity/users`):
+
+| متد | مسیر | Auth |
+|-----|------|------|
+| `POST` | `/send-otp` | Anonymous |
+| `POST` | `/verify-otp` | Anonymous → `LoginDto` |
+| `POST` | `/refresh-token` | Anonymous + Bearer access |
+| `POST` | `/` | Anonymous (ثبت‌نام) |
+| `POST` | `/logout` | JWT |
+| `GET` | `/sessions` | JWT (خودم) |
+| `POST` | `/sessions/revoke` | JWT — body `{ sessionId }` |
+| `POST` | `/sessions/revoke-all` | JWT |
+| `GET` | `/profile` | JWT |
+| `GET` | `/{userId}` | JWT |
+| `GET` | `?take&skip` | JWT |
+| `PUT` | `/{userId}` | JWT (تغییر role → Admin) |
+| `DELETE` | `/{userId}` | JWT |
+| `GET` | `/{userId}/sessions` | **AdminOnly** |
+| `POST` | `/{userId}/sessions/revoke-all` | **AdminOnly** |
+| `POST` | `/{userId}/sessions/revoke` | **AdminOnly** — body `{ sessionId }` |
+
+**Companies** (`/identity/companies`):
+
+| متد | مسیر | Auth |
+|-----|------|------|
+| `GET` | `/mine` | JWT |
+| `POST` | `/` | JWT |
+| `PUT` | `/{id}` | JWT |
 
 ---
 
@@ -671,6 +800,10 @@ FinancialExpert: `approve` / `revision-request` on worksheet → تأیید **20
 9. [ ] `includeInternal=true` فقط برای نقش داخلی
 10. [ ] 403 → «نقش/session را عوض کنید»
 11. [ ] Admin: همه policyها + `HasPermission` در سرویس
+12. [ ] `refresh-token`: هدر Bearer + body `refreshToken`؛ بعد از login توکن‌ها را persist کنید
+13. [ ] چند دستگاه: `GET /identity/users/sessions`؛ revoke یک دستگاه با `sessions/revoke`
+14. [ ] پنل ادمین: kick کاربر با `POST .../users/{id}/sessions/revoke-all` (فقط Admin)
+15. [ ] پس از kick یا login چهارم: کاربر باید دوباره OTP بزند (نشست قدیمی invalid)
 
 ---
 
@@ -681,7 +814,7 @@ FinancialExpert: `approve` / `revision-request` on worksheet → تأیید **20
 1. [Frontend essentials](#1-frontend-essentials)
 2. [Reference UI architecture](#2-reference-ui-architecture)
 3. [API setup & envelope](#3-api-setup--envelope)
-4. [Auth, roles, access](#4-auth-roles-access)
+4. [Auth, roles, access](#4-auth-roles-access) (Identity, sessions, admin kick)
 5. [Workflow map](#5-workflow-map)
 6. [End-to-end scenario (portal)](#6-end-to-end-scenario-portal)
 7. [Stage-by-stage: status → UI → API](#7-stage-by-stage-status--ui--api)
@@ -701,22 +834,22 @@ FinancialExpert: `approve` / `revision-request` on worksheet → تأیید **20
 1. Drive UI from **`currentStatus`** (int), not only `currentPhase`.
 2. Build the stepper from `workflow-model.js` → `STEPS` / `getStepperSteps()` (same as the portal).
 3. Enable actions when the JWT role matches the step **unit** (`canActOnCase` / unit tabs).
-4. After every successful **workflow transition** (usually HTTP **202**), reload `GET /cases/{id}` and refresh kanban.
+4. After every successful **workflow transition** (usually HTTP **202**), reload `GET /investmentcases/{id}` and refresh kanban.
 5. **File upload** is always: `presign` → `PUT` to storage **without Bearer** → `confirm`.
 
 ### Base URLs
 
 | Resource | Path |
 |----------|------|
-| Cases | `{baseUrl}/api/v1/cases` |
-| Users / OTP | `{baseUrl}/api/v1/panel/users` |
-| Companies | `{baseUrl}/api/v1/panel/companies` |
+| Cases | `{baseUrl}/api/v1/investmentcases` |
+| Users / OTP | `{baseUrl}/api/v1/identity/users` |
+| Companies | `{baseUrl}/api/v1/identity/companies` |
 | Dashboard | `{baseUrl}/api/v1/dashboard` |
 | Header | `Authorization: Bearer {accessToken}` |
 
 Local test panel: `Frontend/config.js` → `baseUrl`, `casesVersion: "1"`.
 
-### Key fields on `GET /cases/{id}`
+### Key fields on `GET /investmentcases/{id}`
 
 | Field | UI use |
 |-------|--------|
@@ -747,13 +880,13 @@ index.html
 
 | State | API |
 |-------|-----|
-| `caseData` | `GET /cases/{id}` |
-| `history` | `GET /cases/{id}/history` |
-| `documents` | `GET /cases/{id}/documents` |
-| `documentsLatest` | `GET /cases/{id}/documents/latest` |
+| `caseData` | `GET /investmentcases/{id}` |
+| `history` | `GET /investmentcases/{id}/history` |
+| `documents` | `GET /investmentcases/{id}/documents` |
+| `documentsLatest` | `GET /investmentcases/{id}/documents/latest` |
 | `documentVersionGroups` | `GET .../version-groups?scope=` |
-| `comments` | `GET /cases/{id}/comments?includeInternal=` |
-| `payments` | `GET /cases/{id}/payments` (internal users; status 15) |
+| `comments` | `GET /investmentcases/{id}/comments?includeInternal=` |
+| `payments` | `GET /investmentcases/{id}/payments` (internal users; status 15) |
 
 Event: `testpanel:case-changed` refreshes kanban after transitions.
 
@@ -825,15 +958,15 @@ Portal helper: `unwrap(body).payload`.
 
 | Step | API |
 |------|-----|
-| OTP send | `POST /panel/users/send-otp` |
-| OTP verify | `POST /panel/users/verify-otp` → token |
-| Company | `GET /panel/companies/mine`, then `POST` if needed |
-| Create case | `POST /cases` `{ "applicantType": 2, "companyId": "guid" }` |
+| OTP send | `POST /identity/users/send-otp` |
+| OTP verify | `POST /identity/users/verify-otp` → token |
+| Company | `GET /identity/companies/mine`, then `POST` if needed |
+| Create case | `POST /investmentcases` `{ "applicantType": 2, "companyId": "guid" }` |
 | Portal | status **1 Draft** |
 
 ### Scenario B — Internal user
 
-OTP with persona → `GET /cases/kanban/action-required` → open case in portal.
+OTP with persona → `GET /investmentcases/kanban/action-required` → open case in portal.
 
 Multi-role testing: Auth → Saved Sessions → **Use**.
 
@@ -859,6 +992,88 @@ Legacy: `User`→`Applicant`, `LegalUnit`→`LegalExpert`.
 | InternalOnly | All internal + Admin |
 | InvestmentCases.CeoApprove | CEO + Admin |
 | Dashboard.Ceo / Board | As in Program.cs |
+| `AdminOnly` | `Admin` only |
+
+### Identity — OTP, sessions, users, companies
+
+Base: **`{baseUrl}/api/v1/identity`**. Controllers: `UserController`, `CompaniesController`.
+
+#### Multiple concurrent sessions
+
+- Each successful **`POST /identity/users/verify-otp`** creates a **new session** (new `SessionId` in JWT claim `sid` + DB row).
+- Users may stay logged in on several devices/browsers at once.
+- **Cap:** server setting `Session:MaxActiveSessions` (default **3** in `appsettings.json`). On a new login beyond the cap, the **oldest** active session (`LastActivityAt`) is revoked automatically.
+- After **401/403** on protected APIs, route the user back to OTP (revoked session or expired token).
+
+#### JWT claims (after verify / refresh)
+
+| Claim | Meaning |
+|-------|---------|
+| `nameid` | `User.Id` |
+| name | Usually mobile number |
+| `role` | Single role string |
+| `sid` | `SessionId` (Guid) |
+| `userData` | Extra JSON profile payload |
+
+Use `Authorization: Bearer {accessToken}` on subsequent calls.
+
+#### Login response (`LoginDto` in `data`)
+
+Same shape as [Persian Identity section](#identity--otp-نشست-کاربر-شرکت): `tokenModel` (access + refresh + expirations) and `user`.
+
+#### APIs — OTP & tokens (anonymous)
+
+| Method | Path | Body | `data` |
+|--------|------|------|--------|
+| `POST` | `/identity/users/send-otp` | `{ "phoneNumber" }` | — |
+| `POST` | `/identity/users/verify-otp` | `{ "phoneNumber", "otpCode" }` | `LoginDto` |
+| `POST` | `/identity/users/refresh-token` | `{ "refreshToken" }` + **`Authorization: Bearer {accessToken}`** | `LoginDto` |
+| `POST` | `/identity/users` | `CreateUserDto` | `UserDto` |
+
+#### APIs — sessions & profile (authenticated)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/identity/users/logout` | End **current** session (`sid` in JWT) |
+| `GET` | `/identity/users/sessions` | List **my** active sessions → `SessionDto[]` |
+| `POST` | `/identity/users/sessions/revoke` | Revoke one of mine: `{ "sessionId" }` |
+| `POST` | `/identity/users/sessions/revoke-all` | Revoke **all** my sessions |
+| `GET` | `/identity/users/profile` | Current user profile |
+| `GET` | `/identity/users/{id}` | User by id |
+| `GET` | `/identity/users?take&skip` | Paged users |
+| `PUT` | `/identity/users/{id}` | Update user — **`role` change: Admin only** |
+| `DELETE` | `/identity/users/{id}` | Delete user |
+
+**`SessionDto`:** `sessionId`, `userId`, `deviceId`, `userAgent`, `ipAddress`, `createdAt`, `lastActivityAt`, `isActive`.
+
+#### APIs — Admin session management (`AdminOnly`)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/identity/users/{userId}/sessions` | List target user's active sessions |
+| `POST` | `/identity/users/{userId}/sessions/revoke-all` | **Force logout everywhere** for that user |
+| `POST` | `/identity/users/{userId}/sessions/revoke` | Revoke one session: `{ "sessionId" }` |
+
+Persian success message for admin revoke-all: user sessions terminated by admin.
+
+#### APIs — Companies (`/identity/companies`)
+
+All require JWT.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/identity/companies/mine` | Companies owned by current user |
+| `POST` | `/identity/companies` | Create (`SaveCompanyRequest`) |
+| `PUT` | `/identity/companies/{id}` | Update |
+
+#### Server settings (ops reference)
+
+| Key | Default | Effect |
+|-----|---------|--------|
+| `Session:MaxActiveSessions` | `3` | Concurrent session cap |
+| `Session:AbsoluteExpirationDays` | `15` | Redis session TTL |
+| `Session:RedisEnabled` | prod `true` | Distributed OTP/session cache |
+| `Otp:DevBypassEnabled` | prod `false` | Real SMS OTP required |
 
 **Admin:** `CaseAuthorizationService.HasPermission` always returns true.
 
@@ -878,7 +1093,7 @@ Applicant create → DE1 + pitch deck → Investment review → DE2 + docs → I
 
 | # | Role | Tab | UI | Main APIs |
 |---|------|-----|-----|-----------|
-| 1 | Applicant | Cases | Create case | `POST /cases` |
+| 1 | Applicant | Cases | Create case | `POST /investmentcases` |
 | 2 | Applicant | Portal | Draft DE1 + upload type 1 + submit | `PUT .../data-entry1`, presign/confirm, submit |
 | 3 | InvestmentExpert | Kanban | Approve DE1 | `POST .../data-entry1/approve` |
 | 4 | Applicant | Portal | DE2 + required docs + submit | `PUT .../data-entry2`, submit |
@@ -929,7 +1144,7 @@ Mirror of [Persian §7](#7-مرحله‌به‌مرحله-وضعیت--ui--api). 
 
 Same table as [Persian §8](#8-جدول-action-پورتال--api): `save-de1`, `submit-de1`, … `record-payment`, `confirm-payment`, `post-comment`, etc.
 
-Case creation from **Cases** tab: `POST /cases` (not a portal action).
+Case creation from **Cases** tab: `POST /investmentcases` (not a portal action).
 
 ---
 
@@ -954,12 +1169,12 @@ Download: `GET .../documents/{id}/download` or `?presign=true`.
 
 | Board | API |
 |-------|-----|
-| Action required | `GET /cases/kanban/action-required` |
-| Watching | `GET /cases/kanban/watching` |
+| Action required | `GET /investmentcases/kanban/action-required` |
+| Watching | `GET /investmentcases/kanban/watching` |
 
 Dashboards: `GET /dashboard/ceo`, `GET /dashboard/board`.
 
-Search: `GET /cases?...`
+Search: `GET /investmentcases?...`
 
 Reject / cancel / archive: `POST .../reject|cancel|archive`.
 
@@ -985,13 +1200,17 @@ Same numeric tables as [Persian §11](#11-جداول-مرجع-enum) for `CaseSta
 
 ## 12. API index
 
-Base **`/api/v1/cases`**: kanban, CRUD, data-entry, valuations, contracts, financial worksheet, CEO, payments, documents, comments, evaluations, reject/cancel/archive.
+Base **`/api/v1/investmentcases`**: kanban, CRUD, data-entry, valuations, contracts, financial worksheet, CEO, payments, documents, comments, evaluations, reject/cancel/archive.
 
-Users: `/api/v1/panel/users/*`  
-Companies: `/api/v1/panel/companies/*`  
-Dashboard: `/api/v1/dashboard/ceo|board`
+### Identity — `/api/v1/identity`
 
-Full route list matches `InvestmentCasesController.cs`.
+**Users** — full route table in [فهرست API — Identity (فارسی)](#identity--api-v1identity) and [§4 Identity (فارسی)](#identity--otp-نشست-کاربر-شرکت) (OTP, sessions, admin kick, profile, CRUD).
+
+**Companies:** `GET /mine`, `POST /`, `PUT /{id}` (all JWT).
+
+**Dashboard:** `/api/v1/dashboard/ceo`, `/board`
+
+Investment case routes: `InvestmentCasesController.cs`.
 
 ---
 
@@ -1008,6 +1227,10 @@ Full route list matches `InvestmentCasesController.cs`.
 9. `includeInternal` only for internal roles
 10. Handle 403 with role/session switch hint
 11. Admin bypass in policies + `HasPermission`
+12. Persist tokens after login; `refresh-token` needs Bearer + `refreshToken` body
+13. Multi-device: list/revoke via `/identity/users/sessions`
+14. Admin panel: `POST /identity/users/{userId}/sessions/revoke-all` to force logout
+15. After admin kick or session cap: user must OTP again
 
 ---
 

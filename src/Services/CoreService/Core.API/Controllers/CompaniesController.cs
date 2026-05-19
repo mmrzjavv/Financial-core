@@ -11,7 +11,7 @@ namespace Core.API.Controllers;
 
 /// <summary>Applicant company profiles linked to cases.</summary>
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/panel/companies")]
+[Route("api/v{version:apiVersion}/identity/companies")]
 [Authorize]
 public sealed class CompaniesController(ICompanyAppService service) : ApiControllerBase
 {

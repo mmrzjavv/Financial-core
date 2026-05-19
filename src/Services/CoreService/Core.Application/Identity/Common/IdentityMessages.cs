@@ -18,6 +18,8 @@ public static class IdentityMessages
     public const string InvalidSessionIdentifiers = "شناسه‌های نشست نامعتبر هستند.";
     public const string LogoutSucceeded = "خروج از حساب انجام شد.";
     public const string SessionAccessDenied = "به این نشست دسترسی ندارید.";
+    public const string AdminAccessDenied = "فقط مدیر سیستم به این عملیات دسترسی دارد.";
+    public const string UserSessionsRevokedByAdmin = "نشست‌های کاربر توسط مدیر قطع شد.";
     public const string PhoneAlreadyRegistered = "این شماره موبایل قبلاً ثبت شده است.";
     public const string EmailAlreadyRegistered = "این ایمیل قبلاً ثبت شده است.";
     public const string NationalCodeAlreadyRegistered = "این کد ملی قبلاً ثبت شده است.";

@@ -194,7 +194,7 @@
   }
 
   function casesBasePath() {
-    return "/api/v" + TESTPANEL_CONFIG.casesVersion + "/cases";
+    return "/api/v" + TESTPANEL_CONFIG.casesVersion + "/investmentcases";
   }
 
   const inspector = {
@@ -640,7 +640,7 @@
         if (!phone) throw new Error("شماره موبایل الزامی است.");
         await apiRequest({
           method: "POST",
-          path: "/api/v1/panel/users/send-otp",
+          path: "/api/v1/identity/users/send-otp",
           useAuth: false,
           body: { phoneNumber: phone },
         });
@@ -657,7 +657,7 @@
 
         const res = await apiRequest({
           method: "POST",
-          path: "/api/v1/panel/users/verify-otp",
+          path: "/api/v1/identity/users/verify-otp",
           useAuth: false,
           body: { phoneNumber: phone, otpCode: otp },
         });
@@ -675,7 +675,7 @@
 
         const res = await apiRequest({
           method: "POST",
-          path: "/api/v1/panel/users/refresh-token",
+          path: "/api/v1/identity/users/refresh-token",
           useAuth: false, // endpoint is [AllowAnonymous] but requires bearer access token header
           headers: { Authorization: "Bearer " + session.accessToken },
           body: { refreshToken },
@@ -695,7 +695,7 @@
           renderTopbar();
           return;
         }
-        await apiRequest({ method: "POST", path: "/api/v1/panel/users/logout" });
+        await apiRequest({ method: "POST", path: "/api/v1/identity/users/logout" });
         // keep saved session but deactivate
         setActiveSessionId("");
         renderTopbar();
@@ -704,13 +704,13 @@
 
     qs("#btnProfile").addEventListener("click", () =>
       withUiError(async () => {
-        await apiRequest({ method: "GET", path: "/api/v1/panel/users/profile" });
+        await apiRequest({ method: "GET", path: "/api/v1/identity/users/profile" });
       })
     );
 
     qs("#btnSessions").addEventListener("click", () =>
       withUiError(async () => {
-        await apiRequest({ method: "GET", path: "/api/v1/panel/users/sessions" });
+        await apiRequest({ method: "GET", path: "/api/v1/identity/users/sessions" });
       })
     );
 
@@ -720,7 +720,7 @@
         if (!sid) throw new Error("شناسه نشست (sid) الزامی است.");
         await apiRequest({
           method: "POST",
-          path: "/api/v1/panel/users/sessions/revoke",
+          path: "/api/v1/identity/users/sessions/revoke",
           body: { sessionId: sid },
         });
       })
@@ -728,7 +728,7 @@
 
     qs("#btnRevokeAll").addEventListener("click", () =>
       withUiError(async () => {
-        await apiRequest({ method: "POST", path: "/api/v1/panel/users/sessions/revoke-all" });
+        await apiRequest({ method: "POST", path: "/api/v1/identity/users/sessions/revoke-all" });
       })
     );
   }
@@ -745,7 +745,7 @@
         };
         if (!dto.phoneNumber) throw new Error("شماره موبایل الزامی است.");
         if (!dto.firstName || !dto.lastName) throw new Error("نام و نام خانوادگی الزامی هستند.");
-        await apiRequest({ method: "POST", path: "/api/v1/panel/users", useAuth: false, body: dto });
+        await apiRequest({ method: "POST", path: "/api/v1/identity/users", useAuth: false, body: dto });
       })
     );
 
@@ -758,7 +758,7 @@
         const dto = {};
         if (roleRaw !== "") dto.role = Number(roleRaw);
         if (isActiveRaw !== "") dto.isActive = isActiveRaw === "true";
-        await apiRequest({ method: "PUT", path: "/api/v1/panel/users/" + encodeURIComponent(id), body: dto });
+        await apiRequest({ method: "PUT", path: "/api/v1/identity/users/" + encodeURIComponent(id), body: dto });
       })
     );
 
@@ -766,7 +766,7 @@
       withUiError(async () => {
         const id = qs("#getUserId").value.trim();
         if (!id) throw new Error("شناسه کاربر الزامی است.");
-        await apiRequest({ method: "GET", path: "/api/v1/panel/users/" + encodeURIComponent(id) });
+        await apiRequest({ method: "GET", path: "/api/v1/identity/users/" + encodeURIComponent(id) });
       })
     );
 
@@ -774,7 +774,7 @@
       withUiError(async () => {
         const take = qs("#usersTake").value.trim() || "10";
         const skip = qs("#usersSkip").value.trim() || "0";
-        await apiRequest({ method: "GET", path: "/api/v1/panel/users?take=" + encodeURIComponent(take) + "&skip=" + encodeURIComponent(skip) });
+        await apiRequest({ method: "GET", path: "/api/v1/identity/users?take=" + encodeURIComponent(take) + "&skip=" + encodeURIComponent(skip) });
       })
     );
   }
@@ -812,7 +812,7 @@
   }
 
   async function loadMyCompanies() {
-    const res = await apiRequest({ method: "GET", path: "/api/v1/panel/companies/mine" });
+    const res = await apiRequest({ method: "GET", path: "/api/v1/identity/companies/mine" });
     const companies = unwrapEnvelope(res.body).payload || [];
     populateCompanySelect(companies);
     return companies;
@@ -855,7 +855,7 @@
           throw new Error("نام شرکت و کد اقتصادی الزامی است.");
         }
 
-        await apiRequest({ method: "POST", path: "/api/v1/panel/companies", body: payload });
+        await apiRequest({ method: "POST", path: "/api/v1/identity/companies", body: payload });
         await loadMyCompanies();
       })
     );

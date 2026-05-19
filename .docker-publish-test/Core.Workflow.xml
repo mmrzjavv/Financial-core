@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Core.Workflow</name>
+    </assembly>
+    <members>
+        <member name="T:Core.Workflow.Common.CaseSignalStimulus">
+            <summary>
+            Bookmark/resume stimulus for <see cref="T:Core.Workflow.Activities.WaitForCaseSignalActivity"/>.
+            Must not be a dictionary — Elsa's hash serializer reflects all properties and fails on Dictionary indexers.
+            </summary>
+        </member>
+    </members>
+</doc>

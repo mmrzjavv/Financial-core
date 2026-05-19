@@ -1,0 +1,15 @@
+**/.git
+**/.vs
+**/.idea
+**/.vscode
+**/bin
+**/obj
+**/*.user
+**/*.suo
+**/TestResults
+.docker-publish-test
+.build-check
+Frontend
+docs
+*.md
+!src/**/*.md

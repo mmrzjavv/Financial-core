@@ -29,7 +29,7 @@ internal static class OpenApiMetadata
 
         - **Base path:** `/api/v1.0`
         - **Responses:** `ApiOperationResult<T>` (`success`, `message`, `data`, …)
-        - **Auth:** `Authorization: Bearer {JWT}` (from `POST /api/v1.0/panel/users/verify-otp`)
+        - **Auth:** `Authorization: Bearer {JWT}` (from `POST /api/v1.0/identity/users/verify-otp`)
         - **File uploads:** upload bytes from the browser to the presigned URL; then call confirm—do not stream large files through Core.API in production
 
         ### Contact

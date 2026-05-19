@@ -17,7 +17,7 @@ namespace Core.API.Controllers;
 /// Investment cases — workflow, documents, kanban, and payments (fund platform module).
 /// </summary>
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/cases")]
+[Route("api/v{version:apiVersion}/investmentcases")]
 public sealed class InvestmentCasesController(
     IInvestmentCaseAppService service,
     IKanbanAppService kanbanService) : ApiControllerBase

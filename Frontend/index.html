@@ -102,7 +102,7 @@
                 <input id="authPhone" placeholder="09xxxxxxxxx" />
               </div>
               <button id="btnSendOtp" class="btn">Send OTP</button>
-              <div class="hint">API: <span class="mono">POST /api/v1/panel/users/send-otp</span></div>
+              <div class="hint">API: <span class="mono">POST /api/v1/identity/users/send-otp</span></div>
             </div>
 
             <div class="card">
@@ -120,7 +120,7 @@
                 <input id="sessionLabel" placeholder="e.g. Applicant - Ali" />
               </div>
               <button id="btnVerifyOtp" class="btn btn--primary">Verify & Save Session</button>
-              <div class="hint">API: <span class="mono">POST /api/v1/panel/users/verify-otp</span></div>
+              <div class="hint">API: <span class="mono">POST /api/v1/identity/users/verify-otp</span></div>
             </div>
           </div>
 
@@ -132,7 +132,7 @@
                 <input id="refreshTokenInput" placeholder="uses active session if empty" />
               </div>
               <button id="btnRefresh" class="btn">Refresh</button>
-              <div class="hint">API: <span class="mono">POST /api/v1/panel/users/refresh-token</span> (uses Authorization bearer access token)</div>
+              <div class="hint">API: <span class="mono">POST /api/v1/identity/users/refresh-token</span> (uses Authorization bearer access token)</div>
             </div>
 
             <div class="card">
@@ -168,7 +168,7 @@
               <div class="formrow"><label>Email</label><input id="createUserEmail" /></div>
               <div class="formrow"><label>National code</label><input id="createUserNat" /></div>
               <button id="btnCreateUser" class="btn btn--primary">Create</button>
-              <div class="hint">API: <span class="mono">POST /api/v1/panel/users</span></div>
+              <div class="hint">API: <span class="mono">POST /api/v1/identity/users</span></div>
             </div>
 
             <div class="card">
@@ -187,7 +187,7 @@
                 </select>
               </div>
               <button id="btnUpdateUser" class="btn">Update</button>
-              <div class="hint">API: <span class="mono">PUT /api/v1/panel/users/{id}</span></div>
+              <div class="hint">API: <span class="mono">PUT /api/v1/identity/users/{id}</span></div>
             </div>
           </div>
 
@@ -198,7 +198,7 @@
                 <input id="getUserId" class="mono" placeholder="guid" />
                 <button id="btnGetUser" class="btn">Get</button>
               </div>
-              <div class="hint">API: <span class="mono">GET /api/v1/panel/users/{id}</span></div>
+              <div class="hint">API: <span class="mono">GET /api/v1/identity/users/{id}</span></div>
             </div>
 
             <div class="card">
@@ -208,7 +208,7 @@
                 <input id="usersSkip" placeholder="skip" value="0" />
                 <button id="btnListUsers" class="btn">List</button>
               </div>
-              <div class="hint">API: <span class="mono">GET /api/v1/panel/users?take=10&amp;skip=0</span></div>
+              <div class="hint">API: <span class="mono">GET /api/v1/identity/users?take=10&amp;skip=0</span></div>
             </div>
           </div>
         </div>
@@ -230,7 +230,7 @@
                 <button id="btnCreateCompany" class="btn btn--primary">ثبت شرکت</button>
                 <button id="btnLoadCompanies" class="btn">بارگذاری شرکت‌ها</button>
               </div>
-              <div class="hint">API: <span class="mono">POST /api/v1/panel/companies</span> · <span class="mono">GET /api/v1/panel/companies/mine</span></div>
+              <div class="hint">API: <span class="mono">POST /api/v1/identity/companies</span> · <span class="mono">GET /api/v1/identity/companies/mine</span></div>
             </div>
 
             <div class="card">
@@ -249,7 +249,7 @@
                 </select>
               </div>
               <button id="btnCreateCase" class="btn btn--primary">ایجاد پرونده</button>
-              <div class="hint">API: <span class="mono">POST /api/v1/cases</span></div>
+              <div class="hint">API: <span class="mono">POST /api/v1/investmentcases</span></div>
             </div>
           </div>
 
@@ -279,7 +279,7 @@
               <div class="formrow"><label>PageSize</label><input id="searchPageSize" value="10" /></div>
             </div>
             <button id="btnSearchCases" class="btn">Search</button>
-            <div class="hint">API: <span class="mono">GET /api/v1/cases?...query</span></div>
+            <div class="hint">API: <span class="mono">GET /api/v1/investmentcases?...query</span></div>
           </div>
         </div>
 
@@ -321,7 +321,7 @@
               <div class="row">
                 <input id="de1Comment" placeholder="comment (optional)" />
               </div>
-              <div class="hint mono">PUT /api/v1/cases/{id}/data-entry1 • POST /api/v1/cases/{id}/data-entry1/submit</div>
+              <div class="hint mono">PUT /api/v1/investmentcases/{id}/data-entry1 • POST /api/v1/investmentcases/{id}/data-entry1/submit</div>
             </div>
 
             <div class="card">
@@ -334,7 +334,7 @@
                 <input id="de1RevisionMsg" placeholder="revision message" />
                 <button id="btnReviseDE1" class="btn btn--warn">Request Revision</button>
               </div>
-              <div class="hint mono">POST /api/v1/cases/{id}/data-entry1/approve • /revision-request</div>
+              <div class="hint mono">POST /api/v1/investmentcases/{id}/data-entry1/approve • /revision-request</div>
             </div>
           </div>
 
@@ -349,7 +349,7 @@
               <div class="row">
                 <input id="de2Comment" placeholder="comment (optional)" />
               </div>
-              <div class="hint mono">PUT /api/v1/cases/{id}/data-entry2 • POST /api/v1/cases/{id}/data-entry2/submit</div>
+              <div class="hint mono">PUT /api/v1/investmentcases/{id}/data-entry2 • POST /api/v1/investmentcases/{id}/data-entry2/submit</div>
             </div>
 
             <div class="card">
@@ -362,7 +362,7 @@
                 <input id="de2RevisionMsg" placeholder="revision message" />
                 <button id="btnReviseDE2" class="btn btn--warn">Request Revision</button>
               </div>
-              <div class="hint mono">POST /api/v1/cases/{id}/data-entry2/approve • /revision-request</div>
+              <div class="hint mono">POST /api/v1/investmentcases/{id}/data-entry2/approve • /revision-request</div>
             </div>
           </div>
 
@@ -381,7 +381,7 @@
                 <input id="valSecondaryComment" placeholder="secondary approval comment" />
                 <button id="btnApproveValSecondary" class="btn btn--primary">Secondary Approve</button>
               </div>
-              <div class="hint mono">POST /api/v1/cases/{id}/valuations • /initial/approve • /secondary/approve</div>
+              <div class="hint mono">POST /api/v1/investmentcases/{id}/valuations • /initial/approve • /secondary/approve</div>
             </div>
 
             <div class="card">
@@ -493,14 +493,14 @@
             <div class="row">
               <span class="muted">Last S3Key:</span> <span id="lastS3Key" class="mono"></span>
             </div>
-            <div class="hint mono">POST /api/v1/cases/{id}/documents/presign → PUT Url → POST /documents/confirm?s3Key=...</div>
+            <div class="hint mono">POST /api/v1/investmentcases/{id}/documents/presign → PUT Url → POST /documents/confirm?s3Key=...</div>
           </div>
 
           <div class="grid2">
             <div class="card">
               <div class="card__title">List Documents</div>
               <button id="btnListDocs" class="btn">Get Documents</button>
-              <div class="hint mono">GET /api/v1/cases/{id}/documents</div>
+              <div class="hint mono">GET /api/v1/investmentcases/{id}/documents</div>
             </div>
 
             <div class="card">
@@ -512,7 +512,7 @@
               <div class="row">
                 <a id="downloadLink" class="mono" href="#" target="_blank" rel="noreferrer">download link</a>
               </div>
-              <div class="hint mono">GET /api/v1/cases/{id}/documents/{documentId}/download</div>
+              <div class="hint mono">GET /api/v1/investmentcases/{id}/documents/{documentId}/download</div>
             </div>
           </div>
 
@@ -547,14 +547,14 @@
                 </select>
                 <button id="btnGetComments" class="btn">Fetch</button>
               </div>
-              <div class="hint mono">GET /api/v1/cases/{id}/comments?includeInternal=...</div>
+              <div class="hint mono">GET /api/v1/investmentcases/{id}/comments?includeInternal=...</div>
             </div>
 
             <div class="card">
               <div class="card__title">Add Comment</div>
               <textarea id="commentJson" class="code" spellcheck="false"></textarea>
               <button id="btnAddComment" class="btn btn--primary">Add</button>
-              <div class="hint mono">POST /api/v1/cases/{id}/comments</div>
+              <div class="hint mono">POST /api/v1/investmentcases/{id}/comments</div>
             </div>
           </div>
 
@@ -566,7 +566,7 @@
               <input id="commentAttachmentFileName" placeholder="fileName" />
               <button id="btnAddCommentAttachment" class="btn">Add Attachment</button>
             </div>
-            <div class="hint mono">POST /api/v1/cases/{id}/comments/{commentId}/attachments?s3Key=...&fileName=...</div>
+            <div class="hint mono">POST /api/v1/investmentcases/{id}/comments/{commentId}/attachments?s3Key=...&fileName=...</div>
           </div>
         </div>
 
@@ -576,12 +576,12 @@
               <div class="card__title">Upsert Evaluation (Internal)</div>
               <textarea id="evalJson" class="code" spellcheck="false"></textarea>
               <button id="btnUpsertEval" class="btn btn--primary">Upsert</button>
-              <div class="hint mono">POST /api/v1/cases/{id}/evaluations</div>
+              <div class="hint mono">POST /api/v1/investmentcases/{id}/evaluations</div>
             </div>
             <div class="card">
               <div class="card__title">Get Evaluations</div>
               <button id="btnGetEvals" class="btn">Fetch</button>
-              <div class="hint mono">GET /api/v1/cases/{id}/evaluations</div>
+              <div class="hint mono">GET /api/v1/investmentcases/{id}/evaluations</div>
             </div>
           </div>
         </div>

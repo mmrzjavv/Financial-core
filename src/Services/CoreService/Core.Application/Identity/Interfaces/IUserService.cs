@@ -12,6 +12,9 @@ public interface IUserService
     Task<ApiOperationResult<UserDto>> RevokeSessionAsync(RevokeSessionDto dto, CancellationToken cancellationToken = default);
     Task<ApiOperationResult<UserDto>> RevokeAllSessionsAsync(CancellationToken cancellationToken = default);
     Task<ApiOperationResult<SessionDto>> GetActiveSessionsAsync(CancellationToken cancellationToken = default);
+    Task<ApiOperationResult<SessionDto>> GetUserActiveSessionsAsAdminAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<ApiOperationResult<UserDto>> AdminRevokeAllSessionsAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<ApiOperationResult<UserDto>> AdminRevokeSessionAsync(Guid userId, RevokeSessionDto dto, CancellationToken cancellationToken = default);
     Task<ApiOperationResult<UserDto>> GetByIdAsync(Guid id);
     Task<ApiOperationResult<UserDto>> GetPagedAsync(int take, int skip);
     Task<ApiOperationResult<UserDto>> CreateAsync(CreateUserDto dto);

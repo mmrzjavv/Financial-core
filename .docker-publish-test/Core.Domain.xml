@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Core.Domain</name>
+    </assembly>
+    <members>
+        <member name="T:Core.Domain.Constants.WorkflowRoleExpander">
+            <summary>Duplicates workflow transitions and kanban ownership from unit expert to unit manager.</summary>
+        </member>
+        <member name="P:Core.Domain.Entities.InvestmentCaseDataEntry1.RepresentativeFullName">
+            <summary>نام و نام خانوادگی نماینده (غیر از پروفایل شرکت)</summary>
+        </member>
+        <member name="P:Core.Domain.Entities.InvestmentCaseDataEntry1.RequestedAmount">
+            <summary>سرمایه مورد نیاز (ریال)</summary>
+        </member>
+        <member name="P:Core.Domain.Entities.InvestmentCaseDataEntry2.InvestmentAttractionBasis">
+            <summary>مبنای درخواست جذب سرمایه‌گذار</summary>
+        </member>
+        <member name="T:Core.Domain.Enums.BusinessStage">
+            <summary>مرحله کسب‌وکار — فرم ورود اطلاعات ۱</summary>
+        </member>
+        <member name="F:Core.Domain.Enums.BusinessStage.Idea">
+            <summary>در مرحله ایده</summary>
+        </member>
+        <member name="F:Core.Domain.Enums.BusinessStage.HasPrototype">
+            <summary>دارای نمونه اولیه</summary>
+        </member>
+        <member name="F:Core.Domain.Enums.CaseStatus.WaitingCeoApproval">
+            <summary>Financial worksheet approved; awaiting CEO sign-off before payment phase.</summary>
+        </member>
+        <member name="F:Core.Domain.Identity.UserRoleClaims.LegalUnit">
+            <summary>Legacy JWT aliases (pre expert/manager split).</summary>
+        </member>
+    </members>
+</doc>

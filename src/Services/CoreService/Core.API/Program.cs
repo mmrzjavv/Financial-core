@@ -141,6 +141,7 @@ builder.Services.AddScoped<IMapper, ServiceMapper>();
 builder.Services.AddAuthorization(options =>
 {
     // IdentityService issues ClaimTypes.Role = UserRole.ToString(): Applicant, InvestmentExpert, InvestmentManager, LegalExpert, FinancialExpert, Admin, ...
+    options.AddPolicy("AdminOnly", p => p.RequireRole(UserRoleClaims.Admin));
     options.AddPolicy("ApplicantOnly", p => p.RequireRole(UserRoleClaims.Applicant, UserRoleClaims.Admin));
     options.AddPolicy("InternalOnly", p => p.RequireRole(
         UserRoleClaims.InvestmentExpert,

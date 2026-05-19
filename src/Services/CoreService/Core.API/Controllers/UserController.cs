@@ -10,7 +10,7 @@ namespace Core.API.Controllers;
 
 /// <summary>Panel users — OTP login, JWT sessions, and profile.</summary>
 [ApiVersion(1.0)]
-[Route("api/v{version:apiVersion}/panel/users")]
+[Route("api/v{version:apiVersion}/identity/users")]
 public sealed class UserController(IUserService userService) : ApiControllerBase
 {
     [HttpPost("send-otp")]
@@ -54,6 +54,21 @@ public sealed class UserController(IUserService userService) : ApiControllerBase
     [Authorize]
     public Task<IActionResult> RevokeAllSessions(CancellationToken ct)
         => Execute(userService.RevokeAllSessionsAsync(ct));
+
+    [HttpGet("{id:guid}/sessions")]
+    [Authorize(Policy = "AdminOnly")]
+    public Task<IActionResult> GetUserSessions(Guid id, CancellationToken ct)
+        => Execute(userService.GetUserActiveSessionsAsAdminAsync(id, ct));
+
+    [HttpPost("{id:guid}/sessions/revoke-all")]
+    [Authorize(Policy = "AdminOnly")]
+    public Task<IActionResult> AdminRevokeAllSessions(Guid id, CancellationToken ct)
+        => Execute(userService.AdminRevokeAllSessionsAsync(id, ct));
+
+    [HttpPost("{id:guid}/sessions/revoke")]
+    [Authorize(Policy = "AdminOnly")]
+    public Task<IActionResult> AdminRevokeSession(Guid id, [FromBody] RevokeSessionDto dto, CancellationToken ct)
+        => Execute(userService.AdminRevokeSessionAsync(id, dto, ct));
 
     [HttpGet("{id:guid}")]
     [Authorize]

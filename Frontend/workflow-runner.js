@@ -51,13 +51,13 @@
     async function loginPersona(persona) {
       await panel.apiRequest({
         method: "POST",
-        path: "/api/v1/panel/users/send-otp",
+        path: "/api/v1/identity/users/send-otp",
         useAuth: false,
         body: { phoneNumber: persona.phone },
       });
       const verify = await panel.apiRequest({
         method: "POST",
-        path: "/api/v1/panel/users/verify-otp",
+        path: "/api/v1/identity/users/verify-otp",
         useAuth: false,
         body: { phoneNumber: persona.phone, otpCode: TESTPANEL_CONFIG.devOtp },
       });
@@ -90,7 +90,7 @@
         try {
           const createRes = await panel.apiRequest({
             method: "POST",
-            path: "/api/v1/panel/users",
+            path: "/api/v1/identity/users",
             useAuth: false,
             body: {
               phoneNumber: persona.phone,
@@ -122,7 +122,7 @@
         if (!entry || !entry.userId) continue;
         await panel.apiRequest({
           method: "PUT",
-          path: "/api/v1/panel/users/" + encodeURIComponent(entry.userId),
+          path: "/api/v1/identity/users/" + encodeURIComponent(entry.userId),
           body: { role: persona.role, isActive: true },
         });
         log("Assigned role " + persona.role + " to " + persona.label, "ok");
@@ -189,7 +189,7 @@
             try {
               await panel.apiRequest({
                 method: "POST",
-                path: "/api/v1/panel/users",
+                path: "/api/v1/identity/users",
                 useAuth: false,
                 body: {
                   phoneNumber: adminPersona.phone,

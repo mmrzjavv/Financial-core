@@ -127,6 +127,8 @@ public class UserService(
                 RoleClaimMapper.ToClaimRole(user.Role),
                 sessionId.ToString("N"));
 
+            await TrimActiveSessionsForLimitAsync(user.Id, CancellationToken.None);
+
             await sessionCacheService.StoreSessionAsync(CreateSessionDescriptor(user.Id, sessionId), CancellationToken.None);
 
             user.IsPhoneVerified = true;
@@ -304,23 +306,9 @@ public class UserService(
 
             var dbSession = await unitOfWork.UserSessions.GetBySessionIdAsync(sessionId, disableTracking: false);
             if (dbSession is not null && dbSession.UserId == userId && dbSession.RevokedAt is null)
-            {
-                dbSession.RevokedAt = DateTime.UtcNow;
-                dbSession.LastActivityAt = DateTime.UtcNow;
-                await unitOfWork.UserSessions.UpdateAsync(dbSession);
-            }
-
-            var tokens = await unitOfWork.RefreshTokens.GetAllAsync(
-                t => t.UserId == userId && t.SessionId == sessionId && t.RevokedAt == null,
-                disableTracking: false);
-            foreach (var token in tokens)
-            {
-                refreshTokenService.Revoke(token, replacedByTokenId: null, reason: "logout", revokedByIp: requestContext.IpAddress);
-                await unitOfWork.RefreshTokens.UpdateAsync(token);
-            }
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            await sessionCacheService.RevokeSessionAsync(sessionId, cancellationToken);
+                await RevokeSessionInternalAsync(dbSession, "logout", cancellationToken);
+            else
+                await unitOfWork.SaveChangesAsync(cancellationToken);
 
             ApplicationLog.Completed(logger,
                 "User {UserId} logged out from session {SessionId}",
@@ -366,21 +354,7 @@ public class UserService(
                 return result.Failed(IdentityMessages.SessionAccessDenied, HttpStatusCode.Forbidden);
             }
 
-            dbSession.RevokedAt = DateTime.UtcNow;
-            dbSession.LastActivityAt = DateTime.UtcNow;
-            await unitOfWork.UserSessions.UpdateAsync(dbSession);
-
-            var tokens = await unitOfWork.RefreshTokens.GetAllAsync(
-                t => t.UserId == dbSession.UserId && t.SessionId == dbSession.SessionId && t.RevokedAt == null,
-                disableTracking: false);
-            foreach (var token in tokens)
-            {
-                refreshTokenService.Revoke(token, replacedByTokenId: null, reason: "session_revoked", revokedByIp: requestContext.IpAddress);
-                await unitOfWork.RefreshTokens.UpdateAsync(token);
-            }
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            await sessionCacheService.RevokeSessionAsync(dbSession.SessionId, cancellationToken);
+            await RevokeSessionInternalAsync(dbSession, "session_revoked", cancellationToken);
 
             ApplicationLog.Completed(logger,
                 "User {UserId} revoked session {SessionId}",
@@ -410,27 +384,11 @@ public class UserService(
                 return result.Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
             }
 
-            var sessions = await unitOfWork.UserSessions.GetAllAsync(s => s.UserId == userId && s.RevokedAt == null, disableTracking: false);
-            foreach (var session in sessions)
-            {
-                session.RevokedAt = DateTime.UtcNow;
-                session.LastActivityAt = DateTime.UtcNow;
-                await unitOfWork.UserSessions.UpdateAsync(session);
-            }
-
-            var tokens = await unitOfWork.RefreshTokens.GetAllAsync(t => t.UserId == userId && t.RevokedAt == null, disableTracking: false);
-            foreach (var token in tokens)
-            {
-                refreshTokenService.Revoke(token, replacedByTokenId: null, reason: "revoke_all_sessions", revokedByIp: requestContext.IpAddress);
-                await unitOfWork.RefreshTokens.UpdateAsync(token);
-            }
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            await sessionCacheService.RevokeAllSessionsAsync(userId, cancellationToken);
+            var revokedCount = await RevokeAllSessionsForUserInternalAsync(userId, "revoke_all_sessions", cancellationToken);
 
             ApplicationLog.Completed(logger,
                 "User {UserId} revoked all active sessions ({SessionCount} session(s))",
-                userId, sessions.Count);
+                userId, revokedCount);
 
             return result.Succeed(IdentityMessages.OperationSucceeded);
         }
@@ -636,6 +594,99 @@ public class UserService(
         }
     }
 
+    public async Task<ApiOperationResult<SessionDto>> GetUserActiveSessionsAsAdminAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var result = new ApiOperationResult<SessionDto>();
+        try
+        {
+            var adminCheck = await RequireAdminAsync<SessionDto>(cancellationToken);
+            if (adminCheck is not null)
+                return adminCheck;
+
+            var user = await unitOfWork.Users.GetAsync(u => u.Id == userId && !u.IsDeleted, disableTracking: true);
+            if (user is null)
+                return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
+
+            var sessions = await unitOfWork.UserSessions.GetActiveByUserAsync(userId);
+            var list = sessions.Select(s =>
+            {
+                var dto = s.Adapt<SessionDto>();
+                dto.IsActive = s.RevokedAt is null;
+                return dto;
+            }).ToList();
+
+            return result.Succeed(IdentityMessages.OperationSucceeded, list, list.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "GetUserActiveSessionsAsAdmin failed for user {UserId}", userId);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
+    public async Task<ApiOperationResult<UserDto>> AdminRevokeAllSessionsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var result = new ApiOperationResult<UserDto>();
+        try
+        {
+            var adminCheck = await RequireAdminAsync<UserDto>(cancellationToken);
+            if (adminCheck is not null)
+                return adminCheck;
+
+            var user = await unitOfWork.Users.GetAsync(u => u.Id == userId && !u.IsDeleted, disableTracking: true);
+            if (user is null)
+                return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
+
+            var revokedCount = await RevokeAllSessionsForUserInternalAsync(userId, "admin_revoke_all", cancellationToken);
+
+            ApplicationLog.Completed(logger,
+                "Admin {AdminId} revoked all sessions for user {TargetUserId} ({SessionCount} session(s))",
+                currentUser.UserId, userId, revokedCount);
+
+            return result.Succeed(IdentityMessages.UserSessionsRevokedByAdmin);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "AdminRevokeAllSessions failed for user {UserId}", userId);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
+    public async Task<ApiOperationResult<UserDto>> AdminRevokeSessionAsync(Guid userId, RevokeSessionDto dto, CancellationToken cancellationToken = default)
+    {
+        var result = new ApiOperationResult<UserDto>();
+        try
+        {
+            var adminCheck = await RequireAdminAsync<UserDto>(cancellationToken);
+            if (adminCheck is not null)
+                return adminCheck;
+
+            var user = await unitOfWork.Users.GetAsync(u => u.Id == userId && !u.IsDeleted, disableTracking: true);
+            if (user is null)
+                return result.Failed(IdentityMessages.UserNotFound, HttpStatusCode.NotFound);
+
+            var dbSession = await unitOfWork.UserSessions.GetBySessionIdAsync(dto.SessionId, disableTracking: false);
+            if (dbSession is null || dbSession.RevokedAt is not null)
+                return result.Succeed(IdentityMessages.OperationSucceeded);
+
+            if (dbSession.UserId != userId)
+                return result.Failed(IdentityMessages.SessionAccessDenied, HttpStatusCode.BadRequest);
+
+            await RevokeSessionInternalAsync(dbSession, "admin_session_revoked", cancellationToken);
+
+            ApplicationLog.Completed(logger,
+                "Admin {AdminId} revoked session {SessionId} for user {TargetUserId}",
+                currentUser.UserId, dto.SessionId, userId);
+
+            return result.Succeed(IdentityMessages.OperationSucceeded);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "AdminRevokeSession failed for user {UserId}, session {SessionId}", userId, dto.SessionId);
+            return result.Failed($"{IdentityMessages.InternalError}: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
     public async Task<ApiOperationResult<UserDto>> GetByIdAsync(Guid id)
     {
         var result = new ApiOperationResult<UserDto>();
@@ -794,13 +845,69 @@ public class UserService(
             }
         }
 
-        await sessionCacheService.RevokeAllSessionsAsync(userId, cancellationToken);
+        await RevokeAllSessionsForUserInternalAsync(userId, reason, cancellationToken);
+    }
 
+    private async Task<ApiOperationResult<T>?> RequireAdminAsync<T>(CancellationToken cancellationToken)
+    {
+        var requesterId = currentUser.UserId ?? Guid.Empty;
+        if (requesterId == Guid.Empty)
+            return new ApiOperationResult<T>().Failed(IdentityMessages.AuthenticationRequired, HttpStatusCode.Unauthorized);
+
+        var requester = await unitOfWork.Users.GetAsync(u => u.Id == requesterId && !u.IsDeleted, disableTracking: true);
+        if (requester is null || requester.Role != UserRole.Admin)
+            return new ApiOperationResult<T>().Failed(IdentityMessages.AdminAccessDenied, HttpStatusCode.Forbidden);
+
+        return null;
+    }
+
+    private int MaxActiveSessions =>
+        Math.Max(1, sessionOptions.Value.MaxActiveSessions);
+
+    private async Task TrimActiveSessionsForLimitAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var max = MaxActiveSessions;
+        var active = await unitOfWork.UserSessions.GetAllAsync(
+            s => s.UserId == userId && s.RevokedAt == null,
+            disableTracking: false);
+
+        var excess = active.Count - max + 1;
+        if (excess <= 0)
+            return;
+
+        foreach (var session in active.OrderBy(s => s.LastActivityAt).Take(excess))
+            await RevokeSessionInternalAsync(session, "session_limit_exceeded", cancellationToken);
+    }
+
+    private async Task RevokeSessionInternalAsync(UserSession dbSession, string reason, CancellationToken cancellationToken)
+    {
+        if (dbSession.RevokedAt is not null)
+            return;
+
+        dbSession.RevokedAt = DateTime.UtcNow;
+        dbSession.LastActivityAt = DateTime.UtcNow;
+        await unitOfWork.UserSessions.UpdateAsync(dbSession);
+
+        var tokens = await unitOfWork.RefreshTokens.GetAllAsync(
+            t => t.UserId == dbSession.UserId && t.SessionId == dbSession.SessionId && t.RevokedAt == null,
+            disableTracking: false);
+        foreach (var token in tokens)
+        {
+            refreshTokenService.Revoke(token, replacedByTokenId: null, reason: reason, revokedByIp: requestContext.IpAddress);
+            await unitOfWork.RefreshTokens.UpdateAsync(token);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await sessionCacheService.RevokeSessionAsync(dbSession.SessionId, cancellationToken);
+    }
+
+    private async Task<int> RevokeAllSessionsForUserInternalAsync(Guid userId, string reason, CancellationToken cancellationToken)
+    {
         var sessions = await unitOfWork.UserSessions.GetAllAsync(s => s.UserId == userId && s.RevokedAt == null, disableTracking: false);
         foreach (var session in sessions)
-        {
-            session.RevokedAt = DateTime.UtcNow;
-            await unitOfWork.UserSessions.UpdateAsync(session);
-        }
+            await RevokeSessionInternalAsync(session, reason, cancellationToken);
+
+        await sessionCacheService.RevokeAllSessionsAsync(userId, cancellationToken);
+        return sessions.Count;
     }
 }

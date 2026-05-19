@@ -22,7 +22,7 @@ public static class SwaggerServiceCollectionExtensions
                 BearerFormat = "JWT",
                 In = ParameterLocation.Header,
                 Description =
-                    "JWT access token. Obtain via `POST /api/v1.0/panel/users/verify-otp`. " +
+                    "JWT access token. Obtain via `POST /api/v1.0/identity/users/verify-otp`. " +
                     "Example: `Bearer eyJhbGciOi...`"
             });
 
