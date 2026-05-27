@@ -9,8 +9,15 @@
     return state.panel.unwrapEnvelope(body).payload;
   }
 
-  function casesPath(suffix) {
-    return state.panel.casesBasePath() + suffix;
+  function kanbanPath(suffix) {
+    return state.panel.kanbanBasePath() + suffix;
+  }
+
+  function moduleLabel(item) {
+    const m = Number(pick(item, "module", "Module") || 1);
+    if (m === 2) return "ضمانت‌نامه";
+    if (m === 3) return "تمدید";
+    return "سرمایه‌گذاری";
   }
 
   function pick(obj, camel, pascal) {
@@ -58,7 +65,9 @@
     card.dataset.caseId = id;
 
     const title = pick(item, "startupTitle", "StartupTitle") || pick(item, "companyName", "CompanyName") || pick(item, "caseNumber", "CaseNumber");
-    card.appendChild(el("div", "kanban-card__title", title));
+    card.appendChild(el("div", "kanban-card__title", "[" + moduleLabel(item) + "] " + title));
+    card.dataset.apiBase = pick(item, "apiBasePath", "ApiBasePath") || state.panel.casesBasePath();
+    card.dataset.module = String(pick(item, "module", "Module") || "1");
 
     const meta = el("div", "kanban-card__meta");
     meta.innerHTML =
@@ -82,7 +91,7 @@
       card.appendChild(wrap);
     }
 
-    card.addEventListener("click", () => openCase(id));
+    card.addEventListener("click", () => openCase(id, card));
     return card;
   }
 
@@ -93,7 +102,9 @@
     card.dataset.caseId = id;
 
     const title = pick(item, "startupTitle", "StartupTitle") || pick(item, "caseNumber", "CaseNumber");
-    card.appendChild(el("div", "kanban-card__title", title));
+    card.appendChild(el("div", "kanban-card__title", "[" + moduleLabel(item) + "] " + title));
+    card.dataset.apiBase = pick(item, "apiBasePath", "ApiBasePath") || state.panel.casesBasePath();
+    card.dataset.module = String(pick(item, "module", "Module") || "1");
 
     const meta = el("div", "kanban-card__meta");
     meta.textContent =
@@ -104,7 +115,7 @@
       (pick(item, "pendingActionLabel", "PendingActionLabel") || "");
     card.appendChild(meta);
 
-    card.addEventListener("click", () => openCase(id));
+    card.addEventListener("click", () => openCase(id, card));
     return card;
   }
 
@@ -118,10 +129,17 @@
     items.forEach((item) => host.appendChild(builder(item)));
   }
 
-  function openCase(caseId) {
+  function openCase(caseId, card) {
     if (!caseId || !state.panel) return;
-    state.panel.setCurrentCaseId(caseId);
-    document.dispatchEvent(new CustomEvent("testpanel:case-changed", { detail: { caseId } }));
+    const module = card?.dataset?.module;
+    const apiBase = card?.dataset?.apiBase || "";
+    if (module === "2" || (apiBase && apiBase.indexOf("guaranteecases") >= 0)) {
+      state.panel.setGuaranteeCaseId(caseId);
+      const tab = document.querySelector('[data-tab="tabGuarantee"]');
+      if (tab) tab.click();
+      return;
+    }
+    state.panel.setCurrentCaseId(caseId, "investment");
     const portalTab = document.querySelector('[data-tab="tabPortal"]');
     if (portalTab) portalTab.click();
   }
@@ -146,8 +164,8 @@
     setLoading(true);
     try {
       const [actionRes, watchRes] = await Promise.all([
-        state.panel.apiRequest({ method: "GET", path: casesPath("/kanban/action-required") }),
-        state.panel.apiRequest({ method: "GET", path: casesPath("/kanban/watching") }),
+        state.panel.apiRequest({ method: "GET", path: kanbanPath("/action-required") }),
+        state.panel.apiRequest({ method: "GET", path: kanbanPath("/watching") }),
       ]);
 
       state.actionItems = unwrap(actionRes.body) || [];

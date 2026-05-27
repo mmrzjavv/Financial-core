@@ -59,4 +59,30 @@ public static class ApiMessages
     public const string PaymentsIncomplete = "برای تکمیل پرونده، پرداخت‌ها کامل نشده‌اند.";
     public const string ValuationStatusMismatch = "ثبت ارزش‌گذاری فقط در وضعیت {0} امکان‌پذیر است.";
     public const string CaseNumberAllocationFailed = "امکان تخصیص شماره یکتای پرونده وجود ندارد.";
+
+    public const string GuaranteeCaseNotFound = "پرونده ضمانت‌نامه یافت نشد.";
+    public const string GuaranteeRenewalNotFound = "درخواست تمدید یافت نشد.";
+    public const string GuaranteeApplicationIncomplete = "اطلاعات درخواست ضمانت‌نامه ناقص است.";
+    public const string GuaranteeDocumentsIncomplete = "مدارک الزامی هنوز کامل بارگذاری نشده است.";
+    public const string GuaranteeApprovalFormIncomplete = "فرم تصویب تکمیل نشده است.";
+    public const string GuaranteeDraftContractMissing = "پیش‌قرارداد بارگذاری نشده است.";
+    public const string GuaranteeSignedContractMissing = "قرارداد امضاشده بارگذاری نشده است.";
+    public const string GuaranteeFinalContractMissing = "قرارداد نهایی بارگذاری نشده است.";
+    public const string GuaranteeIssuanceDocumentsIncomplete = "ضمانت‌نامه یا رسید صدور بارگذاری نشده است.";
+    public const string GuaranteeApplicationNotEditable = "در وضعیت فعلی امکان ویرایش درخواست وجود ندارد.";
+    public const string ParentGuaranteeNotEligibleForRenewal = "پرونده والد برای تمدید واجد شرایط نیست.";
+    public const string ApplicantCreditLimitNotSet = "سقف اعتبار برای این متقاضی هنوز توسط مدیرعامل تعیین نشده است.";
+    public const string FundCreditLimitNotSet = "سقف اعتبار کل صندوق هنوز توسط مدیرعامل تعیین نشده است.";
+    public const string FundCreditLimitExpired = "سقف اعتبار صندوق منقضی شده است. مدیرعامل باید سقف جدید با بازه جدید تعیین کند.";
+    public const string FundCreditLimitNotYetActive = "سقف اعتبار صندوق هنوز در بازه زمانی فعال نیست.";
+    public const string InvalidFundCreditLimitPeriod = "تاریخ پایان سقف باید بعد از تاریخ شروع باشد.";
+    public const string GuaranteeApprovalFormAmountRequired = "مبلغ ضمانت‌نامه در فرم تصویب مشخص نشده است.";
+    public const string FundCreditLimitExceededFormat =
+        "مجموع ضمانت‌نامه‌های صادره در بازه سقف ({0} ریال) و تعهدات فعال ({1} ریال) از سقف تعیین‌شده توسط مدیرعامل ({2} ریال) بیشتر است.";
+    public const string InvalidCreditLimitAmount = "مبلغ سقف اعتبار باید بزرگ‌تر از صفر باشد.";
+    public const string CreditLimitAmountTooLarge =
+        "مبلغ سقف از حد مجاز سیستم بیشتر است (حداکثر ۹٬۹۹۹٬۹۹۹٬۹۹۹٬۹۹۹٬۹۹۹٬۹۹۹٫۹۹ ریال).";
+    public const string CreditLimitDatabasePrecisionTooSmall =
+        "ستون سقف در دیتابیس ظرفیت مبلغ را ندارد. اسکریپت scripts/FixGuaranteeFundCreditLimitPrecision.sql را اجرا کنید.";
+    public const string OnlyCeoCanSetCreditLimit = "تعیین سقف اعتبار فقط توسط مدیرعامل امکان‌پذیر است.";
 }

@@ -10,5 +10,7 @@ public interface ICoreUnitOfWork : IDisposable
     IUserSessionRepository UserSessions { get; }
     ICompanyRepository Companies { get; }
     IInvestmentCaseRepository InvestmentCases { get; }
+    IGuaranteeCaseRepository GuaranteeCases { get; }
+    IGuaranteeRenewalCaseRepository GuaranteeRenewals { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

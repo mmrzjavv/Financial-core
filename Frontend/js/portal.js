@@ -81,16 +81,17 @@
   }
 
   function readCaseId() {
+    if (state.panel && state.panel.getCaseModule() === "guarantee") return "";
+    if (state.panel && typeof state.panel.getInvestmentCaseId === "function") {
+      return state.panel.getInvestmentCaseId() || "";
+    }
     const input = qs("#currentCaseId");
-    const fromInput = input ? input.value.trim() : "";
-    const fromState = (() => {
-      try {
-        return JSON.parse(localStorage.getItem("workflow_test_panel.state.v1") || "{}").currentCaseId || "";
-      } catch {
-        return "";
-      }
-    })();
-    return fromInput || fromState || state.caseId;
+    return input ? input.value.trim() : "";
+  }
+
+  function isCaseNotFoundError(error) {
+    const msg = (error && error.message) || String(error || "");
+    return /یافت نشد|not found|404/i.test(msg);
   }
 
   function readValue(id) {
@@ -408,7 +409,26 @@
     const session = state.panel.getActiveSession();
     if (!session) throw new Error("ابتدا وارد سامانه شوید.");
 
-    const caseRes = await state.panel.apiRequest({ method: "GET", path: casesPath("/" + caseId) });
+    let caseRes;
+    try {
+      caseRes = await state.panel.apiRequest({ method: "GET", path: casesPath("/" + caseId) });
+    } catch (error) {
+      if (isCaseNotFoundError(error)) {
+        if (typeof state.panel.clearInvestmentCaseId === "function") state.panel.clearInvestmentCaseId();
+        state.caseId = "";
+        state.caseData = null;
+        state.history = [];
+        state.documents = [];
+        state.documentsLatest = [];
+        state.documentVersionGroups = [];
+        state.comments = [];
+        state.payments = [];
+        state.paymentsSummary = null;
+        render();
+        return;
+      }
+      throw error;
+    }
     state.caseData = unwrap(caseRes.body);
 
     const historyRes = await state.panel.apiRequest({ method: "GET", path: casesPath("/" + caseId + "/history") });
@@ -1711,16 +1731,31 @@
       });
     }
 
-    document.addEventListener("testpanel:case-changed", () => {
+    document.addEventListener("testpanel:case-changed", (ev) => {
+      if (ev.detail?.module && ev.detail.module !== "investment") return;
       state.caseId = readCaseId();
       withBusy(refreshCase);
     });
+  }
+
+  async function loadCaseQuietly() {
+    if (state.busy) return;
+    state.busy = true;
+    setPortalError("");
+    setPortalInfo("");
+    try {
+      await refreshCase();
+    } catch (error) {
+      setPortalError(error && error.message ? error.message : String(error));
+    } finally {
+      state.busy = false;
+    }
   }
 
   window.initPortal = function initPortal(panel) {
     state.panel = panel;
     wireEvents();
     render();
-    withBusy(refreshCase);
+    void loadCaseQuietly();
   };
 })();

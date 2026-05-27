@@ -28,7 +28,7 @@ public sealed class InvestmentCasesController(
     [Authorize]
     public async Task<IActionResult> GetKanbanActionRequired(CancellationToken ct)
     {
-        var result = await kanbanService.GetActionRequiredAsync(ct);
+        var result = await kanbanService.GetActionRequiredInvestmentOnlyAsync(ct);
         return Respond(result, CaseSuccessMessages.KanbanActionRequiredRetrieved);
     }
 
@@ -36,7 +36,7 @@ public sealed class InvestmentCasesController(
     [Authorize]
     public async Task<IActionResult> GetKanbanWatching(CancellationToken ct)
     {
-        var result = await kanbanService.GetWatchingAsync(ct);
+        var result = await kanbanService.GetWatchingInvestmentOnlyAsync(ct);
         return Respond(result, CaseSuccessMessages.KanbanWatchingRetrieved);
     }
 

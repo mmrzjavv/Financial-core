@@ -263,6 +263,7 @@ pre.code.small{min-height:80px; max-height:220px}
 .portal-file-btn:hover{filter:brightness(1.08)}
 .portal-upload-row:first-of-type{border-top:0}
 .portal-upload-row__title{font-weight:600}
+.portal-upload-row__required{color:#f87171;font-size:12px;font-weight:600;margin-right:6px}
 .portal-doc-list,.portal-history,.portal-payments-list{display:flex; flex-direction:column; gap:6px}
 .portal-doc-list__item,.portal-history__item,.portal-payments-list__item{
   padding:8px 10px;
@@ -284,6 +285,14 @@ pre.code.small{min-height:80px; max-height:220px}
 .portal-thread__item{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:rgba(11,18,32,.55)}
 .portal-thread__meta{font-size:12px;color:var(--muted);margin-bottom:4px}
 .portal-thread__message{white-space:pre-wrap}
+.portal-doc-checklist{margin:0;padding:0 0 0 1.2rem;list-style:none}
+.portal-doc-checklist li{margin:4px 0;font-size:14px}
+.portal-doc-checklist li.is-ok{color:#86efac}
+.portal-doc-checklist li.is-missing{color:#fca5a5}
+.portal-revision-inbox{border-color:rgba(239,68,68,.45);background:rgba(127,29,29,.2)}
+.portal-readonly-block{border-color:rgba(59,130,246,.25);background:rgba(30,58,95,.2)}
+.portal-readonly-block .portal-profile-summary__value{color:#e2e8f0}
+.portal-stage__subtitle{font-weight:600;margin:8px 0 12px;color:var(--muted)}
 .portal-card--nested{margin-top:10px;background:rgba(11,18,32,.45)}
 .portal-stage__hint{color:var(--muted);margin-top:6px}
 .portal-select{width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:rgba(11,18,32,.55);color:inherit}
@@ -418,3 +427,167 @@ a{color:#7dd3fc}
   padding:8px 0;
   border-bottom:1px solid rgba(35,48,67,.5);
 }
+
+.ceo-credit-panel{margin-top:16px}
+.ceo-credit-toolbar{margin-bottom:12px}
+.ceo-credit-summary{margin:12px 0 16px}
+.ceo-credit-current{margin:8px 0 12px; font-size:.9rem}
+.ceo-credit-case-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin:12px 0 16px;
+  max-height:220px;
+  overflow:auto;
+}
+.ceo-credit-case-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  text-align:right;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:rgba(11,18,32,.5);
+  color:var(--text);
+  cursor:pointer;
+}
+.ceo-credit-case-item:hover{border-color:var(--primary)}
+.ceo-credit-case-item.is-selected{
+  border-color:var(--primary);
+  background:rgba(59,130,246,.12);
+}
+.ceo-credit-case-item__title{font-weight:600}
+
+.portal-stage-upload{
+  margin-bottom:16px;
+  border:1px solid rgba(59,130,246,.35);
+  background:rgba(59,130,246,.06);
+}
+.portal-ceo-credit-inline{
+  margin-bottom:16px;
+  border:1px solid rgba(34,197,94,.35);
+  background:rgba(34,197,94,.06);
+}
+.portal-ceo-credit-inline__msg{margin-top:8px}
+.portal-stage-upload__role-hint{margin:10px 0 0; padding:10px 12px}
+.portal-dossier{
+  margin-bottom:16px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px 14px;
+  background:rgba(11,18,32,.55);
+}
+.portal-dossier__summary{
+  cursor:pointer;
+  list-style:none;
+  user-select:none;
+  margin-bottom:10px;
+}
+.portal-dossier__summary::-webkit-details-marker{display:none}
+.portal-dossier__body{display:flex; flex-direction:column; gap:12px}
+.portal-doc-archive{display:flex; flex-direction:column; gap:14px}
+.portal-doc-archive__type-title{font-weight:600; margin-bottom:6px; font-size:.95rem}
+.portal-doc-archive__row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:8px 0;
+  border-bottom:1px solid rgba(35,48,67,.45);
+}
+.portal-doc-archive__row:last-child{border-bottom:none}
+.portal-doc-archive__meta{font-size:.9rem; flex:1; min-width:0; word-break:break-word}
+.btn--small{padding:4px 10px; font-size:.85rem}
+
+.registry-layout{
+  display:grid;
+  grid-template-columns:minmax(300px,1fr) minmax(360px,1.15fr);
+  gap:16px;
+  align-items:start;
+}
+@media (max-width:1100px){
+  .registry-layout{grid-template-columns:1fr}
+}
+.registry-module-tabs{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+.registry-module-tab.is-active{
+  border-color:var(--primary);
+  background:rgba(59,130,246,.15);
+}
+.registry-table-wrap{max-height:520px; overflow:auto}
+.registry-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:.9rem;
+}
+.registry-table th,
+.registry-table td{
+  padding:8px 10px;
+  border-bottom:1px solid var(--border);
+  text-align:right;
+  vertical-align:top;
+}
+.registry-table th{color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--panel)}
+.registry-table tr.is-selected td{background:rgba(59,130,246,.12)}
+.registry-table tr{cursor:pointer}
+.registry-table tr:hover td{background:rgba(35,48,67,.35)}
+.registry-detail-header{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:12px;
+}
+.registry-detail-actions{display:flex; flex-wrap:wrap; gap:8px}
+.registry-accordion{
+  border:1px solid var(--border);
+  border-radius:10px;
+  margin-bottom:10px;
+  overflow:hidden;
+}
+.registry-accordion summary{
+  padding:10px 12px;
+  cursor:pointer;
+  font-weight:600;
+  background:rgba(15,22,36,.8);
+  list-style:none;
+}
+.registry-accordion summary::-webkit-details-marker{display:none}
+.registry-accordion__body{
+  padding:10px 12px;
+  border-top:1px solid var(--border);
+}
+.registry-kv{
+  display:grid;
+  grid-template-columns:minmax(120px,auto) 1fr;
+  gap:6px 12px;
+  font-size:.9rem;
+  margin-bottom:10px;
+}
+.registry-kv dt{color:var(--muted)}
+.registry-kv dd{margin:0; word-break:break-word}
+.registry-json{
+  font-family:var(--mono);
+  font-size:.78rem;
+  white-space:pre-wrap;
+  word-break:break-word;
+  max-height:360px;
+  overflow:auto;
+  padding:10px;
+  border-radius:8px;
+  background:rgba(11,18,32,.7);
+  border:1px solid var(--border);
+}
+.registry-history-item,
+.registry-comment-item,
+.registry-doc-item{
+  padding:8px 0;
+  border-bottom:1px solid rgba(35,48,67,.45);
+  font-size:.9rem;
+}
+.registry-history-item:last-child,
+.registry-comment-item:last-child,
+.registry-doc-item:last-child{border-bottom:none}

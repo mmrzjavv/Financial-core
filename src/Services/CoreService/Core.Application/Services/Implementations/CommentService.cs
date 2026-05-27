@@ -84,6 +84,7 @@ public sealed class CommentService : ICommentService
             return Result.Fail(Error.Forbidden(ApiMessages.ApplicantsCannotRequestRevisions));
 
         var entity = await _db.InvestmentCases
+            .AsSplitQuery()
             .Include(x => x.Comments)
             .Include(x => x.WorkflowHistory)
             .FirstOrDefaultAsync(x => x.Id == caseId, ct);

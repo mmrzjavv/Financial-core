@@ -28,6 +28,14 @@ public static class Permissions
     public const string InvestmentCases_FinanceReview = "investment_cases:finance_review";
     public const string InvestmentCases_LegalReview = "investment_cases:legal_review";
     public const string InvestmentCases_CeoApprove = "investment_cases:ceo_approve";
+
+    public const string GuaranteeCases_Read = "guarantee_cases:read";
+    public const string GuaranteeCases_Write = "guarantee_cases:write";
+    public const string GuaranteeCases_CreditReview = "guarantee_cases:credit_review";
+    public const string GuaranteeCases_LegalReview = "guarantee_cases:legal_review";
+    public const string GuaranteeCases_FinanceReview = "guarantee_cases:finance_review";
+    public const string GuaranteeCases_CeoApprove = "guarantee_cases:ceo_approve";
+    public const string GuaranteeCases_SetApplicantCreditLimit = "guarantee_cases:set_applicant_credit_limit";
 }
 
 public static class RolePermissions
@@ -53,7 +61,13 @@ public static class RolePermissions
         Permissions.InvestmentCases_Review,
         Permissions.InvestmentCases_FinanceReview,
         Permissions.InvestmentCases_LegalReview,
-        Permissions.InvestmentCases_CeoApprove
+        Permissions.InvestmentCases_CeoApprove,
+        Permissions.GuaranteeCases_Read,
+        Permissions.GuaranteeCases_Write,
+        Permissions.GuaranteeCases_CreditReview,
+        Permissions.GuaranteeCases_LegalReview,
+        Permissions.GuaranteeCases_FinanceReview,
+        Permissions.GuaranteeCases_CeoApprove
     ];
 
     private static readonly string[] LegalUnitPermissions =
@@ -62,7 +76,9 @@ public static class RolePermissions
         Permissions.Companies_Read,
         Permissions.Sessions_Read,
         Permissions.InvestmentCases_Read,
-        Permissions.InvestmentCases_LegalReview
+        Permissions.InvestmentCases_LegalReview,
+        Permissions.GuaranteeCases_Read,
+        Permissions.GuaranteeCases_LegalReview
     ];
 
     private static readonly string[] FinancialUnitPermissions =
@@ -72,7 +88,9 @@ public static class RolePermissions
         Permissions.Companies_Write,
         Permissions.Sessions_Read,
         Permissions.InvestmentCases_Read,
-        Permissions.InvestmentCases_FinanceReview
+        Permissions.InvestmentCases_FinanceReview,
+        Permissions.GuaranteeCases_Read,
+        Permissions.GuaranteeCases_FinanceReview
     ];
 
     private static readonly string[] TechnicalUnitPermissions =
@@ -96,7 +114,9 @@ public static class RolePermissions
                 Permissions.Companies_Write,
                 Permissions.Sessions_Read,
                 Permissions.Otp_Send,
-                Permissions.Otp_Verify
+                Permissions.Otp_Verify,
+                Permissions.GuaranteeCases_Read,
+                Permissions.GuaranteeCases_Write
             ],
             [UserRoleClaims.InvestmentExpert] =
             [
@@ -128,7 +148,29 @@ public static class RolePermissions
                 Permissions.Companies_Read,
                 Permissions.Sessions_Read,
                 Permissions.InvestmentCases_Read,
-                Permissions.InvestmentCases_CeoApprove
+                Permissions.InvestmentCases_CeoApprove,
+                Permissions.GuaranteeCases_Read,
+                Permissions.GuaranteeCases_CeoApprove,
+                Permissions.GuaranteeCases_SetApplicantCreditLimit
+            ],
+            [UserRoleClaims.CreditExpert] =
+            [
+                Permissions.Users_Read,
+                Permissions.Companies_Read,
+                Permissions.Sessions_Read,
+                Permissions.GuaranteeCases_Read,
+                Permissions.GuaranteeCases_CreditReview,
+                Permissions.GuaranteeCases_Write
+            ],
+            [UserRoleClaims.CreditManager] =
+            [
+                Permissions.Users_Read,
+                Permissions.Companies_Read,
+                Permissions.Companies_Write,
+                Permissions.Sessions_Read,
+                Permissions.GuaranteeCases_Read,
+                Permissions.GuaranteeCases_CreditReview,
+                Permissions.GuaranteeCases_Write
             ],
             [UserRoleClaims.LegalExpert] = LegalUnitPermissions,
             [UserRoleClaims.LegalManager] = LegalUnitPermissions,

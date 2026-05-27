@@ -1,0 +1,34 @@
+namespace Core.Domain.Enums;
+
+public enum GuaranteeDocumentType
+{
+    RequestLetter = 1,
+    EstablishmentGazette = 2,
+    FinancialStatements3Years = 3,
+    ActivityLicenses = 4,
+    BankAccountTurnover = 5,
+    CreditInquiryResult = 6,
+    CreditInformationForm = 7,
+    CaseFormationFeeReceipt = 8,
+    CaseFormationAttachmentForm = 9,
+    CompanyIntroductionDocs = 10,
+    LeaseOrOwnershipDeed = 11,
+    CeoBoardIdCards = 12,
+    FeasibilityReport = 13,
+    GuaranteeIssuanceRequestForm = 14,
+    SalesContractsScan = 15,
+    TenderAnnouncement = 16,
+    BaseContractImage = 17,
+    DraftContract = 18,
+    SignedContract = 19,
+    SignedAttachment1 = 20,
+    SignedAttachment2 = 21,
+    SignedAttachment3 = 22,
+    SignedAttachment4 = 23,
+    SignedAttachment5 = 24,
+    SignedAttachment6 = 25,
+    FinalContract = 26,
+    GuaranteeInstrument = 27,
+    IssuanceReceipt = 28,
+    Other = 99
+}

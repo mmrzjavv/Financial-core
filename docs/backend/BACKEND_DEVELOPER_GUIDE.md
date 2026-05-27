@@ -664,6 +664,22 @@ dotnet run --project src/Services/CoreService/Core.API/Core.API.csproj
 | State machine پرونده | `Core.Application/Services/CaseStateManager.cs` |
 | Repository پرونده | `Core.Infrastructure/Persistence/InvestmentCaseRepository.cs` |
 | راهنمای فرانت API | `docs/frontend/INVESTMENT_CASE_API_GUIDE.md` |
+| راهنمای ضمانت‌نامه | `docs/frontend/GUARANTEE_CASE_API_GUIDE.md` |
+| تمدید ضمانت‌نامه | `docs/frontend/GUARANTEE_RENEWAL_API_GUIDE.md` |
+| State machine ضمانت‌نامه | `Core.Application/Services/GuaranteeCaseStateManager.cs` |
+| کنترلر ضمانت‌نامه | `Core.API/Controllers/GuaranteeCasesController.cs` |
+| کارتابل یکپارچه | `Core.API/Controllers/KanbanController.cs` |
+
+---
+
+## ماژول ضمانت‌نامه (Guarantee)
+
+- Aggregate: `GuaranteeCase` + `GuaranteeCaseApplication`, `GuaranteeApprovalForm`, `GuaranteeCaseDocument`, `GuaranteeRenewalCase`
+- جداول در schema `Cases` با پیشوند `guarantee_*`
+- نقش‌های جدید: `CreditExpert` (50), `CreditManager` (51)
+- Migration: `AddGuaranteeModule`
+- API: `/api/v1/guaranteecases`, `/api/v1/guarantee-renewals`, `/api/v1/kanban`
+- الگوی transition/comment/document مشابه سرمایه‌گذاری؛ بدون duplicate داده Company/User روی application
 
 ---
 

@@ -68,10 +68,15 @@ builder.Services.AddFluentValidationAutoValidation();
 
 builder.Services.AddScoped<ICaseStateManager, CaseStateManager>();
 builder.Services.AddScoped<IInvestmentCaseAppService, InvestmentCaseAppService>();
+builder.Services.AddScoped<IGuaranteeCaseStateManager, GuaranteeCaseStateManager>();
+builder.Services.AddScoped<IGuaranteeCaseAppService, GuaranteeCaseAppService>();
+builder.Services.AddScoped<IGuaranteeRenewalAppService, GuaranteeRenewalAppService>();
 builder.Services.AddScoped<IKanbanAppService, KanbanAppService>();
 builder.Services.AddScoped<ICompanyAppService, CompanyAppService>();
 builder.Services.AddScoped<ICaseAuthorizationService, CaseAuthorizationService>();
+builder.Services.AddScoped<IGuaranteeAuthorizationService, GuaranteeAuthorizationService>();
 builder.Services.AddScoped<ICaseNumberGenerator, CaseNumberGenerator>();
+builder.Services.AddScoped<IGuaranteeCaseNumberGenerator, GuaranteeCaseNumberGenerator>();
 
 builder.AddIdentityApplication();
 builder.AddIdentityInfrastructure();
@@ -146,6 +151,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("InternalOnly", p => p.RequireRole(
         UserRoleClaims.InvestmentExpert,
         UserRoleClaims.InvestmentManager,
+        UserRoleClaims.CreditExpert,
+        UserRoleClaims.CreditManager,
         UserRoleClaims.LegalExpert,
         UserRoleClaims.LegalManager,
         UserRoleClaims.FinancialExpert,
@@ -158,6 +165,14 @@ builder.Services.AddAuthorization(options =>
         UserRoleClaims.FinancialUnit,
         UserRoleClaims.InvestmentUnit,
         "CEO"));
+
+    options.AddPolicy("GuaranteeCases.CreditReview", p => p.Requirements.Add(new PermissionRequirement("guarantee_cases:credit_review")));
+    options.AddPolicy("GuaranteeCases.CeoApprove", p => p.RequireRole(
+        UserRoleClaims.Ceo,
+        UserRoleClaims.Admin,
+        "CEO"));
+
+    options.AddPolicy("GuaranteeCases.CeoOnly", p => p.RequireRole(UserRoleClaims.Ceo, "CEO"));
 
     options.AddPolicy("InvestmentCases.Review", p => p.Requirements.Add(new PermissionRequirement("investment_cases:review")));
     options.AddPolicy("InvestmentCases.FinanceReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:finance_review")));

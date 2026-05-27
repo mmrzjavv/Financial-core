@@ -25,10 +25,7 @@ internal sealed class ConfigureSwaggerOptions(IApiVersionDescriptionProvider pro
                         Email = OpenApiMetadata.ContactEmail,
                         Url = new Uri($"mailto:{OpenApiMetadata.ContactEmail}")
                     },
-                    License = new OpenApiLicense
-                    {
-                        Name = "Proprietary — Financial Fund Operations Platform"
-                    }
+                   
                 });
         }
     }

@@ -16,6 +16,8 @@
     { value: "31", label: "FinancialManager — مدیر مالی (31)" },
     { value: "40", label: "TechnicalExpert — کارشناس فنی (40)" },
     { value: "41", label: "TechnicalManager — مدیر فنی (41)" },
+    { value: "50", label: "CreditExpert — اعتبارات (50)" },
+    { value: "51", label: "CreditManager — مدیر اعتبارات (51)" },
     { value: "100", label: "Admin (100)" },
   ];
 
@@ -197,6 +199,73 @@
     return "/api/v" + TESTPANEL_CONFIG.casesVersion + "/investmentcases";
   }
 
+  function guaranteeCasesBasePath() {
+    return "/api/v" + TESTPANEL_CONFIG.casesVersion + "/guaranteecases";
+  }
+
+  function guaranteeRenewalsBasePath() {
+    return "/api/v" + TESTPANEL_CONFIG.casesVersion + "/guarantee-renewals";
+  }
+
+  function kanbanBasePath() {
+    return "/api/v" + TESTPANEL_CONFIG.casesVersion + "/kanban";
+  }
+
+  function getCaseModule() {
+    return loadState().caseModule || "investment";
+  }
+
+  function setCaseModule(module) {
+    saveState({ caseModule: module });
+  }
+
+  function getInvestmentCaseId() {
+    const st = loadState();
+    const dedicated = (st.investmentCaseId || "").trim();
+    if (dedicated) return dedicated;
+    if ((st.caseModule || "investment") === "investment") return (st.currentCaseId || "").trim();
+    return "";
+  }
+
+  function getGuaranteeCaseId() {
+    const st = loadState();
+    const dedicated = (st.guaranteeCaseId || "").trim();
+    if (dedicated) return dedicated;
+    if (st.caseModule === "guarantee") return (st.currentCaseId || "").trim();
+    return "";
+  }
+
+  function migrateCaseState() {
+    const st = loadState();
+    const patch = {};
+    if (!st.investmentCaseId && st.caseModule !== "guarantee" && st.currentCaseId) {
+      patch.investmentCaseId = st.currentCaseId;
+    }
+    if (!st.guaranteeCaseId && st.caseModule === "guarantee" && st.currentCaseId) {
+      patch.guaranteeCaseId = st.currentCaseId;
+    }
+    if (st.guaranteeCaseId && st.currentCaseId === st.guaranteeCaseId && !st.investmentCaseId) {
+      patch.currentCaseId = "";
+    }
+    if (Object.keys(patch).length) saveState(patch);
+  }
+
+  function clearInvestmentCaseId() {
+    saveState({ investmentCaseId: "", currentCaseId: "" });
+    qs("#currentCaseId").value = "";
+    qs("#currentCaseLabel").textContent = "(not set)";
+    document.dispatchEvent(
+      new CustomEvent("testpanel:case-changed", { detail: { caseId: "", module: "investment" } })
+    );
+  }
+
+  function setGuaranteeCaseId(id) {
+    const v = String(id || "").trim();
+    saveState({ guaranteeCaseId: v, caseModule: "guarantee" });
+    qs("#currentCaseLabel").textContent = v || "(not set)";
+    document.dispatchEvent(new CustomEvent("testpanel:case-changed", { detail: { caseId: v, module: "guarantee" } }));
+  }
+
   const inspector = {
     lastRequest: null,
     lastResponse: null,
@@ -369,18 +438,21 @@
   }
 
   function requireCaseId() {
-    const st = loadState();
-    const id = (st.currentCaseId || "").trim();
-    if (!id) throw new Error("شناسه پرونده جاری تنظیم نشده است.");
+    const id = getInvestmentCaseId();
+    if (!id) throw new Error("شناسه پرونده سرمایه‌گذاری جاری تنظیم نشده است.");
     return id;
   }
 
-  function setCurrentCaseId(id) {
+  function setCurrentCaseId(id, module) {
     const v = String(id || "").trim();
-    saveState({ currentCaseId: v });
+    const mod = module || "investment";
+    const patch = { caseModule: mod, currentCaseId: v };
+    if (mod === "investment") patch.investmentCaseId = v;
+    else if (mod === "guarantee") patch.guaranteeCaseId = v;
+    saveState(patch);
     qs("#currentCaseId").value = v;
     qs("#currentCaseLabel").textContent = v || "(not set)";
-    document.dispatchEvent(new CustomEvent("testpanel:case-changed", { detail: { caseId: v } }));
+    document.dispatchEvent(new CustomEvent("testpanel:case-changed", { detail: { caseId: v, module: mod } }));
   }
 
   function renderTopbar() {
@@ -469,6 +541,25 @@
         qsa(".tab").forEach((t) => t.classList.remove("is-active"));
         qs("#" + target).classList.add("is-active");
         setGlobalError("");
+        if (target === "tabPortal") {
+          setCaseModule("investment");
+          const invId = getInvestmentCaseId();
+          qs("#currentCaseId").value = invId;
+          document.dispatchEvent(
+            new CustomEvent("testpanel:case-changed", { detail: { caseId: invId, module: "investment" } })
+          );
+        } else if (target === "tabGuarantee") {
+          setCaseModule("guarantee");
+          const gId = getGuaranteeCaseId();
+          document.dispatchEvent(
+            new CustomEvent("testpanel:case-changed", { detail: { caseId: gId, module: "guarantee" } })
+          );
+        } else if (target === "tabCaseRegistry" && typeof window.refreshCasesRegistryAccess === "function") {
+          window.refreshCasesRegistryAccess();
+        }
+        if (target === "tabDashboardCeo" && typeof window.refreshGuaranteeCeoCreditAccess === "function") {
+          window.refreshGuaranteeCeoCreditAccess();
+        }
       });
     });
   }
@@ -1669,7 +1760,9 @@
     renderTopbar();
 
     const st = loadState();
-    setCurrentCaseId(st.currentCaseId || "");
+    migrateCaseState();
+    const invId = getInvestmentCaseId();
+    setCurrentCaseId(invId, "investment");
 
     // Make auth phone inputs a bit friendlier
     const active = getActiveSession();
@@ -1683,6 +1776,9 @@
     window.TestPanel = {
       apiRequest,
       casesBasePath,
+      guaranteeCasesBasePath,
+      guaranteeRenewalsBasePath,
+      kanbanBasePath,
       unwrapEnvelope,
       saveSessionFromLogin,
       getActiveSession,
@@ -1690,6 +1786,13 @@
       findSessionByPhone,
       setActiveSessionId,
       setCurrentCaseId,
+      setGuaranteeCaseId,
+      getGuaranteeCaseId,
+      getInvestmentCaseId,
+      clearInvestmentCaseId,
+      getCaseModule,
+      setCaseModule,
+      getCurrentCaseId: getInvestmentCaseId,
     };
 
     if (typeof window.initKanban === "function") {
@@ -1698,6 +1801,18 @@
 
     if (typeof window.initPortal === "function") {
       window.initPortal(window.TestPanel);
+    }
+
+    if (typeof window.initGuaranteePortal === "function") {
+      window.initGuaranteePortal(window.TestPanel);
+    }
+
+    if (typeof window.initGuaranteeCeoCredit === "function") {
+      window.initGuaranteeCeoCredit(window.TestPanel);
+    }
+
+    if (typeof window.initCasesRegistry === "function") {
+      window.initCasesRegistry(window.TestPanel);
     }
 
     if (typeof window.initWorkflowRunner === "function") {

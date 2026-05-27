@@ -7,7 +7,7 @@ public enum UserRole
     InvestmentExpert = 10,
     InvestmentManager = 11,
 
-    CEO = 12,
+    Ceo = 12,
 
     LegalExpert = 20,
     LegalManager = 21,
@@ -18,6 +18,9 @@ public enum UserRole
     TechnicalExpert = 40,
     TechnicalManager = 41,
 
+    CreditExpert = 50,
+    CreditManager = 51,
+
     Admin = 100
 }
 
@@ -26,7 +29,7 @@ public static class UserRoleClaims
     public const string Applicant = nameof(UserRole.Applicant);
     public const string InvestmentExpert = nameof(UserRole.InvestmentExpert);
     public const string InvestmentManager = nameof(UserRole.InvestmentManager);
-    public const string Ceo = nameof(UserRole.CEO);
+    public const string Ceo = nameof(UserRole.Ceo);
     public const string Admin = nameof(UserRole.Admin);
     public const string LegalExpert = nameof(UserRole.LegalExpert);
     public const string LegalManager = nameof(UserRole.LegalManager);
@@ -34,6 +37,8 @@ public static class UserRoleClaims
     public const string FinancialManager = nameof(UserRole.FinancialManager);
     public const string TechnicalExpert = nameof(UserRole.TechnicalExpert);
     public const string TechnicalManager = nameof(UserRole.TechnicalManager);
+    public const string CreditExpert = nameof(UserRole.CreditExpert);
+    public const string CreditManager = nameof(UserRole.CreditManager);
 
     /// <summary>Legacy JWT aliases (pre expert/manager split).</summary>
     public const string LegalUnit = LegalExpert;

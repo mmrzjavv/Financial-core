@@ -50,6 +50,7 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
         CancellationToken cancellationToken)
         => ApplyScopedFilter(
                 dbContext.InvestmentCases
+                    .AsSplitQuery()
                     .Include(x => x.DataEntry1)
                     .Include(x => x.DataEntry2)
                     .Include(x => x.FinancialWorksheet)

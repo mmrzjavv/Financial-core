@@ -1,0 +1,160 @@
+using Core.Application.Requests;
+using Core.Domain.Enums;
+
+namespace Core.Application.DTOs;
+
+public abstract record GuaranteeCaseDto(
+    Guid Id,
+    string CaseNumber,
+    ApplicantType ApplicantType,
+    GuaranteeCasePhase CurrentPhase,
+    GuaranteeCaseStatus CurrentStatus,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt,
+    DateTimeOffset? CompletedAt);
+
+public sealed record GuaranteeCaseApplicantDto(
+    Guid Id,
+    string CaseNumber,
+    ApplicantType ApplicantType,
+    GuaranteeCasePhase CurrentPhase,
+    GuaranteeCaseStatus CurrentStatus,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt,
+    DateTimeOffset? CompletedAt,
+    CompanyDto? Company,
+    GuaranteeApplicationDto? Application = null,
+    GuaranteeApprovalFormDto? ApprovalForm = null,
+    GuaranteeApplicantCreditSnapshotDto? ApplicantCreditSnapshot = null)
+    : GuaranteeCaseDto(Id, CaseNumber, ApplicantType, CurrentPhase, CurrentStatus, CreatedAt, UpdatedAt, CompletedAt);
+
+public sealed record GuaranteeCaseInternalDto(
+    Guid Id,
+    string CaseNumber,
+    string ApplicantUserId,
+    ApplicantType ApplicantType,
+    GuaranteeCasePhase CurrentPhase,
+    GuaranteeCaseStatus CurrentStatus,
+    string? WorkflowInstanceId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt,
+    DateTimeOffset? CompletedAt,
+    CompanyDto? Company,
+    GuaranteeApplicationDto? Application = null,
+    GuaranteeApprovalFormDto? ApprovalForm = null,
+    GuaranteeApplicantCreditSnapshotDto? ApplicantCreditSnapshot = null)
+    : GuaranteeCaseDto(Id, CaseNumber, ApplicantType, CurrentPhase, CurrentStatus, CreatedAt, UpdatedAt, CompletedAt);
+
+/// <summary>جدول ۱ فرم تصویب — وضعیت اعتباری کل صندوق در بازه سقف فعال.</summary>
+public sealed record GuaranteeApplicantCreditSnapshotDto(
+    decimal? CreditLimitWithCheck,
+    decimal? FundIssuedGuaranteesTotal,
+    decimal? ActiveCommitments,
+    decimal? RemainingCredit,
+    DateOnly? PeriodStart,
+    DateOnly? ExpiresAt);
+
+public sealed record GuaranteeFundCreditLimitDto(
+    decimal CreditLimitWithCheck,
+    DateOnly PeriodStart,
+    DateOnly ExpiresAt,
+    decimal FundIssuedGuaranteesTotal,
+    decimal ActiveCommitments,
+    decimal? RemainingCredit,
+    string? LastSetByUserId,
+    DateTimeOffset? UpdatedAt);
+
+public sealed record GuaranteeApplicantCreditLimitDto(
+    string ApplicantUserId,
+    Guid? CompanyId,
+    decimal CreditLimitWithCheck,
+    string? LastSetByUserId,
+    DateTimeOffset? UpdatedAt);
+
+public sealed record GuaranteeApplicationDto(
+    GuaranteeType? GuaranteeType,
+    string? ContractSubject,
+    bool? IsKnowledgeBasedProduct,
+    string? BeneficiaryName,
+    string? BeneficiaryNationalId,
+    BeneficiaryCompanyType? BeneficiaryCompanyType,
+    ApplicantCategory ApplicantCategory,
+    string? ApplicantCategoryOther,
+    ApplicantLegalForm? ApplicantLegalForm,
+    string? BaseContractNumber,
+    decimal? BaseContractAmount,
+    string? BaseContractAmountInWords,
+    decimal? PriceAdjustmentRatePercent,
+    string? ExecutionProvince,
+    decimal? RequestedGuaranteeAmount,
+    int? InitialValidityDays,
+    DateOnly? ValidityFrom,
+    DateOnly? ValidityTo,
+    string? CollateralDescription,
+    string? FacilitySubject);
+
+public sealed record GuaranteeApprovalFormDto(
+    decimal? CreditLimitWithCheck,
+    decimal? FundIssuedGuaranteesTotal,
+    decimal? ActiveCommitments,
+    decimal? RemainingCredit,
+    GuaranteeType? GuaranteeType,
+    decimal? GuaranteeAmount,
+    string? GuaranteeAmountInWords,
+    string? ContractSubject,
+    string? Beneficiary,
+    DateOnly? IssuanceDate,
+    DateOnly? ExpiryDate,
+    int? ActiveDurationDays,
+    decimal? DepositRatePercent,
+    decimal? DepositAmount,
+    decimal? AnnualCommissionRatePercent,
+    decimal? CommissionAmount,
+    string? CollateralDescription,
+    string? GuarantorsDescription,
+    string? OtherNotes);
+
+public sealed record GuaranteeCaseDocumentDto(
+    Guid Id,
+    GuaranteeDocumentType DocumentType,
+    string FileName,
+    string MimeType,
+    long FileSize,
+    int Version,
+    DateTimeOffset UploadedAt);
+
+public sealed record GuaranteeCaseCommentDto(
+    Guid Id,
+    GuaranteeCasePhase Phase,
+    string SenderUserId,
+    string? SenderRole,
+    string Message,
+    bool IsRevisionRequest,
+    bool IsInternal,
+    DateTimeOffset CreatedAt);
+
+public sealed record GuaranteeWorkflowHistoryDto(
+    Guid Id,
+    GuaranteeCasePhase FromPhase,
+    GuaranteeCasePhase ToPhase,
+    GuaranteeCaseStatus FromStatus,
+    GuaranteeCaseStatus ToStatus,
+    string ChangedByUserId,
+    string Action,
+    string ActorRole,
+    string? Comment,
+    DateTimeOffset CreatedAt);
+
+public sealed record GuaranteeRenewalDto(
+    Guid Id,
+    string CaseNumber,
+    Guid ParentGuaranteeCaseId,
+    string ParentCaseNumber,
+    RenewalKind RenewalKind,
+    GuaranteeRenewalStatus CurrentStatus,
+    DateOnly? RequestedExpiryDate,
+    decimal? RequestedAmount,
+    DateOnly? ApprovedExpiryDate,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt,
+    DateTimeOffset? CompletedAt);

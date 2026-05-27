@@ -11,13 +11,17 @@ public sealed class CoreUnitOfWork(
     IRefreshTokenRepository refreshTokens,
     IUserSessionRepository userSessions,
     ICompanyRepository companies,
-    IInvestmentCaseRepository investmentCases) : ICoreUnitOfWork
+    IInvestmentCaseRepository investmentCases,
+    IGuaranteeCaseRepository guaranteeCases,
+    IGuaranteeRenewalCaseRepository guaranteeRenewals) : ICoreUnitOfWork
 {
     public IUserRepository Users => users;
     public IRefreshTokenRepository RefreshTokens => refreshTokens;
     public IUserSessionRepository UserSessions => userSessions;
     public ICompanyRepository Companies => companies;
     public IInvestmentCaseRepository InvestmentCases => investmentCases;
+    public IGuaranteeCaseRepository GuaranteeCases => guaranteeCases;
+    public IGuaranteeRenewalCaseRepository GuaranteeRenewals => guaranteeRenewals;
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => context.SaveChangesAsync(cancellationToken);

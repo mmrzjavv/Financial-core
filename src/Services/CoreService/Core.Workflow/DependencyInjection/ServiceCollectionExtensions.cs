@@ -28,9 +28,12 @@ public static class ServiceCollectionExtensions
             }
 
             elsa.AddWorkflow<InvestmentCaseWorkflow>();
+            elsa.AddWorkflow<GuaranteeCaseWorkflow>();
+            elsa.AddWorkflow<GuaranteeRenewalWorkflow>();
         });
 
         services.AddScoped<ICaseWorkflowOrchestrator, ElsaCaseWorkflowOrchestrator>();
+        services.AddScoped<IGuaranteeWorkflowOrchestrator, ElsaGuaranteeWorkflowOrchestrator>();
         return services;
     }
 }

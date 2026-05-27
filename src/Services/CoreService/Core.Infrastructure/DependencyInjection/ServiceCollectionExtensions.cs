@@ -35,8 +35,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserSessionRepository, UserSessionRepository>();
         services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<IInvestmentCaseRepository, InvestmentCaseRepository>();
+        services.AddScoped<IGuaranteeCaseRepository, GuaranteeCaseRepository>();
+        services.AddScoped<IGuaranteeRenewalCaseRepository, GuaranteeRenewalCaseRepository>();
         services.AddScoped<ICoreUnitOfWork, CoreUnitOfWork>();
         services.AddScoped<ICaseDtoMapper, CaseDtoMapper>();
+        services.AddScoped<IGuaranteeCaseDtoMapper, GuaranteeCaseDtoMapper>();
 
         services.AddSingleton<ILiaraObjectStorage, LiaraObjectStorage>();
         services.AddScoped<IDocumentStorage, LiaraDocumentStorage>();

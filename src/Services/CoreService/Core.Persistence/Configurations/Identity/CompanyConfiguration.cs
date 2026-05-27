@@ -21,6 +21,8 @@ public sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.Property(e => e.Province).HasMaxLength(128);
         builder.Property(e => e.PostalCode).HasMaxLength(32);
 
+        builder.HasQueryFilter(e => !e.OwnerUser.IsDeleted);
+
         builder.HasOne(e => e.OwnerUser)
             .WithMany()
             .HasForeignKey(e => e.OwnerUserId)

@@ -20,6 +20,15 @@ public interface ICoreDbContext
     DbSet<CaseValuation> CaseValuations { get; }
     DbSet<PaymentRecord> PaymentRecords { get; }
     DbSet<CaseWorkflowHistory> CaseWorkflowHistories { get; }
+    DbSet<GuaranteeCase> GuaranteeCases { get; }
+    DbSet<GuaranteeCaseApplication> GuaranteeCaseApplications { get; }
+    DbSet<GuaranteeApprovalForm> GuaranteeApprovalForms { get; }
+    DbSet<GuaranteeCaseDocument> GuaranteeCaseDocuments { get; }
+    DbSet<GuaranteeCaseComment> GuaranteeCaseComments { get; }
+    DbSet<GuaranteeCaseWorkflowHistory> GuaranteeCaseWorkflowHistories { get; }
+    DbSet<GuaranteeRenewalCase> GuaranteeRenewalCases { get; }
+    DbSet<GuaranteeApplicantCreditProfile> GuaranteeApplicantCreditProfiles { get; }
+    DbSet<GuaranteeFundCreditLimit> GuaranteeFundCreditLimits { get; }
     DbSet<User> Users { get; }
     DbSet<Company> Companies { get; }
     DbSet<RefreshToken> RefreshTokens { get; }

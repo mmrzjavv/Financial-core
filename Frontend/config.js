@@ -13,6 +13,8 @@
       { key: "ceo", phone: "09100000007", role: 12, firstName: "CEO", lastName: "Tester", label: "CEO" },
       { key: "legalExpert", phone: "09100000005", role: 20, firstName: "Legal", lastName: "Expert", label: "LegalExpert" },
       { key: "financialExpert", phone: "09100000006", role: 30, firstName: "Financial", lastName: "Expert", label: "FinancialExpert" },
+      { key: "creditExpert", phone: "09100000008", role: 50, firstName: "Credit", lastName: "Expert", label: "CreditExpert" },
+      { key: "creditManager", phone: "09100000009", role: 51, firstName: "Credit", lastName: "Manager", label: "CreditManager" },
     ],
   };
 

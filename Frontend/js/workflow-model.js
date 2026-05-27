@@ -87,6 +87,8 @@
     21: "LegalManager",
     30: "FinancialExpert",
     31: "FinancialManager",
+    50: "CreditExpert",
+    51: "CreditManager",
     40: "TechnicalExpert",
     41: "TechnicalManager",
     100: "Admin",

@@ -52,6 +52,13 @@ This panel wires to the existing gateway/service endpoints and supports:
   - Get/list users
 - **Investment cases**
   - Create / get / search / history: `/api/v{v}/investmentcases...`
+- **Guarantee cases (ضمانت‌نامه)**
+  - Tab «ضمانت‌نامه» + `js/guarantee-portal.js`, `js/guarantee-workflow-model.js`
+  - API: `/api/v{v}/guaranteecases`, renewal: `/api/v{v}/guarantee-renewals`
+  - Unified kanban: `/api/v{v}/kanban/action-required` (investment + guarantee + renewal)
+  - Personas: `CreditExpert` (50), `CreditManager` (51) in `config.js`
+  - Tab «مدیرعامل»: تعیین/تغییر سقف اعتبار (`js/guarantee-ceo-credit.js`) — فقط نقش CEO
+  - Docs: `docs/frontend/GUARANTEE_CASE_API_GUIDE.md`
   - DataEntry1 / DataEntry2: update, submit, approve, revision-request
   - Valuation: record + initial/secondary approvals
   - Contracts: preliminary upload, applicant approve/revision, finalize draft, confirm signature, signed upload

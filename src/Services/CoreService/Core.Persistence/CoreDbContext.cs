@@ -3,6 +3,7 @@ using BuildingBlocks.Persistence.Db.DomainEvents;
 using Core.Application.Abstractions;
 using Core.Domain.Entities;
 using Core.Domain.Identity.Entities;
+using Core.Persistence.Db;
 using Microsoft.EntityFrameworkCore;
 
 namespace Core.Persistence;
@@ -29,6 +30,15 @@ public sealed class CoreDbContext : DbContextBase, ICoreDbContext
     public DbSet<CaseValuation> CaseValuations => Set<CaseValuation>();
     public DbSet<PaymentRecord> PaymentRecords => Set<PaymentRecord>();
     public DbSet<CaseWorkflowHistory> CaseWorkflowHistories => Set<CaseWorkflowHistory>();
+    public DbSet<GuaranteeCase> GuaranteeCases => Set<GuaranteeCase>();
+    public DbSet<GuaranteeCaseApplication> GuaranteeCaseApplications => Set<GuaranteeCaseApplication>();
+    public DbSet<GuaranteeApprovalForm> GuaranteeApprovalForms => Set<GuaranteeApprovalForm>();
+    public DbSet<GuaranteeCaseDocument> GuaranteeCaseDocuments => Set<GuaranteeCaseDocument>();
+    public DbSet<GuaranteeCaseComment> GuaranteeCaseComments => Set<GuaranteeCaseComment>();
+    public DbSet<GuaranteeCaseWorkflowHistory> GuaranteeCaseWorkflowHistories => Set<GuaranteeCaseWorkflowHistory>();
+    public DbSet<GuaranteeRenewalCase> GuaranteeRenewalCases => Set<GuaranteeRenewalCase>();
+    public DbSet<GuaranteeApplicantCreditProfile> GuaranteeApplicantCreditProfiles => Set<GuaranteeApplicantCreditProfile>();
+    public DbSet<GuaranteeFundCreditLimit> GuaranteeFundCreditLimits => Set<GuaranteeFundCreditLimit>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -38,6 +48,7 @@ public sealed class CoreDbContext : DbContextBase, ICoreDbContext
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CoreDbContext).Assembly);
         modelBuilder.ApplySoftDeleteQueryFilter();
+        CorePrincipalSoftDeleteQueryFilters.Apply(modelBuilder);
 
         // Legacy migrations mapped RowVersion -> xmin; strip if any convention reintroduces it.
         var investmentCase = modelBuilder.Entity<InvestmentCase>();
