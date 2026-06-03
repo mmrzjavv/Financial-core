@@ -8,7 +8,7 @@ public sealed class CaseCommentAttachmentConfiguration : IEntityTypeConfiguratio
 {
     public void Configure(EntityTypeBuilder<CaseCommentAttachment> builder)
     {
-        builder.ToTable("case_comment_attachments", DbSchemas.Cases);
+        builder.ToTable("case_comment_attachments", DbSchemas.Investment);
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.S3Key).IsRequired();

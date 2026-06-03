@@ -8,7 +8,7 @@ public sealed class InvestmentCaseConfiguration : IEntityTypeConfiguration<Inves
 {
     public void Configure(EntityTypeBuilder<InvestmentCase> builder)
     {
-        builder.ToTable("investment_cases", DbSchemas.Cases);
+        builder.ToTable("investment_cases", DbSchemas.Investment);
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.CaseNumber).HasMaxLength(64).IsRequired();

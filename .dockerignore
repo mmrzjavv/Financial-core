@@ -8,7 +8,7 @@
 **/*.suo
 **/TestResults
 .docker-publish-test
-.build-check
+.build-check*/
 Frontend
 docs
 *.md

@@ -38,6 +38,24 @@ public sealed class GuaranteeAuthorizationService(IUserContext userContext) : IG
         GuaranteePermissions.DownloadDocuments
     ];
 
+    /// <summary>Every guarantee-case permission (Admin uses this list explicitly).</summary>
+    private static readonly string[] AllGuaranteePermissions =
+    [
+        GuaranteePermissions.Create,
+        GuaranteePermissions.ReadAll,
+        GuaranteePermissions.ReadOwn,
+        GuaranteePermissions.ViewInternalComments,
+        GuaranteePermissions.CreateInternalComment,
+        GuaranteePermissions.ManageApprovalForm,
+        GuaranteePermissions.ManageContracts,
+        GuaranteePermissions.ManageAttachments,
+        GuaranteePermissions.ManageIssuance,
+        GuaranteePermissions.CeoApprove,
+        GuaranteePermissions.SetApplicantCreditLimit,
+        GuaranteePermissions.UploadDocuments,
+        GuaranteePermissions.DownloadDocuments
+    ];
+
     private static readonly IReadOnlyDictionary<string, IReadOnlyCollection<string>> RolePermissions =
         new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -60,21 +78,9 @@ public sealed class GuaranteeAuthorizationService(IUserContext userContext) : IG
                 GuaranteePermissions.CeoApprove,
                 GuaranteePermissions.SetApplicantCreditLimit
             ],
-            [UserRoleClaims.Admin] =
-            [
-                GuaranteePermissions.Create,
-                GuaranteePermissions.ReadAll,
-                GuaranteePermissions.ReadOwn,
-                GuaranteePermissions.ViewInternalComments,
-                GuaranteePermissions.CreateInternalComment,
-                GuaranteePermissions.ManageApprovalForm,
-                GuaranteePermissions.ManageContracts,
-                GuaranteePermissions.ManageAttachments,
-                GuaranteePermissions.ManageIssuance,
-                GuaranteePermissions.CeoApprove,
-                GuaranteePermissions.UploadDocuments,
-                GuaranteePermissions.DownloadDocuments
-            ]
+            [UserRoleClaims.Admin] = AllGuaranteePermissions,
+            // Sample: full guarantee permissions. Remove entry to deny guarantee module access.
+            [UserRoleClaims.TechnicalExpert] = AllGuaranteePermissions
         };
 
     public string? UserId => userContext.UserId;

@@ -8,7 +8,7 @@ public sealed class GuaranteeCaseConfiguration : IEntityTypeConfiguration<Guaran
 {
     public void Configure(EntityTypeBuilder<GuaranteeCase> builder)
     {
-        builder.ToTable("guarantee_cases", DbSchemas.Cases);
+        builder.ToTable("guarantee_cases", DbSchemas.Guarantee);
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.CaseNumber).HasMaxLength(64).IsRequired();

@@ -8,7 +8,7 @@ public sealed class GuaranteeCaseDocumentConfiguration : IEntityTypeConfiguratio
 {
     public void Configure(EntityTypeBuilder<GuaranteeCaseDocument> builder)
     {
-        builder.ToTable("guarantee_case_documents", DbSchemas.Cases);
+        builder.ToTable("guarantee_case_documents", DbSchemas.Guarantee);
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => new { x.CaseId, x.DocumentType, x.Version });
 

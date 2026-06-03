@@ -8,7 +8,7 @@ public sealed class GuaranteeApplicantCreditProfileConfiguration : IEntityTypeCo
 {
     public void Configure(EntityTypeBuilder<GuaranteeApplicantCreditProfile> builder)
     {
-        builder.ToTable("guarantee_applicant_credit_profiles", DbSchemas.Cases);
+        builder.ToTable("guarantee_applicant_credit_profiles", DbSchemas.Guarantee);
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.ApplicantUserId).HasMaxLength(64).IsRequired();

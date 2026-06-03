@@ -6,6 +6,8 @@
 
 > برای قرارداد HTTP و فلو پرونده سرمایه‌گذاری از نگاه فرانت، ببینید: [`docs/frontend/INVESTMENT_CASE_API_GUIDE.md`](../frontend/INVESTMENT_CASE_API_GUIDE.md).
 
+> **تغییر دسترسی نقش (Permission / Role):** مرجع کامل در [**بخش ۹ تا ۱۳**](#9-مجوزدهی--سه-لایه-و-نقشه-فایل‌ها) — نقشه فایل‌ها، چک‌لیست اضافه/حذف، فهرست همه permissionها، Policyها، کش و JWT.
+
 ---
 
 ## فهرست
@@ -269,146 +271,343 @@ public sealed class HttpCurrentUserAccessor(IHttpContextAccessor accessor) : ICu
 
 ---
 
-## 9. مجوزدهی — دو لایه جدا
+## 9. مجوزدهی — سه لایه و نقشه فایل‌ها
 
-**اشتباه رایج:** فکر کردن `investment_cases:review` همان `cases:manage_valuations` است. در این پروژه **دو سیستم موازی** داریم:
+> **یادآوری روز نیاز:** دسترسی نقش‌ها در **کد** است، نه جدول دیتابیس. برای یک تغییر معمولاً **تا سه فایل** را ویرایش می‌کنید (بخش ۱۰). فقط `Permissions.cs` برای همه چیز کافی **نیست**.
 
-### لایه A — Permissionهای API (`Permissions` + `RolePermissions`)
+### اصل مهم
 
-- **فایل:** `Core.Application/Identity/Authorization/Permissions.cs`
-- **فرمت:** `resource:action` مثل `users:read`, `investment_cases:finance_review`
-- **نگاشت نقش → لیست permission:** `RolePermissions.RolePermissionMappings`
-- **بررسی:** 
-  - `PermissionService.HasPermissionAsync` (با کش Redis)
-  - `PermissionAuthorizationHandler` روی `[Authorize(Policy = "...")]` اگر `PermissionRequirement` باشد
-- **Admin:** `UserRole.Admin` در `PermissionService` همیشه `true`
+| اشتباه رایج | واقعیت |
+|-------------|--------|
+| «فقط `Permissions.cs` را عوض کنم» | فقط **لایه API** عوض می‌شود |
+| `investment_cases:review` = `cases:manage_valuations` | **سه فضای نام جدا** — رشته‌ها متفاوتند |
+| Admin Panel برای tick کردن permission | **وجود ندارد** — آرایه C# در سه فایل |
+| بعد از deploy فوراً اثر می‌کند | کش Redis ۳۰ دقیقه + JWT قدیمی (بخش ۱۳) |
 
-### لایه B — Permissionهای دامنه پرونده (`CasePermissions` + `CaseAuthorizationService`)
+### سه لایه — یک نگاه
 
-- **فایل:** `Core.Application/Authorization/CasePermissions.cs`
-- **فرمت:** `cases:read_own`, `cases:manage_payments`, …
-- **نگاشت:** داخل `CaseAuthorizationService` — دیکشنری `RolePermissions` جدا از `RolePermissions` کلاس Identity
-- **بررسی:** `ICaseAuthorizationService.HasPermission(...)` در `InvestmentCaseAppService` و سرویس‌های مرتبط
-- **Admin:** نقش `Admin` در JWT → همه permissionهای پرونده
+```
+درخواست HTTP
+    │
+    ├─► [لایه ۱] Policy روی Controller ──► PermissionService ──► Permissions.cs
+    │
+    └─► AppService
+            ├─► [لایه ۲] سرمایه‌گذاری ──► CaseAuthorizationService.cs
+            └─► [لایه ۳] ضمانت‌نامه ──► GuaranteeAuthorizationService.cs
+```
 
-### چه موقع کدام را عوض کنید؟
+| لایه | فایل(ها) | فرمت رشته | چه چیزی را کنترل می‌کند |
+|------|----------|-----------|-------------------------|
+| **۱ — API** | `Identity/Authorization/Permissions.cs` | `users:read`, `guarantee_cases:credit_review` | `[Authorize(Policy)]` روی Controller |
+| **۲ — پرونده سرمایه‌گذاری** | `Authorization/CasePermissions.cs` + `CaseAuthorizationService.cs` | `cases:manage_payments` | منطق داخل `InvestmentCaseAppService`, `PaymentService`, `ReviewService`, … |
+| **۳ — پرونده ضمانت** | `Authorization/GuaranteePermissions.cs` + `GuaranteeAuthorizationService.cs` | `guarantee_cases:manage_approval_form` | منطق داخل `GuaranteeCaseAppService`, … |
 
-| می‌خواهید… | ویرایش کنید |
-|------------|-------------|
-| Endpoint جدید با `[Authorize(Policy = "InvestmentCases.X")]` | `Permissions.cs` + `RolePermissions` + `Program.cs` policy |
-| منع/اجازه عملیات داخل AppService (مثلاً ثبت پرداخت) | `CasePermissions` + `CaseAuthorizationService` |
-| فقط نقش ASP.NET (`ApplicantOnly`, `InternalOnly`) | `Program.cs` — لیست `RequireRole` |
+**Admin:** در هر سه لایه تقریباً همیشه bypass دارد (`UserRole.Admin` / `UserRoleClaims.Admin` → `true`).
+
+### نقشه فایل‌ها (کپی برای روز کاری)
+
+| کار | فایل |
+|-----|------|
+| تعریف نقش (enum) | `Core.Domain/Identity/UserRole.cs` |
+| Permission API + نقش → API | `Core.Application/Identity/Authorization/Permissions.cs` |
+| Permission سرمایه‌گذاری | `Core.Application/Authorization/CasePermissions.cs` |
+| نقش → permission سرمایه‌گذاری | `Core.Application/Authorization/CaseAuthorizationService.cs` |
+| Permission ضمانت | `Core.Application/Authorization/GuaranteePermissions.cs` |
+| نقش → permission ضمانت | `Core.Application/Authorization/GuaranteeAuthorizationService.cs` |
+| ثبت Policyهای HTTP | `Core.API/DependencyInjection/AuthorizationServiceCollectionExtensions.cs` |
+| Handler بررسی permission در Policy | `Core.API/Authorization/PermissionAuthorizationHandler.cs` |
+| کش permission کاربر | `Core.Infrastructure/.../DistributedPermissionCacheService.cs` |
+| خواندن permission از DB نقش | `Core.Application/Identity/Services/Authorization/PermissionService.cs` |
+
+### جریان تصمیم — «کدام فایل را باز کنم؟»
+
+| سناریو | فایل‌ها |
+|--------|---------|
+| Endpoint جدید 403 می‌دهد | `Permissions.cs` + `AuthorizationServiceCollectionExtensions.cs` + Controller |
+| داخل سرویس `HasPermission` برای **سرمایه‌گذاری** false است | `CaseAuthorizationService.cs` (+ شاید `CasePermissions.cs`) |
+| داخل `GuaranteeCaseAppService` مثلاً credit limit | `GuaranteeAuthorizationService.cs` (+ شاید `GuaranteePermissions.cs`) |
+| فقط «متقاضی / داخلی» روی route | `AuthorizationServiceCollectionExtensions.cs` (`ApplicantOnly` / `InternalOnly`) — **بدون** permission string |
+| تأیید CEO روی route | اغلب **نقش** (`Ceo`/`CEO`/`Admin`) نه فقط permission — بخش ۱۲ |
+
+### آرایه‌های مشترک (کم‌کردن تکرار)
+
+در `Permissions.cs`: `LegalUnitPermissions`, `FinancialUnitPermissions`, `TechnicalUnitPermissions` — چند نقش به یک آرایه اشاره می‌کنند.
+
+در `CaseAuthorizationService.cs` / `GuaranteeAuthorizationService.cs`: همین الگو (`InvestmentExpertPermissions`, `CreditUnitPermissions`, …).
+
+برای **دادن همه دسترسی‌ها به یک نقش** (فقط dev/test):
+
+```csharp
+// لایه ۱
+[UserRoleClaims.TechnicalExpert] = RolePermissions.AllPermissions,
+
+// لایه ۲ — از AllCasePermissions در CaseAuthorizationService استفاده کنید
+[UserRoleClaims.TechnicalExpert] = AllCasePermissions,
+
+// لایه ۳ — از AllGuaranteePermissions در GuaranteeAuthorizationService
+[UserRoleClaims.TechnicalExpert] = AllGuaranteePermissions,
+```
+
+> در کد فعلی ممکن است نمونه `TechnicalExpert` با دسترسی کامل برای تست باشد؛ قبل از production به آرایه‌های واحد تخصصی (`TechnicalUnitPermissions`) برگردانید.
 
 ---
 
-## 10. نقش (Role) — اضافه، تغییر، حذف دسترسی
+## 10. راهنمای عملی: اضافه / حذف Permission برای نقش
 
 ### مدل نقش در دیتابیس
 
-- Enum: `Core.Domain.Identity.UserRole` (مقادیر عددی ثابت — **به مقادیر موجود دست نزنید**؛ فقط مقدار جدید اضافه کنید)
-- روی `User.Role` ذخیره می‌شود
-- ثابت‌های claim: `UserRoleClaims` در همان فایل `UserRole.cs`
+- Enum: `Core.Domain.Identity.UserRole` — **مقادیر عددی موجود را عوض نکنید**؛ فقط مقدار جدید با عدد آزاد
+- ستون: `Identity.User.Role` (int)
+- رشته در JWT: `UserRoleClaims` در `UserRole.cs`
+- تغییر نقش کاربر: `PUT /identity/users/{id}` با `Role` — فقط Admin
 
-### چک‌لیست: اضافه کردن نقش جدید
+---
 
-1. **Enum** — مقدار جدید با عدد آزاد (مثلاً `RiskManager = 50`) در `UserRole.cs`
-2. **UserRoleClaims** — `public const string RiskManager = nameof(UserRole.RiskManager);`
-3. **RolePermissions** (`Permissions.cs`) — ورودی در `RolePermissionMappings` با آرایه permissionهای API
-4. **CaseAuthorizationService** — اگر به پرونده دسترسی دارد، آرایه `CasePermissions.*` مناسب
-5. **Program.cs** — اگر internal است: اضافه به policy `InternalOnly`؛ policy اختصاصی در صورت نیاز
-6. **CaseAuthorizationService.IsInternalUser** — اگر نقش داخلی است، به لیست اضافه شود
-7. **فرانت / seed** — `Frontend/config.js` personas، داک فرانت
-8. **Migration لازم نیست** اگر فقط enum است (ستون int همان است)
+### A) فقط **اضافه کردن** یک permission موجود به نقش موجود
 
-### دادن دسترسی API به یک نقش موجود
+مثال: به `CreditManager` اجازه `guarantee_cases:set_applicant_credit_limit` در API بدهید.
 
-فایل: `Permissions.cs` → `RolePermissions.RolePermissionMappings`
+**گام ۱ — لایه API** (`Permissions.cs`):
 
 ```csharp
-[UserRoleClaims.InvestmentManager] =
+[UserRoleClaims.CreditManager] =
 [
-    Permissions.Users_Read,
-    // ...
-    Permissions.InvestmentCases_FinanceReview  // ← اضافه
+    // ... موجودها
+    Permissions.GuaranteeCases_SetApplicantCreditLimit,  // ← اضافه
 ],
 ```
 
-اگر permission **جدید** است:
-
-1. ثابت در کلاس `Permissions` تعریف کنید: `public const string X = "module:action";`
-2. به `AllPermissions` اضافه کنید (برای Admin)
-3. به نقش‌های هدف در `RolePermissionMappings` اضافه کنید
-4. در Controller: `[Authorize(Policy = "...")]` یا `PermissionRequirement` بسازید
-
-### گرفتن دسترسی از نقش
-
-همان آرایه را ویرایش کنید — permission را از لیست نقش حذف کنید.  
-کاربران آن نقش بعد از **پاک شدن کش** (بخش 12) یا انقضای ۳۰ دقیقه‌ای کش، اثر می‌گیرند.
-
-### تغییر نقش یک کاربر
-
-- API: `PUT /identity/users/{id}` با `UpdateUserDto.Role` — **فقط Admin** (`UserService` چک می‌کند)
-- JWT قبلی تا expire معتبر است؛ نقش در توکن **به‌روز نمی‌شود** تا login/refresh مجدد
-- کش permission کاربر را invalidate کنید (پایین)
-
-### Permission سطح پرونده به نقش
-
-فایل: `CaseAuthorizationService.cs` — دیکشنری `RolePermissions` (توجه: نام کلاس داخلی است، با `RolePermissions` در `Permissions.cs` اشتباه گرفته نشود)
-
-مثال: اجازه `CasePermissions.ManagePayments` به `FinancialExpert`:
+**گام ۲ — لایه ضمانت** (`GuaranteeAuthorizationService.cs`) — چون `GuaranteeCaseAppService` از `GuaranteePermissions.SetApplicantCreditLimit` استفاده می‌کند:
 
 ```csharp
-private static readonly string[] FinancialUnitPermissions =
-[
-    CasePermissions.ReadAll,
-  // ...
-    CasePermissions.ManagePayments,  // اضافه
-];
+// یا به CreditUnitPermissions اضافه کنید، یا آرایه جدا برای CreditManager
+GuaranteePermissions.SetApplicantCreditLimit,
 ```
+
+**گام ۳ — لایه سرمایه‌گذاری:** اگر این feature مربوط سرمایه‌گذاری نیست، **نیازی نیست**.
+
+**گام ۴:** Build، Deploy، کاربر **re-login**، پاک کردن کش (بخش ۱۳).
 
 ---
 
-## 11. سیاست‌های ASP.NET در Program.cs
+### B) **حذف** permission از نقش
 
-ثبت در `builder.Services.AddAuthorization`:
+همان خطوط را از آرایه نقش در **هر لایه‌ای که اضافه کرده بودید** حذف کنید. اگر فقط از `Permissions.cs` حذف کنید، ممکن است AppService هنوز اجازه بدهد (یا برعکس).
 
-| Policy | معنی تقریبی |
-|--------|-------------|
-| `ApplicantOnly` | `Applicant` یا `Admin` |
-| `InternalOnly` | همه نقش‌های کارشناسی/مدیریتی + CEO + Admin |
-| `InvestmentCases.Review` | permission `investment_cases:review` |
-| `InvestmentCases.FinanceReview` | `investment_cases:finance_review` |
-| `InvestmentCases.LegalReview` | `investment_cases:legal_review` |
-| `InvestmentCases.CeoApprove` | نقش `CEO` / `Ceo` / `Admin` (عمداً role-based به‌خاطر lag کش) |
-| `Dashboard.Ceo` / `Dashboard.Board` | داشبورد ejecutive |
+---
+
+### C) تعریف permission **کاملاً جدید** (end-to-end)
+
+| مرحله | لایه API | لایه سرمایه‌گذاری | لایه ضمانت |
+|-------|----------|-------------------|------------|
+| ۱. ثابت | `Permissions.MyFeature = "module:action"` | `CasePermissions.MyFeature = "cases:..."` | `GuaranteePermissions.MyFeature = "guarantee_cases:..."` |
+| ۲. Admin / همه | `AllPermissions` += ثابت | `AllCasePermissions` (در صورت وجود) | `AllGuaranteePermissions` |
+| ۳. نقش‌ها | `RolePermissionMappings[نقش]` | `RolePermissions[نقش]` در CaseAuthorizationService | همان در GuaranteeAuthorizationService |
+| ۴. استفاده | `[Authorize(Policy = "...")]` + Policy در `AuthorizationServiceCollectionExtensions.cs` | `caseAuth.HasPermission(CasePermissions.MyFeature)` | `guaranteeAuth.HasPermission(...)` |
+
+---
+
+### D) اضافه کردن **نقش جدید** (مثلاً `RiskManager`)
+
+1. `UserRole.cs` — `RiskManager = 52` + `UserRoleClaims.RiskManager`
+2. `Permissions.cs` — ورودی در `RolePermissionMappings`
+3. `CaseAuthorizationService.cs` — در صورت نیاز به سرمایه‌گذاری
+4. `GuaranteeAuthorizationService.cs` — در صورت نیاز به ضمانت
+5. `AuthorizationServiceCollectionExtensions.cs` — اگر internal است → `InternalOnly`
+6. `CaseAuthorizationService.IsInternalUser` — اگر داخلی است → نام نقش را اضافه کنید
+7. `Frontend/config.js` / `workflow-model.js` — persona تست (اختیاری)
+8. **Migration لازم نیست** (فقط enum)
+
+---
+
+### E) چک‌لیست یک‌صفحه‌ای بعد از هر تغییر دسترسی
+
+- [ ] هر سه لایه مرتبط ویرایش شد؟
+- [ ] `dotnet build` روی `Core.API`
+- [ ] کاربر تست همان `Role` در DB دارد؟
+- [ ] Logout / Login مجدد (JWT)
+- [ ] Redis: `DEL permissions:user:{guid}` یا ۳۰ دقیقه صبر
+- [ ] Swagger یا Frontend با همان نقش تست شد
+- [ ] اگر 403 روی route خاص → Policy بخش ۱۲ (شاید role-only باشد نه permission)
+
+---
+
+## 11. فهرست کامل Permissionها و نقش‌ها
+
+> منبع حقیقت همیشه **کد** است؛ این جدول برای جستجوی سریع است. بعد از تغییر کد، جدول را در همین سند به‌روز کنید.
+
+### لایه ۱ — API (`Permissions.cs`)
+
+| ثابت C# | رشته |
+|---------|------|
+| `Users_Read` | `users:read` |
+| `Users_Write` | `users:write` |
+| `Users_Delete` | `users:delete` |
+| `Users_ManageRoles` | `users:manage_roles` |
+| `Companies_Read` | `companies:read` |
+| `Companies_Write` | `companies:write` |
+| `Companies_Delete` | `companies:delete` |
+| `Sessions_Read` | `sessions:read` |
+| `Sessions_Write` | `sessions:write` |
+| `Sessions_Revoke` | `sessions:revoke` |
+| `Otp_Send` | `otp:send` |
+| `Otp_Verify` | `otp:verify` |
+| `Admin_FullAccess` | `admin:full_access` |
+| `InvestmentCases_Read` | `investment_cases:read` |
+| `InvestmentCases_Write` | `investment_cases:write` |
+| `InvestmentCases_Review` | `investment_cases:review` |
+| `InvestmentCases_FinanceReview` | `investment_cases:finance_review` |
+| `InvestmentCases_LegalReview` | `investment_cases:legal_review` |
+| `InvestmentCases_CeoApprove` | `investment_cases:ceo_approve` |
+| `GuaranteeCases_Read` | `guarantee_cases:read` |
+| `GuaranteeCases_Write` | `guarantee_cases:write` |
+| `GuaranteeCases_CreditReview` | `guarantee_cases:credit_review` |
+| `GuaranteeCases_LegalReview` | `guarantee_cases:legal_review` |
+| `GuaranteeCases_FinanceReview` | `guarantee_cases:finance_review` |
+| `GuaranteeCases_CeoApprove` | `guarantee_cases:ceo_approve` |
+| `GuaranteeCases_SetApplicantCreditLimit` | `guarantee_cases:set_applicant_credit_limit` |
+
+**نقش → API:** `RolePermissions.RolePermissionMappings` در همان فایل. `Admin` = `AllPermissions`.
+
+---
+
+### لایه ۲ — سرمایه‌گذاری (`CasePermissions.cs`)
+
+| ثابت | رشته |
+|------|------|
+| `Create` | `cases:create` |
+| `ReadOwn` | `cases:read_own` |
+| `ReadAll` | `cases:read_all` |
+| `ViewInternalComments` | `cases:view_internal_comments` |
+| `CreateInternalComment` | `cases:create_internal_comment` |
+| `ViewEvaluations` | `cases:view_evaluations` |
+| `UpsertEvaluations` | `cases:upsert_evaluations` |
+| `ManageValuations` | `cases:manage_valuations` |
+| `ManageContracts` | `cases:manage_contracts` |
+| `ManageFinancialWorksheet` | `cases:manage_financial_worksheet` |
+| `ManagePayments` | `cases:manage_payments` |
+| `CeoApprove` | `cases:ceo_approve` |
+| `UploadDocuments` | `cases:upload_documents` |
+| `DownloadDocuments` | `cases:download_documents` |
+| `UploadCommentAttachments` | `cases:upload_comment_attachments` |
+
+**نقش‌های دارای ورودی در `CaseAuthorizationService`:**  
+`Applicant`, `InvestmentExpert`, `InvestmentManager`, `LegalExpert`, `LegalManager`, `FinancialExpert`, `FinancialManager`, `TechnicalExpert`, `TechnicalManager`, `Ceo`.  
+(`Admin` در HasPermission bypass — نیاز به ورودی در دیکشنری ندارد.)
+
+**نکته:** `ReadAll` برای هر `IsInternalUser` true است، حتی اگر در آرایه نقش نباشد.
+
+---
+
+### لایه ۳ — ضمانت (`GuaranteePermissions.cs`)
+
+| ثابت | رشته |
+|------|------|
+| `Create` | `guarantee_cases:create` |
+| `ReadOwn` | `guarantee_cases:read_own` |
+| `ReadAll` | `guarantee_cases:read_all` |
+| `ViewInternalComments` | `guarantee_cases:view_internal_comments` |
+| `CreateInternalComment` | `guarantee_cases:create_internal_comment` |
+| `ManageApprovalForm` | `guarantee_cases:manage_approval_form` |
+| `ManageContracts` | `guarantee_cases:manage_contracts` |
+| `ManageAttachments` | `guarantee_cases:manage_attachments` |
+| `ManageIssuance` | `guarantee_cases:manage_issuance` |
+| `CeoApprove` | `guarantee_cases:ceo_approve` |
+| `SetApplicantCreditLimit` | `guarantee_cases:set_applicant_credit_limit` |
+| `UploadDocuments` | `guarantee_cases:upload_documents` |
+| `DownloadDocuments` | `guarantee_cases:download_documents` |
+
+**نقش‌های دارای ورودی:** `Applicant`, `CreditExpert`, `CreditManager`, `LegalExpert`, `LegalManager`, `FinancialExpert`, `FinancialManager`, `Ceo`, `Admin`, (و در صورت تنظیم تست: `TechnicalExpert`).
+
+---
+
+### نقش‌های سیستم (`UserRole`)
+
+| Enum | Claim / JWT | یادداشت |
+|------|-------------|---------|
+| `Applicant` | `Applicant` | متقاضی |
+| `InvestmentExpert` | `InvestmentExpert` | alias: `InvestmentUnit` |
+| `InvestmentManager` | `InvestmentManager` | |
+| `Ceo` | `Ceo` | alias JWT: `CEO` |
+| `LegalExpert` / `LegalManager` | همان نام | alias: `LegalUnit` → Expert |
+| `FinancialExpert` / `FinancialManager` | همان نام | alias: `FinancialUnit` |
+| `TechnicalExpert` / `TechnicalManager` | همان نام | |
+| `CreditExpert` / `CreditManager` | همان نام | ماژول ضمانت |
+| `Admin` | `Admin` | همه لایه‌ها |
+
+---
+
+## 12. سیاست‌های ASP.NET (Policy)
+
+ثبت در `Core.API/DependencyInjection/AuthorizationServiceCollectionExtensions.cs` (`AddCoreAuthorization`):
+
+| Policy | نوع بررسی | معنی |
+|--------|-----------|------|
+| `AdminOnly` | نقش | فقط `Admin` |
+| `ApplicantOnly` | نقش | `Applicant` یا `Admin` |
+| `InternalOnly` | نقش | لیست نقش‌های داخلی + `CEO` |
+| `GuaranteeCases.CreditReview` | permission | `guarantee_cases:credit_review` |
+| `GuaranteeCases.CeoApprove` | نقش | `Ceo`, `Admin`, `CEO` |
+| `GuaranteeCases.CeoOnly` | نقش | `Ceo`, `CEO` |
+| `InvestmentCases.Review` | permission | `investment_cases:review` |
+| `InvestmentCases.FinanceReview` | permission | `investment_cases:finance_review` |
+| `InvestmentCases.LegalReview` | permission | `investment_cases:legal_review` |
+| `InvestmentCases.CeoApprove` | نقش | `Ceo`, `Admin`, `CEO` |
+| `Dashboard.Ceo` | نقش | داشبورد CEO |
+| `Dashboard.Board` | نقش | هیئت / مدیر سرمایه‌گذاری |
 
 `PermissionAuthorizationHandler`:
 
-1. اول از claim نقش (`RolePermissions`) سریع جواب می‌دهد
-2. اگر نشد، `IIdentityClient.ValidateUserPermissionAsync` (همان منطق `PermissionService`)
+1. نقش `Admin` → allow
+2. اگر permission در `RolePermissions.RolePermissionMappings` برای claim نقش کاربر باشد → allow
+3. وگرنه `IIdentityClient.ValidateUserPermissionAsync` (کش + `PermissionService`)
+4. استثنا CEO برای برخی permissionهای تأیید
 
-**CEO:** برای `investment_cases:ceo_approve` handler استثنا دارد — نقش `CEO`/`Ceo`/`Admin` کافی است.
-
----
-
-## 12. کش Permission و نکته مهم بعد از تغییر نقش
-
-- سرویس: `DistributedPermissionCacheService`
-- کلید Redis/Memory: `permissions:user:{userId}`
-- TTL پیش‌فرض: **۳۰ دقیقه** (`PermissionService.GetUserPermissionsAsync`)
-
-متد پاک‌سازی وجود دارد: `IPermissionCacheService.RemoveUserPermissionsAsync(userId)`  
-**ولی در `UserService.Update` فعلاً فراخوانی نمی‌شود** — اگر نقش کاربر را عوض کردید و رفتار عجیب دیدید:
-
-- یا منتظر expire کش بمانید
-- یا Redis key را دستی حذف کنید
-- یا در همان PR تغییر نقش، `RemoveUserPermissionsAsync` را بعد از `Update` صدا بزنید (بهبود پیشنهادی)
-
-**JWT:** حتی با کش درست، claim نقش در توکن قدیمی است — برای تست سیاست‌های role-based حتماً **دوباره login** کنید.
+**مهم:** دادن `investment_cases:ceo_approve` در `Permissions.cs` به یک نقش، **کافی نیست** اگر endpoint فقط `InvestmentCases.CeoApprove` (نقش-based) دارد.
 
 ---
 
-## 13. ریپازیتوری و دیتابیس
+## 13. کش Permission، JWT و عیب‌یابی
+
+### کش
+
+| مورد | مقدار |
+|------|--------|
+| سرویس | `DistributedPermissionCacheService` |
+| کلید | `permissions:user:{userId}` |
+| TTL | ۳۰ دقیقه (`PermissionService`) |
+| پاک‌سازی | `IPermissionCacheService.RemoveUserPermissionsAsync(userId)` — **فعلاً بعد از Update کاربر صدا زده نمی‌شود** |
+
+**Redis (دستی):**
+
+```bash
+# نمونه — userId را از جدول User بگیرید
+DEL permissions:user:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+### JWT
+
+- نقش در claim `Role` / `ClaimTypes.Role` است
+- تا expire یا login مجدد، **نقش قدیمی** در توکن می‌ماند
+- `IUserContext.Roles` از همان JWT می‌خواند
+
+### عیب‌یابی سریع
+
+| علامت | احتمال | کار |
+|-------|--------|-----|
+| 403 روی Controller | لایه ۱ یا Policy نقش-based | `Permissions.cs` + Policy در بخش ۱۲ |
+| 200 ولی پیام «دسترسی ندارید» در body | لایه ۲ یا ۳ | `CaseAuthorizationService` / `GuaranteeAuthorizationService` |
+| Admin کار می‌کند، نقش دیگر نه | فقط mapping آن نقش | سه فایل mapping |
+| بعد از deploy هنوز رفتار قدیمی | کش / JWT | re-login + DEL کش |
+| LegalUnit در JWT | Normalize به LegalExpert | mapping زیر `LegalExpert` |
+
+### آینده (اختیاری — یک فایل متمرکز)
+
+اگر تیم زیاد permission عوض می‌کند، می‌توان `AuthorizationRegistry.cs` ساخت که هر سه لایه را export کند و سه سرویس فقط از آن بخوانند — فعلاً در کد پیاده نشده؛ تا آن زمان **همین بخش ۹–۱۳** مرجع است.
+
+---
+
+## 14. ریپازیتوری و دیتابیس
 
 ### الگوی کلی
 
@@ -461,7 +660,7 @@ Configuration: `Core.Persistence/Configurations/**/*.cs` با `builder.ToTable(.
 
 ---
 
-## 14. چک‌لیست: اضافه کردن Entity جدید
+## 15. چک‌لیست: اضافه کردن Entity جدید
 
 فرض: aggregate جدید `RiskAssessment` وابسته به پرونده.
 
@@ -522,7 +721,7 @@ public sealed class CompanyRepository(CoreDbContext dbContext)
 
 ---
 
-## 15. Migration EF Core
+## 16. Migration EF Core
 
 پروژه startup: **Core.API**  
 پروژه DbContext: **Core.Persistence**
@@ -547,7 +746,7 @@ dotnet ef database update `
 
 ---
 
-## 16. Unit of Work و SaveChanges
+## 17. Unit of Work و SaveChanges
 
 - `SaveChangesAsync` رویدادهای دامنه را از طریق `DbContextBase` dispatch می‌کند (`IDomainEventDispatcher` / MediatR)
 - Interceptorها: Audit (`CreatedAt`/`UpdatedAt`), SoftDelete, InvestmentCase suppressor
@@ -555,7 +754,7 @@ dotnet ef database update `
 
 ---
 
-## 17. Workflow (Elsa) و پرونده سرمایه‌گذاری
+## 18. Workflow (Elsa) و پرونده سرمایه‌گذاری
 
 - تعریف workflow: `Core.Workflow/Workflows/InvestmentCaseWorkflow.cs`
 - Orchestrator: `ElsaCaseWorkflowOrchestrator` — `ICaseWorkflowOrchestrator`
@@ -566,7 +765,7 @@ dotnet ef database update `
 
 ---
 
-## 18. App Service، Validator، DTO و Mapster
+## 19. App Service، Validator، DTO و Mapster
 
 | موضوع | محل |
 |-------|-----|
@@ -580,7 +779,7 @@ dotnet ef database update `
 
 ---
 
-## 19. Controller و پاسخ API
+## 20. Controller و پاسخ API
 
 - پایه: `ApiControllerBase`
 - موفقیت پرونده: اغلب `Respond(result, CaseSuccessMessages.*, HttpStatusCode.Accepted)` برای transition
@@ -590,7 +789,7 @@ Versioning: attribute `[ApiVersion(1.0)]` + URL segment `v{version}`.
 
 ---
 
-## 20. پیکربندی (appsettings)
+## 21. پیکربندی (appsettings)
 
 فایل: `Core.API/appsettings.json` (+ `appsettings.Development.json` در صورت وجود)
 
@@ -612,7 +811,7 @@ Versioning: attribute `[ApiVersion(1.0)]` + URL segment `v{version}`.
 
 ---
 
-## 21. لاگ، Observability و خطاها
+## 22. لاگ، Observability و خطاها
 
 - `ApplicationLog.*` در سرویس‌های Application
 - OpenTelemetry: service name `core-service` در `Program.cs`
@@ -622,16 +821,19 @@ Versioning: attribute `[ApiVersion(1.0)]` + URL segment `v{version}`.
 
 ---
 
-## 22. کارهای رایج نگه‌داری — چک‌لیست سریع
+## 23. کارهای رایج نگه‌داری — چک‌لیست سریع
 
 | کار | کجا |
 |-----|-----|
 | Endpoint جدید پرونده | `InvestmentCasesController` + `InvestmentCaseAppService` + Validator |
-| محدودیت نقش روی endpoint | `[Authorize(Policy = "...")]` در `Program.cs` + `Permissions.cs` |
-| منع عملیات داخل سرویس | `CaseAuthorizationService` + `Ensure…` در AppService |
-| نقش جدید | `UserRole` + `UserRoleClaims` + هر دو `RolePermissions` + `Program.cs` + `IsInternalUser` |
-| Permission API جدید | `Permissions` + `AllPermissions` + `RolePermissionMappings` |
+| محدودیت نقش روی endpoint | `AuthorizationServiceCollectionExtensions.cs` + `Permissions.cs` — **بخش ۹–۱۳** |
+| منع عملیات سرمایه‌گذاری | `CaseAuthorizationService` + `CasePermissions` |
+| منع عملیات ضمانت | `GuaranteeAuthorizationService` + `GuaranteePermissions` |
+| نقش جدید | `UserRole` + سه فایل mapping + Policy + `IsInternalUser` — **بخش ۱۰-D** |
+| Permission API جدید | `Permissions.cs` + `AllPermissions` + Policy |
 | Permission پرونده جدید | `CasePermissions` + `CaseAuthorizationService` |
+| Permission ضمانت جدید | `GuaranteePermissions` + `GuaranteeAuthorizationService` |
+| **فقط** یک permission به نقش | **بخش ۱۰-A** — معمولاً ۲–۳ فایل |
 | جدول DB جدید | Entity + Configuration + DbContext + Migration |
 | Query سنگین | `InvestmentCaseRepository` متد جدید با `AsSplitQuery` |
 | مسیر API عوض شد | Swagger metadata + `docs/frontend` + `Frontend/app.js` |
@@ -647,13 +849,16 @@ dotnet run --project src/Services/CoreService/Core.API/Core.API.csproj
 
 ---
 
-## 23. فایل‌های مرجع (Index)
+## 24. فایل‌های مرجع (Index)
 
 | موضوع | مسیر |
 |-------|------|
 | نقش و claim | `Core.Domain/Identity/UserRole.cs` |
+| **راهنمای کامل دسترسی (شروع از اینجا)** | همین سند — **بخش ۹ تا ۱۳** |
 | Permission API + نقش | `Core.Application/Identity/Authorization/Permissions.cs` |
-| Permission پرونده | `Core.Application/Authorization/CasePermissions.cs`, `CaseAuthorizationService.cs` |
+| Permission سرمایه‌گذاری | `CasePermissions.cs`, `CaseAuthorizationService.cs` |
+| Permission ضمانت | `GuaranteePermissions.cs`, `GuaranteeAuthorizationService.cs` |
+| Policyهای HTTP | `Core.API/DependencyInjection/AuthorizationServiceCollectionExtensions.cs` |
 | Handler سیاست | `Core.API/Authorization/PermissionAuthorizationHandler.cs` |
 | DI اصلی API | `Core.API/Program.cs` |
 | DI Infrastructure | `Core.Infrastructure/DependencyInjection/ServiceCollectionExtensions.cs` |
@@ -687,7 +892,7 @@ dotnet run --project src/Services/CoreService/Core.API/Core.API.csproj
 
 1. Solution را از `Core.API` اجرا کنید و Swagger را باز کنید.  
 2. یک بار OTP/Dev login را در `Frontend` یا Swagger امتحان کنید تا JWT بگیرید.  
-3. برای هر تغییر دسترسی، **هر دو** `Permissions.cs` (API) و `CaseAuthorizationService` (پرونده) را چک کنید.  
+3. برای هر تغییر دسترسی، **بخش ۹–۱۳** را باز کنید — معمولاً `Permissions.cs` + `CaseAuthorizationService` + `GuaranteeAuthorizationService` (نه فقط یک فایل).  
 4. Entity جدید = Domain → Configuration → DbContext → Migration → Repository → AppService → Controller.  
 5. Claim نقش فقط از `ClaimTypes.Role` در JWT می‌آید — `IUserContext.Roles` همان را می‌خواند.
 

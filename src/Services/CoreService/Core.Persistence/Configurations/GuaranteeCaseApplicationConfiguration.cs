@@ -8,7 +8,7 @@ public sealed class GuaranteeCaseApplicationConfiguration : IEntityTypeConfigura
 {
     public void Configure(EntityTypeBuilder<GuaranteeCaseApplication> builder)
     {
-        builder.ToTable("guarantee_case_applications", DbSchemas.Cases);
+        builder.ToTable("guarantee_case_applications", DbSchemas.Guarantee);
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.CaseId).IsUnique();
 

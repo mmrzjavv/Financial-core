@@ -8,7 +8,7 @@ public sealed class DataEntry2Configuration : IEntityTypeConfiguration<Investmen
 {
     public void Configure(EntityTypeBuilder<InvestmentCaseDataEntry2> builder)
     {
-        builder.ToTable("case_data_entry_2", DbSchemas.Cases);
+        builder.ToTable("case_data_entry_2", DbSchemas.Investment);
         builder.HasKey(x => x.Id);
 
         builder.HasIndex(x => x.CaseId).IsUnique();

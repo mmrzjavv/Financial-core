@@ -8,7 +8,7 @@ public sealed class GuaranteeFundCreditLimitConfiguration : IEntityTypeConfigura
 {
     public void Configure(EntityTypeBuilder<GuaranteeFundCreditLimit> builder)
     {
-        builder.ToTable("guarantee_fund_credit_limit", DbSchemas.Cases);
+        builder.ToTable("guarantee_fund_credit_limit", DbSchemas.Guarantee);
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.CreditLimitWithCheck).HasPrecision(18, 2);

@@ -8,7 +8,7 @@ public sealed class FinancialWorksheetConfiguration : IEntityTypeConfiguration<F
 {
     public void Configure(EntityTypeBuilder<FinancialWorksheet> builder)
     {
-        builder.ToTable("financial_worksheets", DbSchemas.Cases);
+        builder.ToTable("financial_worksheets", DbSchemas.Investment);
         builder.HasKey(x => x.Id);
 
         builder.HasIndex(x => x.CaseId).IsUnique();

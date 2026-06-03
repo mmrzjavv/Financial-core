@@ -1,0 +1,30 @@
+using Core.Application.Abstractions;
+using Core.Application.Authorization;
+using Core.Application.Services;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+
+namespace Core.API.DependencyInjection;
+
+public static class ApplicationServiceCollectionExtensions
+{
+    public static IServiceCollection AddCoreApiServices(this IServiceCollection services)
+    {
+        services.AddValidatorsFromAssemblyContaining<InvestmentCaseAppService>();
+        services.AddFluentValidationAutoValidation();
+
+        services.AddScoped<ICaseStateManager, CaseStateManager>();
+        services.AddScoped<IInvestmentCaseAppService, InvestmentCaseAppService>();
+        services.AddScoped<IGuaranteeCaseStateManager, GuaranteeCaseStateManager>();
+        services.AddScoped<IGuaranteeCaseAppService, GuaranteeCaseAppService>();
+        services.AddScoped<IGuaranteeRenewalAppService, GuaranteeRenewalAppService>();
+        services.AddScoped<IKanbanAppService, KanbanAppService>();
+        services.AddScoped<ICompanyAppService, CompanyAppService>();
+        services.AddScoped<ICaseAuthorizationService, CaseAuthorizationService>();
+        services.AddScoped<IGuaranteeAuthorizationService, GuaranteeAuthorizationService>();
+        services.AddScoped<ICaseNumberGenerator, CaseNumberGenerator>();
+        services.AddScoped<IGuaranteeCaseNumberGenerator, GuaranteeCaseNumberGenerator>();
+
+        return services;
+    }
+}

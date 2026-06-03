@@ -8,7 +8,7 @@ public sealed class GuaranteeApprovalFormConfiguration : IEntityTypeConfiguratio
 {
     public void Configure(EntityTypeBuilder<GuaranteeApprovalForm> builder)
     {
-        builder.ToTable("guarantee_approval_forms", DbSchemas.Cases);
+        builder.ToTable("guarantee_approval_forms", DbSchemas.Guarantee);
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.CaseId).IsUnique();
 

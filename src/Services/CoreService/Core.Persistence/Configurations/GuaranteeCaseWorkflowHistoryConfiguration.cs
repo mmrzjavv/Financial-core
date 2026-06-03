@@ -8,7 +8,7 @@ public sealed class GuaranteeCaseWorkflowHistoryConfiguration : IEntityTypeConfi
 {
     public void Configure(EntityTypeBuilder<GuaranteeCaseWorkflowHistory> builder)
     {
-        builder.ToTable("guarantee_case_workflow_history", DbSchemas.Cases);
+        builder.ToTable("guarantee_case_workflow_history", DbSchemas.Guarantee);
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.CaseId);
 

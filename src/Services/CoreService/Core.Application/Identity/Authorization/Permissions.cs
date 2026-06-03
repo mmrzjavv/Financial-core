@@ -67,7 +67,8 @@ public static class RolePermissions
         Permissions.GuaranteeCases_CreditReview,
         Permissions.GuaranteeCases_LegalReview,
         Permissions.GuaranteeCases_FinanceReview,
-        Permissions.GuaranteeCases_CeoApprove
+        Permissions.GuaranteeCases_CeoApprove,
+        Permissions.GuaranteeCases_SetApplicantCreditLimit
     ];
 
     private static readonly string[] LegalUnitPermissions =
@@ -178,7 +179,8 @@ public static class RolePermissions
             [UserRoleClaims.FinancialExpert] = FinancialUnitPermissions,
             [UserRoleClaims.FinancialManager] = FinancialUnitPermissions,
             [UserRoleClaims.FinancialUnit] = FinancialUnitPermissions,
-            [UserRoleClaims.TechnicalExpert] = TechnicalUnitPermissions,
+            // Sample: full API access (same set as Admin). Revert to TechnicalUnitPermissions for production.
+            [UserRoleClaims.TechnicalExpert] = AllPermissions,
             [UserRoleClaims.TechnicalManager] = TechnicalUnitPermissions
         };
 }

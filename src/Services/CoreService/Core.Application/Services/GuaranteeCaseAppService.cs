@@ -159,37 +159,18 @@ public sealed class GuaranteeCaseAppService(
         if (currentStatus is not (GuaranteeCaseStatus.Draft or GuaranteeCaseStatus.DataEntry))
             return Result.Fail(Error.Conflict(ApiMessages.GuaranteeApplicationNotEditable));
 
-        var application = await dbContext.GuaranteeCaseApplications
-            .FirstOrDefaultAsync(x => x.CaseId == caseId, ct);
-
-        if (application is null)
+        if (!GuaranteeApplicationCompleteness.HasMinimumData(
+                request.GuaranteeType,
+                request.ContractSubject,
+                request.RequestedGuaranteeAmount))
         {
-            application = new GuaranteeCaseApplication(caseId);
-            await dbContext.GuaranteeCaseApplications.AddAsync(application, ct);
+            return Result.Fail(Error.Validation(ApiMessages.GuaranteeApplicationIncomplete));
         }
 
-        application.Update(
-            request.GuaranteeType,
-            request.ContractSubject,
-            request.IsKnowledgeBasedProduct,
-            request.BeneficiaryName,
-            request.BeneficiaryNationalId,
-            request.BeneficiaryCompanyType,
-            request.ApplicantCategory,
-            request.ApplicantCategoryOther,
-            request.ApplicantLegalForm,
-            request.BaseContractNumber,
-            request.BaseContractAmount,
-            request.BaseContractAmountInWords,
-            request.PriceAdjustmentRatePercent,
-            request.ExecutionProvince,
-            request.RequestedGuaranteeAmount,
-            request.InitialValidityDays,
-            request.ValidityFrom,
-            request.ValidityTo,
-            request.CollateralDescription,
-            request.FacilitySubject);
+        var application = await GuaranteeCaseApplicationPersistence.UpsertAsync(
+            dbContext, caseId, request, ct);
 
+        await SyncApprovalFormFromApplicationAsync(caseId, application, ct);
         await dbContext.GuaranteeCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, ct);
         await unitOfWork.SaveChangesAsync(ct);
         return Result.Ok();
@@ -492,18 +473,28 @@ public sealed class GuaranteeCaseAppService(
         if (auth.IsFailure)
             return Result<GuaranteeFundCreditLimitDto>.Fail(auth.Error!);
 
+        if (!authorizationService.HasPermission(GuaranteePermissions.SetApplicantCreditLimit))
+            return Result<GuaranteeFundCreditLimitDto>.Fail(Error.Forbidden(ApiMessages.OnlyCeoCanSetCreditLimit));
+
+        var amountValidation = ValidateFundCreditLimitAmount(request.CreditLimitWithCheck);
+        if (amountValidation.IsFailure)
+            return Result<GuaranteeFundCreditLimitDto>.Fail(amountValidation.Error!);
+
         var entity = await unitOfWork.GuaranteeCases.GetScopedAsync(
             caseId, auth.Value!, isInternalUser: true, ct);
 
         if (entity is null)
             return Result<GuaranteeFundCreditLimitDto>.Fail(Error.NotFound(ApiMessages.GuaranteeCaseNotFound));
 
-        return await SetFundCreditLimitAsync(
-            new SetGuaranteeFundCreditLimitRequest(
-                request.CreditLimitWithCheck,
-                request.PeriodStart,
-                request.ExpiresAt),
+        await UpsertApplicantCreditProfileAsync(
+            entity.ApplicantUserId,
+            entity.CompanyId,
+            request.CreditLimitWithCheck,
+            auth.Value!,
             ct);
+
+        await unitOfWork.SaveChangesAsync(ct);
+        return Result<GuaranteeFundCreditLimitDto>.Ok(await BuildFundCreditLimitDtoAsync(ct));
     }
 
     public async Task<Result<GuaranteeFundCreditLimitDto>> GetApplicantCreditLimitAsync(Guid caseId, CancellationToken ct)
@@ -518,8 +509,8 @@ public sealed class GuaranteeCaseAppService(
         if (entity is null)
             return Result<GuaranteeFundCreditLimitDto>.Fail(Error.NotFound(ApiMessages.GuaranteeCaseNotFound));
 
-        var limit = await GuaranteeApplicantCreditSnapshotCalculator.ResolveFundCreditLimitAsync(dbContext, ct);
-        if (limit <= 0)
+        var profile = await FindApplicantCreditProfileAsync(entity.ApplicantUserId, entity.CompanyId, ct);
+        if (profile is null)
             return Result<GuaranteeFundCreditLimitDto>.Fail(Error.NotFound(ApiMessages.FundCreditLimitNotSet));
 
         return Result<GuaranteeFundCreditLimitDto>.Ok(await BuildFundCreditLimitDtoAsync(ct));
@@ -617,28 +608,16 @@ public sealed class GuaranteeCaseAppService(
             await dbContext.GuaranteeApprovalForms.AddAsync(approvalForm, ct);
         }
 
+        var application = entity.Application
+            ?? await GuaranteeCaseApplicationPersistence.GetByCaseIdAsync(dbContext, caseId, ct);
+
         var creditSnapshot = await GuaranteeApplicantCreditSnapshotCalculator.ComputeAsync(dbContext, entity, ct);
 
-        approvalForm.Update(
-            creditSnapshot.CreditLimitWithCheck,
-            creditSnapshot.FundIssuedGuaranteesTotal,
-            creditSnapshot.ActiveCommitments,
-            creditSnapshot.RemainingCredit,
-            request.GuaranteeType,
-            request.GuaranteeAmount,
-            request.GuaranteeAmountInWords,
-            request.ContractSubject,
-            request.Beneficiary,
-            request.IssuanceDate,
-            request.ExpiryDate,
-            request.ActiveDurationDays,
-            request.DepositRatePercent,
-            request.DepositAmount,
-            request.AnnualCommissionRatePercent,
-            request.CommissionAmount,
-            request.CollateralDescription,
-            request.GuarantorsDescription,
-            request.OtherNotes);
+        GuaranteeApprovalFormMapping.Apply(
+            approvalForm,
+            application,
+            creditSnapshot,
+            request);
 
         await dbContext.GuaranteeCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, ct);
         await unitOfWork.SaveChangesAsync(ct);
@@ -756,6 +735,12 @@ public sealed class GuaranteeCaseAppService(
             var persist = await PersistTransitionAsync(entity, commentsCountBefore, ct);
             if (persist.IsFailure) return persist;
 
+            if (entity.CurrentStatus == GuaranteeCaseStatus.ApprovalFormEntry)
+            {
+                var seed = await EnsureApprovalFormSeededAsync(entity, ct);
+                if (seed.IsFailure) return seed;
+            }
+
             try
             {
                 await workflowOrchestrator.SignalGuaranteeCaseAsync(
@@ -768,6 +753,94 @@ public sealed class GuaranteeCaseAppService(
         }
 
         return Result.Ok();
+    }
+
+    private async Task<Result> EnsureApprovalFormSeededAsync(GuaranteeCase entity, CancellationToken ct)
+    {
+        var exists = await dbContext.GuaranteeApprovalForms
+            .AsNoTracking()
+            .AnyAsync(x => x.CaseId == entity.Id, ct);
+
+        if (exists)
+            return Result.Ok();
+
+        var application = entity.Application
+            ?? await GuaranteeCaseApplicationPersistence.GetByCaseIdAsync(dbContext, entity.Id, ct);
+
+        if (application is null)
+            return Result.Ok();
+
+        var approvalForm = new GuaranteeApprovalForm(entity.Id);
+        var creditSnapshot = await GuaranteeApplicantCreditSnapshotCalculator.ComputeAsync(dbContext, entity, ct);
+        GuaranteeApprovalFormMapping.Apply(approvalForm, application, creditSnapshot);
+
+        await dbContext.GuaranteeApprovalForms.AddAsync(approvalForm, ct);
+        await dbContext.GuaranteeCases.TouchUpdatedAtAsync(entity.Id, clock.UtcNow, ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        return Result.Ok();
+    }
+
+    private async Task SyncApprovalFormFromApplicationAsync(
+        Guid caseId,
+        GuaranteeCaseApplication application,
+        CancellationToken ct)
+    {
+        var approvalForm = await dbContext.GuaranteeApprovalForms
+            .FirstOrDefaultAsync(x => x.CaseId == caseId, ct);
+
+        if (approvalForm is null)
+            return;
+
+        var guaranteeCase = await dbContext.GuaranteeCases
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == caseId, ct);
+
+        if (guaranteeCase is null)
+            return;
+
+        var creditSnapshot = await GuaranteeApplicantCreditSnapshotCalculator.ComputeAsync(
+            dbContext,
+            guaranteeCase,
+            ct);
+
+        GuaranteeApprovalFormMapping.Apply(approvalForm, application, creditSnapshot);
+    }
+
+    private async Task UpsertApplicantCreditProfileAsync(
+        string applicantUserId,
+        Guid? companyId,
+        decimal creditLimitWithCheck,
+        string setByUserId,
+        CancellationToken ct)
+    {
+        var profile = await FindApplicantCreditProfileAsync(applicantUserId, companyId, ct);
+
+        if (profile is null)
+        {
+            await dbContext.GuaranteeApplicantCreditProfiles.AddAsync(
+                new GuaranteeApplicantCreditProfile(applicantUserId, companyId, creditLimitWithCheck, setByUserId),
+                ct);
+            return;
+        }
+
+        profile.SetCreditLimit(creditLimitWithCheck, setByUserId);
+    }
+
+    private Task<GuaranteeApplicantCreditProfile?> FindApplicantCreditProfileAsync(
+        string applicantUserId,
+        Guid? companyId,
+        CancellationToken ct)
+    {
+        if (companyId.HasValue)
+        {
+            return dbContext.GuaranteeApplicantCreditProfiles
+                .FirstOrDefaultAsync(x => x.CompanyId == companyId.Value, ct);
+        }
+
+        return dbContext.GuaranteeApplicantCreditProfiles
+            .FirstOrDefaultAsync(
+                x => x.ApplicantUserId == applicantUserId && x.CompanyId == null,
+                ct);
     }
 
     private static bool SupportsInternalComment(GuaranteeWorkflowAction action, GuaranteeCaseStatus statusBefore) =>

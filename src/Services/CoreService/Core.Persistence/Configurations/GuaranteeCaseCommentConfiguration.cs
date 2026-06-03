@@ -8,7 +8,7 @@ public sealed class GuaranteeCaseCommentConfiguration : IEntityTypeConfiguration
 {
     public void Configure(EntityTypeBuilder<GuaranteeCaseComment> builder)
     {
-        builder.ToTable("guarantee_case_comments", DbSchemas.Cases);
+        builder.ToTable("guarantee_case_comments", DbSchemas.Guarantee);
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.CaseId);
 

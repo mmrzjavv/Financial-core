@@ -3,5 +3,6 @@ namespace Core.Persistence;
 public static class DbSchemas
 {
     public const string Identity = "Identity";
-    public const string Cases = "Cases";
+    public const string Investment = "Investment";
+    public const string Guarantee = "Guarantee";
 }

@@ -5,6 +5,8 @@ bin/
 obj/
 out/
 publish/
+.build-check*/
+.docker-publish-test/
 
 ##################################
 # Rider / IntelliJ

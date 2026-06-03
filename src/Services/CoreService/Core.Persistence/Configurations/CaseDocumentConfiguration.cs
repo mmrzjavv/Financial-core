@@ -8,7 +8,7 @@ public sealed class CaseDocumentConfiguration : IEntityTypeConfiguration<CaseDoc
 {
     public void Configure(EntityTypeBuilder<CaseDocument> builder)
     {
-        builder.ToTable("case_documents", DbSchemas.Cases);
+        builder.ToTable("case_documents", DbSchemas.Investment);
         builder.HasKey(x => x.Id);
 
         builder.HasIndex(x => new { x.CaseId, x.DocumentType, x.Version });

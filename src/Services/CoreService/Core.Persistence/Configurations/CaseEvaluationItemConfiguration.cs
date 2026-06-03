@@ -8,7 +8,7 @@ public sealed class CaseEvaluationItemConfiguration : IEntityTypeConfiguration<C
 {
     public void Configure(EntityTypeBuilder<CaseEvaluationItem> builder)
     {
-        builder.ToTable("case_evaluation_items", DbSchemas.Cases);
+        builder.ToTable("case_evaluation_items", DbSchemas.Investment);
         builder.HasKey(x => x.Id);
 
         builder.HasIndex(x => new { x.EvaluationId, x.Title }).IsUnique();

@@ -8,7 +8,7 @@ public sealed class GuaranteeRenewalCaseConfiguration : IEntityTypeConfiguration
 {
     public void Configure(EntityTypeBuilder<GuaranteeRenewalCase> builder)
     {
-        builder.ToTable("guarantee_renewal_cases", DbSchemas.Cases);
+        builder.ToTable("guarantee_renewal_cases", DbSchemas.Guarantee);
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.CaseNumber).HasMaxLength(64).IsRequired();

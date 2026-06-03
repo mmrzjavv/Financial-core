@@ -172,14 +172,15 @@ public sealed class GuaranteeCaseStateManager : IGuaranteeCaseStateManager
         switch (action)
         {
             case GuaranteeWorkflowAction.Submit when caseEntity.CurrentStatus == GuaranteeCaseStatus.DataEntry:
-                if (caseEntity.Application is null)
+                if (!GuaranteeApplicationCompleteness.IsComplete(caseEntity.Application))
                 {
                     errorMessage = ApiMessages.GuaranteeApplicationIncomplete;
                     return false;
                 }
 
+                var application = caseEntity.Application!;
                 var missingDocs = GuaranteeDocumentRequirements.GetMissingForDataEntrySubmit(
-                    caseEntity.Application.GuaranteeType,
+                    application.GuaranteeType,
                     caseEntity.Documents);
                 if (missingDocs.Count > 0)
                 {
@@ -189,7 +190,7 @@ public sealed class GuaranteeCaseStateManager : IGuaranteeCaseStateManager
                 break;
 
             case GuaranteeWorkflowAction.Submit when caseEntity.CurrentStatus == GuaranteeCaseStatus.ApprovalFormEntry:
-                if (caseEntity.ApprovalForm is null)
+                if (!GuaranteeApprovalFormCompleteness.IsComplete(caseEntity.ApprovalForm))
                 {
                     errorMessage = ApiMessages.GuaranteeApprovalFormIncomplete;
                     return false;

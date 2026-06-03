@@ -8,7 +8,7 @@ public sealed class WorkflowHistoryConfiguration : IEntityTypeConfiguration<Case
 {
     public void Configure(EntityTypeBuilder<CaseWorkflowHistory> builder)
     {
-        builder.ToTable("case_workflow_history", DbSchemas.Cases);
+        builder.ToTable("case_workflow_history", DbSchemas.Investment);
         builder.HasKey(x => x.Id);
 
         builder.HasIndex(x => new { x.CaseId, x.CreatedAt });

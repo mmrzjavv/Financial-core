@@ -1,300 +1,35 @@
-using System.Net;
 using System.Security.Claims;
-using System.Text;
-using Asp.Versioning;
-using BuildingBlocks.Application.Common;
-using BuildingBlocks.Application.Results;
 using BuildingBlocks.Application.Validation;
 using BuildingBlocks.Domain.Abstractions;
-using BuildingBlocks.Observability.Correlation;
 using BuildingBlocks.Observability.Logging;
 using Core.API;
-using Core.API.Authorization;
-using Core.API.Http;
-using Core.API.Swagger;
-using Core.Application;
+using Core.API.DependencyInjection;
 using Core.Application.Abstractions;
-using Core.Domain.Identity;
-using Core.Application.Authorization;
-using Core.Application.Common;
-using Core.Application.Services;
 using Core.Infrastructure.DependencyInjection;
 using Core.Infrastructure.Identity.DependencyInjection;
 using Core.Workflow.DependencyInjection;
-using FluentValidation;
-using FluentValidation.AspNetCore;
-using Mapster;
-using MapsterMapper;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Http.Features;
-using Microsoft.IdentityModel.Tokens;
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
-
-
-var builder = WebApplication.CreateBuilder(args);
 
 ValidationLocalization.ConfigurePersian();
 
-var coreUrls = Environment.GetEnvironmentVariable("CORE_URLS");
-var aspnetcoreUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
-if (!string.IsNullOrWhiteSpace(coreUrls) && string.IsNullOrWhiteSpace(aspnetcoreUrls))
-{
-    builder.WebHost.UseUrls(coreUrls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-}
-
+var builder = WebApplication.CreateBuilder(args);
+builder.ConfigureHostUrls();
 builder.Host.UsePlatformSerilog();
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddSingleton<CorrelationIdMiddleware>();
+builder.Services.AddSingleton<BuildingBlocks.Observability.Correlation.CorrelationIdMiddleware>();
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<IUserContext, HttpUserContext>();
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("CorsPolicy", policy =>
-    {
-        policy
-            .AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-    });
-});
-
-builder.Services.AddValidatorsFromAssemblyContaining<InvestmentCaseAppService>();
-builder.Services.AddFluentValidationAutoValidation();
-
-builder.Services.AddScoped<ICaseStateManager, CaseStateManager>();
-builder.Services.AddScoped<IInvestmentCaseAppService, InvestmentCaseAppService>();
-builder.Services.AddScoped<IGuaranteeCaseStateManager, GuaranteeCaseStateManager>();
-builder.Services.AddScoped<IGuaranteeCaseAppService, GuaranteeCaseAppService>();
-builder.Services.AddScoped<IGuaranteeRenewalAppService, GuaranteeRenewalAppService>();
-builder.Services.AddScoped<IKanbanAppService, KanbanAppService>();
-builder.Services.AddScoped<ICompanyAppService, CompanyAppService>();
-builder.Services.AddScoped<ICaseAuthorizationService, CaseAuthorizationService>();
-builder.Services.AddScoped<IGuaranteeAuthorizationService, GuaranteeAuthorizationService>();
-builder.Services.AddScoped<ICaseNumberGenerator, CaseNumberGenerator>();
-builder.Services.AddScoped<IGuaranteeCaseNumberGenerator, GuaranteeCaseNumberGenerator>();
-
+builder.Services.AddCoreApiServices();
 builder.AddIdentityApplication();
 builder.AddIdentityInfrastructure();
-
 builder.Services.AddCoreInfrastructure(builder.Configuration);
 builder.Services.AddCoreWorkflow(builder.Configuration, builder.Environment);
-
-builder.Services.AddProblemDetails();
-
-builder.Services.AddApiVersioning(options =>
-{
-    options.DefaultApiVersion = new ApiVersion(1, 0);
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.ReportApiVersions = true;
-    options.ApiVersionReader = ApiVersionReader.Combine(new UrlSegmentApiVersionReader(), new HeaderApiVersionReader("X-Api-Version"));
-}).AddApiExplorer(options =>
-{
-    options.GroupNameFormat = "'v'VVV";
-    options.SubstituteApiVersionInUrl = true;
-});
-
-builder.Services.AddControllers()
-    .ConfigureApiBehaviorOptions(options =>
-    {
-        options.InvalidModelStateResponseFactory = context =>
-        {
-            var validationErrors = context.ModelState
-                .Where(entry => entry.Value?.Errors.Count > 0)
-                .ToDictionary(
-                    entry => entry.Key,
-                    entry => entry.Value!.Errors.Select(error => error.ErrorMessage).ToArray());
-
-            var envelope = new ApiOperationResult<object?>().Failed(
-                ApiMessages.ValidationFailed,
-                validationErrors,
-                HttpStatusCode.BadRequest);
-
-            return ApiResponse.Send(envelope);
-        };
-    });
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddCoreSwagger();
-
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(r => r.AddService(serviceName: "core-service"))
-    .WithTracing(tracing =>
-    {
-        tracing
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation()
-            .AddOtlpExporter();
-    });
-
-builder.Services.AddHealthChecks();
-builder.Services.Configure<FormOptions>(o => { o.MultipartBodyLengthLimit = 250L * 1024 * 1024; });
-
-builder.Services.AddStackExchangeRedisCache(options =>
-{
-    options.Configuration = builder.Configuration.GetConnectionString("Redis");
-});
-
-TypeAdapterConfig.GlobalSettings.Scan(typeof(Program).Assembly, typeof(ApplicationMapsterConfig).Assembly);
-builder.Services.AddSingleton(TypeAdapterConfig.GlobalSettings);
-builder.Services.AddScoped<IMapper, ServiceMapper>();
-
-builder.Services.AddAuthorization(options =>
-{
-    // IdentityService issues ClaimTypes.Role = UserRole.ToString(): Applicant, InvestmentExpert, InvestmentManager, LegalExpert, FinancialExpert, Admin, ...
-    options.AddPolicy("AdminOnly", p => p.RequireRole(UserRoleClaims.Admin));
-    options.AddPolicy("ApplicantOnly", p => p.RequireRole(UserRoleClaims.Applicant, UserRoleClaims.Admin));
-    options.AddPolicy("InternalOnly", p => p.RequireRole(
-        UserRoleClaims.InvestmentExpert,
-        UserRoleClaims.InvestmentManager,
-        UserRoleClaims.CreditExpert,
-        UserRoleClaims.CreditManager,
-        UserRoleClaims.LegalExpert,
-        UserRoleClaims.LegalManager,
-        UserRoleClaims.FinancialExpert,
-        UserRoleClaims.FinancialManager,
-        UserRoleClaims.TechnicalExpert,
-        UserRoleClaims.TechnicalManager,
-        UserRoleClaims.Ceo,
-        UserRoleClaims.Admin,
-        UserRoleClaims.LegalUnit,
-        UserRoleClaims.FinancialUnit,
-        UserRoleClaims.InvestmentUnit,
-        "CEO"));
-
-    options.AddPolicy("GuaranteeCases.CreditReview", p => p.Requirements.Add(new PermissionRequirement("guarantee_cases:credit_review")));
-    options.AddPolicy("GuaranteeCases.CeoApprove", p => p.RequireRole(
-        UserRoleClaims.Ceo,
-        UserRoleClaims.Admin,
-        "CEO"));
-
-    options.AddPolicy("GuaranteeCases.CeoOnly", p => p.RequireRole(UserRoleClaims.Ceo, "CEO"));
-
-    options.AddPolicy("InvestmentCases.Review", p => p.Requirements.Add(new PermissionRequirement("investment_cases:review")));
-    options.AddPolicy("InvestmentCases.FinanceReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:finance_review")));
-    options.AddPolicy("InvestmentCases.LegalReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:legal_review")));
-    // Role-based: permission cache can lag after role changes; CaseAuthorizationService enforces cases:ceo_approve in app layer.
-    options.AddPolicy("InvestmentCases.CeoApprove", p => p.RequireRole(
-        UserRoleClaims.Ceo,
-        UserRoleClaims.Admin,
-        "CEO"));
-
-    options.AddPolicy("Dashboard.Ceo", p => p.RequireRole(UserRoleClaims.Ceo, UserRoleClaims.Admin, "CEO"));
-    options.AddPolicy("Dashboard.Board", p => p.RequireRole(
-        UserRoleClaims.Ceo,
-        UserRoleClaims.InvestmentManager,
-        UserRoleClaims.Admin,
-        "CEO"));
-});
-
-builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
-{
-    var jwtKey = builder.Configuration["JwtKey"] ?? throw new InvalidOperationException(SystemMessages.JwtKeyMissing);
-    var encKey = builder.Configuration["ENCKey"] ?? throw new InvalidOperationException(SystemMessages.EncKeyMissing);
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-        TokenDecryptionKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(encKey)),
-        ClockSkew = TimeSpan.Zero
-    };
-});
+builder.Services.AddCoreApiPresentation(builder.Configuration);
+builder.Services.AddCoreAuthentication(builder.Configuration);
+builder.Services.AddCoreAuthorization();
 
 var app = builder.Build();
-
-app.UseExceptionHandler(errorApp =>
-{
-    errorApp.Run(async context =>
-    {
-        var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
-        var ex = exceptionFeature?.Error;
-
-        if (ex is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
-            or Microsoft.EntityFrameworkCore.DbUpdateException { InnerException: Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException })
-        {
-            var envelope = new ApiOperationResult<object?>().Failed(
-                ApiMessages.ConcurrencyConflict,
-                HttpStatusCode.Conflict,
-                exMessage: app.Environment.IsDevelopment() ? ex.ToString() : null);
-
-            context.Response.StatusCode = (int)envelope.Status;
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(envelope);
-            return;
-        }
-
-        var failure = new ApiOperationResult<object?>().Failed(
-            ApiMessages.UnexpectedError,
-            HttpStatusCode.InternalServerError,
-            exMessage: app.Environment.IsDevelopment() ? ex?.Message : null);
-
-        context.Response.StatusCode = (int)failure.Status;
-        context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(failure);
-    });
-});
-
-app.UseMiddleware<CorrelationIdMiddleware>();
-
-// In development, we allow swagger even if not explicitly in Dev env for now to fix user issue
-app.UseSwagger();
-app.UseSwaggerUI(options =>
-{
-    options.DocumentTitle = OpenApiMetadata.Title;
-    options.DisplayRequestDuration();
-    options.EnableDeepLinking();
-    options.DefaultModelsExpandDepth(2);
-
-    var descriptions = app.DescribeApiVersions();
-    foreach (var description in descriptions)
-    {
-        var url = $"/swagger/{description.GroupName}/swagger.json";
-        options.SwaggerEndpoint(url, $"{OpenApiMetadata.Title} ({description.GroupName})");
-    }
-
-    options.RoutePrefix = "swagger";
-});
-
-app.UseCors("CorsPolicy");
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-app.MapHealthChecks("/health");
-
-var logger = app.Services.GetRequiredService<ILogger<Program>>();
-var addresses = app.Urls;
-foreach (var address in addresses)
-{
-    logger.LogInformation("Application is running on: {Address}", address);
-    logger.LogInformation("Swagger UI available at: {Address}/swagger", address);
-}
+app.UseCoreApiPipeline();
 
 app.Run();
-
-namespace Core.API
-{
-    public sealed class SystemClock : IClock
-    {
-        public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
-    }
-
-    public sealed class HttpUserContext(IHttpContextAccessor accessor) : IUserContext
-    {
-        public string? UserId => accessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        public string? UserName => accessor.HttpContext?.User?.FindFirst(ClaimTypes.Name)?.Value;
-        public IReadOnlyCollection<string> Roles => accessor.HttpContext?.User?.Claims.Where(x => x.Type == ClaimTypes.Role).Select(x => x.Value).Distinct().ToArray()
-                                                    ?? Array.Empty<string>();
-    }
-}

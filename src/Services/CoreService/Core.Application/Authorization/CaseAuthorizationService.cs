@@ -67,6 +67,26 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
         CasePermissions.UploadCommentAttachments
     ];
 
+    /// <summary>Every investment-case permission (Admin bypasses the dictionary and does not need this).</summary>
+    private static readonly string[] AllCasePermissions =
+    [
+        CasePermissions.Create,
+        CasePermissions.ReadOwn,
+        CasePermissions.ReadAll,
+        CasePermissions.ViewInternalComments,
+        CasePermissions.CreateInternalComment,
+        CasePermissions.ViewEvaluations,
+        CasePermissions.UpsertEvaluations,
+        CasePermissions.ManageValuations,
+        CasePermissions.ManageContracts,
+        CasePermissions.ManageFinancialWorksheet,
+        CasePermissions.ManagePayments,
+        CasePermissions.CeoApprove,
+        CasePermissions.UploadDocuments,
+        CasePermissions.DownloadDocuments,
+        CasePermissions.UploadCommentAttachments
+    ];
+
     private static readonly IReadOnlyDictionary<string, IReadOnlyCollection<string>> RolePermissions =
         new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -84,7 +104,8 @@ public sealed class CaseAuthorizationService(IUserContext userContext) : ICaseAu
             [UserRoleClaims.LegalManager] = LegalUnitPermissions,
             [UserRoleClaims.FinancialExpert] = FinancialUnitPermissions,
             [UserRoleClaims.FinancialManager] = FinancialUnitPermissions,
-            [UserRoleClaims.TechnicalExpert] = TechnicalUnitPermissions,
+            // Sample: full case permissions. Revert to TechnicalUnitPermissions for production.
+            [UserRoleClaims.TechnicalExpert] = AllCasePermissions,
             [UserRoleClaims.TechnicalManager] = TechnicalUnitPermissions,
             [UserRoleClaims.Ceo] =
             [
