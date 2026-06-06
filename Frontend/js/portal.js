@@ -856,6 +856,7 @@
   function renderCommentsHistory(card, phase, title, options) {
     options = options || {};
     const block = el("div", "portal-thread");
+    block.dataset.commentPhase = String(phase);
     block.appendChild(el("div", "portal-thread__title", title || options.title || "تاریخچه نظرات"));
 
     const list = el("div", "portal-thread__list");
@@ -865,6 +866,15 @@
     }
     if (!items.length) {
       list.appendChild(el("div", "muted", options.emptyText || "هنوز نظری ثبت نشده است."));
+      block.appendChild(list);
+    } else if (window.UIComponents && UIComponents.renderCommentThreadList) {
+      block.appendChild(
+        UIComponents.renderCommentThreadList(items, {
+          module: "investment",
+          history: state.history,
+          allComments: state.comments,
+        })
+      );
     } else {
       items.forEach((comment) => {
         const row = el("div", "portal-thread__item");
@@ -877,8 +887,8 @@
         row.appendChild(body);
         list.appendChild(row);
       });
+      block.appendChild(list);
     }
-    block.appendChild(list);
     card.appendChild(block);
   }
 
@@ -1738,6 +1748,20 @@
       if (ev.detail?.module && ev.detail.module !== "investment") return;
       state.caseId = readCaseId();
       withBusy(refreshCase);
+    });
+
+    document.addEventListener("testpanel:open-comment-step", (ev) => {
+      if (ev.detail?.module && ev.detail.module !== "investment") return;
+      const unit = ev.detail?.unit;
+      if (unit && unit !== "all") state.selectedUnit = unit;
+      render();
+      const phase = ev.detail?.phase;
+      const target =
+        (ev.detail?.commentId &&
+          document.querySelector(`[data-comment-id="${ev.detail.commentId}"]`)) ||
+        (phase != null && document.querySelector(`[data-comment-phase="${phase}"]`));
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.classList.add("is-highlight");
     });
   }
 

@@ -29,7 +29,7 @@ public static class LoanKanbanRules
         [LoanCaseStatus.PendingLegalFinalContract] = UserRoleClaims.LegalExpert,
         [LoanCaseStatus.PendingCeoFinalApproval] = UserRoleClaims.Ceo,
         [LoanCaseStatus.ReadyForPayment] = UserRoleClaims.FinancialExpert,
-        [LoanCaseStatus.RepaymentPhase] = UserRoleClaims.FinancialExpert
+        [LoanCaseStatus.RepaymentPhase] = UserRoleClaims.Applicant
     };
 
     private static readonly Dictionary<string, HashSet<LoanCaseStatus>> ActionStatusesByRole = BuildActionStatusesByRole();
@@ -99,6 +99,28 @@ public static class LoanKanbanRules
         if (roles.Contains(UserRoleClaims.FinancialExpert)) return UserRoleClaims.FinancialExpert;
         if (roles.Contains(UserRoleClaims.Applicant)) return UserRoleClaims.Applicant;
         return roles.FirstOrDefault() ?? string.Empty;
+    }
+
+    public static string GetPendingActionLabel(LoanCaseStatus status, string resolvedRole)
+    {
+        if (IsActionRequired(status, resolvedRole))
+            return "اقدام شما لازم است";
+
+        if (StatusOwnerRole.TryGetValue(status, out var owner))
+        {
+            var ownerLabel = owner switch
+            {
+                UserRoleClaims.Applicant => "متقاضی",
+                UserRoleClaims.CreditExpert or UserRoleClaims.CreditManager => "اعتبارات",
+                UserRoleClaims.LegalExpert or UserRoleClaims.LegalManager => "حقوقی",
+                UserRoleClaims.FinancialExpert or UserRoleClaims.FinancialManager => "مالی",
+                UserRoleClaims.Ceo => "مدیرعامل",
+                _ => owner
+            };
+            return $"در انتظار {ownerLabel}";
+        }
+
+        return "در جریان بررسی";
     }
 
     private static Dictionary<string, HashSet<LoanCaseStatus>> BuildActionStatusesByRole()

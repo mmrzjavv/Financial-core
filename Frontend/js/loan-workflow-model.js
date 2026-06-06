@@ -18,7 +18,7 @@
     13: { id: 13, title: "قرارداد نهایی", unit: "legal", phase: 3 },
     14: { id: 14, title: "تأیید مدیرعامل (نهایی)", unit: "ceo", phase: 4 },
     15: { id: 15, title: "آماده پرداخت", unit: "financial", phase: 4 },
-    16: { id: 16, title: "فاز بازپرداخت", unit: "financial", phase: 5 },
+    16: { id: 16, title: "فاز بازپرداخت", unit: "applicant", phase: 5 },
     17: { id: 17, title: "تکمیل", unit: "all", phase: 6 },
     18: { id: 18, title: "بایگانی", unit: "all", phase: 6 },
   };
@@ -62,6 +62,30 @@
     6: "اختتام",
   };
 
+  const UNITS = [
+    { id: "all", label: "همه" },
+    { id: "applicant", label: "متقاضی", roles: ["Applicant", "User", "Admin"] },
+    { id: "credit", label: "اعتبارات", roles: ["CreditExpert", "CreditManager", "Admin"] },
+    { id: "legal", label: "حقوقی", roles: ["LegalExpert", "LegalManager", "LegalUnit", "Admin"] },
+    { id: "financial", label: "مالی", roles: ["FinancialExpert", "FinancialManager", "FinancialUnit", "Admin"] },
+    { id: "ceo", label: "مدیرعامل", roles: ["CEO", "Admin"] },
+  ];
+
+  function getUnit(unitId) {
+    return UNITS.find((u) => u.id === unitId) || null;
+  }
+
+  function getStepperSteps() {
+    return Object.values(STEPS)
+      .filter((step) => step.id !== 6)
+      .sort((a, b) => a.id - b.id);
+  }
+
+  function getStepOrderIndex(status) {
+    const value = Number(status);
+    return getStepperSteps().findIndex((step) => step.id === value);
+  }
+
   function normalizeRole(userRoleText, userRoleNumber) {
     if (window.WorkflowModel && typeof window.WorkflowModel.normalizeRole === "function") {
       return window.WorkflowModel.normalizeRole(userRoleText, userRoleNumber);
@@ -78,7 +102,7 @@
     const unit = step.unit;
     if (unit === "all") return false;
     const map = {
-      applicant: ["Applicant", "Admin"],
+      applicant: ["Applicant", "User", "Admin"],
       credit: ["CreditExpert", "CreditManager", "Admin"],
       legal: ["LegalExpert", "LegalManager", "Admin"],
       financial: ["FinancialExpert", "FinancialManager", "Admin"],
@@ -87,15 +111,44 @@
     return (map[unit] || []).includes(role);
   }
 
+  const WORKFLOW_DOCUMENTS = [
+    { type: 13, label: "قرارداد خام" },
+    { type: 14, label: "جدول اقساط" },
+    { type: 15, label: "قرارداد امضاشده" },
+    { type: 16, label: "پیوست ۱" },
+    { type: 17, label: "پیوست ۲" },
+    { type: 18, label: "پیوست ۳" },
+    { type: 19, label: "پیوست ۴" },
+    { type: 20, label: "پیوست ۵" },
+    { type: 21, label: "پیوست ۶" },
+    { type: 22, label: "قرارداد نهایی" },
+    { type: 23, label: "رسید پرداخت" },
+    { type: 99, label: "سایر" },
+  ];
+
+  function documentTypeLabel(type) {
+    const t = Number(type);
+    const fromEntry = DATA_ENTRY_DOCUMENTS.find((d) => d.type === t);
+    if (fromEntry) return fromEntry.label;
+    const fromWorkflow = WORKFLOW_DOCUMENTS.find((d) => d.type === t);
+    if (fromWorkflow) return fromWorkflow.label;
+    return "مدرک (نوع " + t + ")";
+  }
+
   window.LoanWorkflowModel = {
     MODULE,
     STEPS,
     PHASES,
+    UNITS,
     DATA_ENTRY_DOCUMENTS,
     APPLICANT_CATEGORIES,
     FACILITY_TYPES,
     normalizeRole,
+    getUnit,
+    getStepperSteps,
+    getStepOrderIndex,
     stepForStatus,
     canActOnCase,
+    documentTypeLabel,
   };
 })();

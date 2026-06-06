@@ -320,7 +320,7 @@ public sealed class LoanCaseAppService(
         if (entity is null)
             return Result.Fail(Error.NotFound(ApiMessages.LoanCaseNotFound));
 
-        if (entity.CurrentStatus is not (LoanCaseStatus.ReadyForPayment or LoanCaseStatus.RepaymentPhase))
+        if (entity.CurrentStatus is not LoanCaseStatus.ReadyForPayment)
             return Result.Fail(Error.Conflict(ApiMessages.InvalidTransition));
 
         var payment = entity.AddPayment(
@@ -381,26 +381,117 @@ public sealed class LoanCaseAppService(
         var auth = RequireUser();
         if (auth.IsFailure) return Result.Fail(auth.Error!);
 
-        if (!authorizationService.HasPermission(LoanPermissions.ManagePayments))
+        var actorRole = ResolveActorRole();
+        var hasManagePayments = authorizationService.HasPermission(LoanPermissions.ManagePayments);
+        var hasRepayInstallments = authorizationService.HasPermission(LoanPermissions.RepayInstallments);
+
+        if (!hasManagePayments && !hasRepayInstallments)
             return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var entity = await unitOfWork.LoanCases.GetScopedAsync(
-            caseId, auth.Value!, isInternalUser: true, ct);
+            caseId, auth.Value!, authorizationService.IsInternalUser, ct);
 
         if (entity is null)
             return Result.Fail(Error.NotFound(ApiMessages.LoanCaseNotFound));
+
+        if (entity.CurrentStatus is not LoanCaseStatus.RepaymentPhase)
+            return Result.Fail(Error.Conflict(ApiMessages.InvalidTransition));
+
+        if (hasRepayInstallments && !hasManagePayments
+            && !string.Equals(UserRoleClaims.Normalize(actorRole), UserRoleClaims.Applicant, StringComparison.OrdinalIgnoreCase))
+            return Result.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var installment = entity.Installments.FirstOrDefault(x => x.Id == installmentId);
         if (installment is null)
             return Result.Fail(Error.NotFound("قسط یافت نشد."));
 
+        if (installment.IsGracePeriod)
+            return Result.Fail(Error.Conflict("قسط دوره تنفس نیازی به پرداخت ندارد."));
+
+        if (installment.IsPaid)
+            return Result.Fail(Error.Conflict("این قساط قبلاً پرداخت شده است."));
+
+        if (Math.Round(request.Amount, 2) != Math.Round(installment.TotalAmount, 2))
+            return Result.Fail(Error.Validation("مبلغ پرداخت باید با مبلغ قساط برابر باشد."));
+
+        if (string.IsNullOrWhiteSpace(request.ReceiptS3Key))
+            return Result.Fail(Error.Validation("بارگذاری رسید پرداخت الزامی است."));
+
+        var transactionNumber = (request.TransactionNumber ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(transactionNumber))
+            return Result.Fail(Error.Validation("شماره تراکنش الزامی است."));
+
         var paidAt = request.PaidDate.HasValue
             ? new DateTimeOffset(request.PaidDate.Value.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)
             : clock.UtcNow;
 
+        var repaymentStageNumber = LoanPaymentStageNumbers.ForInstallmentRepayment(installment.RowNumber);
+        if (entity.Payments.Any(x => x.StageNumber == repaymentStageNumber))
+            return Result.Fail(Error.Conflict("پرداخت این قساط قبلاً ثبت شده است."));
+
+        // #region agent log
+        try
+        {
+            var _dbg = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                sessionId = "53195f",
+                runId = "post-fix-3",
+                hypothesisId = "G",
+                location = "LoanCaseAppService.cs:MarkInstallmentPaidAsync",
+                message = "repayment payment stage",
+                data = new
+                {
+                    installmentRow = installment.RowNumber,
+                    repaymentStageNumber,
+                    existingStages = entity.Payments.Select(x => x.StageNumber).ToArray()
+                },
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
+            System.IO.File.AppendAllText(@"D:\work\Maskan\Panel\Financial-Core\debug-53195f.log", _dbg + Environment.NewLine);
+        }
+        catch { }
+        // #endregion
+
+        var payment = entity.AddPayment(
+            request.Amount,
+            request.PaidDate ?? DateOnly.FromDateTime(paidAt.UtcDateTime),
+            transactionNumber,
+            request.ReceiptS3Key,
+            request.Notes,
+            repaymentStageNumber,
+            auth.Value!);
+
         installment.MarkPaid(paidAt);
+        await dbContext.LoanPayments.AddAsync(payment, ct);
         await dbContext.LoanCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, ct);
-        await unitOfWork.SaveChangesAsync(ct);
+
+        try
+        {
+            await unitOfWork.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex)
+        {
+            // #region agent log
+            try
+            {
+                var _dbg = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    sessionId = "53195f",
+                    runId = "post-fix-3",
+                    hypothesisId = "G",
+                    location = "LoanCaseAppService.cs:MarkInstallmentPaidAsync",
+                    message = "save failed",
+                    data = new { error = ex.InnerException?.Message ?? ex.Message },
+                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                });
+                System.IO.File.AppendAllText(@"D:\work\Maskan\Panel\Financial-Core\debug-53195f.log", _dbg + Environment.NewLine);
+            }
+            catch { }
+            // #endregion
+
+            return Result.Fail(Error.Conflict("ثبت پرداخت قساط انجام نشد. لطفاً دوباره تلاش کنید."));
+        }
+
         return Result.Ok();
     }
 
@@ -732,7 +823,7 @@ public sealed class LoanCaseAppService(
         if (userContext.Roles.Contains(UserRoleClaims.FinancialManager)) return UserRoleClaims.FinancialManager;
         if (userContext.Roles.Contains(UserRoleClaims.FinancialExpert)) return UserRoleClaims.FinancialExpert;
         if (userContext.Roles.Contains(UserRoleClaims.Applicant)) return UserRoleClaims.Applicant;
-        return userContext.Roles.FirstOrDefault() ?? string.Empty;
+        return UserRoleClaims.Normalize(userContext.Roles.FirstOrDefault() ?? string.Empty);
     }
 
     private static Guid ResolveCorrelationGuid(HttpContext? httpContext)

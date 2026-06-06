@@ -72,4 +72,9 @@ public sealed record RegisterLoanPaymentRequest(
     string? Notes,
     int StageNumber);
 
-public sealed record MarkLoanInstallmentPaidRequest(DateOnly? PaidDate);
+public sealed record MarkLoanInstallmentPaidRequest(
+    DateOnly? PaidDate,
+    decimal Amount,
+    string TransactionNumber,
+    string? ReceiptS3Key,
+    string? Notes);

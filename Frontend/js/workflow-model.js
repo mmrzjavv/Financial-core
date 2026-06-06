@@ -164,6 +164,23 @@
     return role !== "Applicant" && role !== "User";
   }
 
+  const EXTRA_DOCUMENT_LABELS = {
+    5: "کاربرگ مالی",
+    7: "قرارداد نهایی",
+    8: "پیش‌نویس قرارداد",
+    9: "قرارداد امضاشده",
+    10: "رسید پرداخت",
+  };
+
+  function documentTypeLabel(documentType) {
+    const t = Number(documentType);
+    const meta =
+      DATA_ENTRY_1_DOCUMENTS.find((d) => d.type === t) ||
+      DATA_ENTRY_2_DOCUMENTS.find((d) => d.type === t);
+    if (meta) return meta.label;
+    return EXTRA_DOCUMENT_LABELS[t] || "نوع " + t;
+  }
+
   window.WorkflowModel = {
     UNITS,
     PHASES,
@@ -182,5 +199,6 @@
     canActOnCase,
     phaseForStatus,
     isInternalRole,
+    documentTypeLabel,
   };
 })();

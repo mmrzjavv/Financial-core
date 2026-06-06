@@ -48,9 +48,10 @@
     }
     const wrap = el("div", "registry-table-wrap");
     const table = el("table", "registry-table");
+    const colLabels = ["شماره پرونده", "موضوع", "متقاضی", "وضعیت", ""];
     const thead = el("thead");
     const hr = el("tr");
-    ["شماره پرونده", "موضوع", "متقاضی", "وضعیت", ""].forEach((h) => {
+    colLabels.forEach((h) => {
       const th = el("th", "", h);
       hr.appendChild(th);
     });
@@ -59,11 +60,19 @@
     const tbody = el("tbody");
     rows.forEach((row) => {
       const tr = el("tr");
-      tr.appendChild(el("td", "mono", row.caseNumber || "—"));
-      tr.appendChild(el("td", "", row.subject || "—"));
-      tr.appendChild(el("td", "", row.applicant || "—"));
-      tr.appendChild(el("td", "", row.statusLabel || "—"));
+      const cells = [
+        { cls: "mono", val: row.caseNumber || "—" },
+        { cls: "", val: row.subject || "—" },
+        { cls: "", val: row.applicant || "—" },
+        { cls: "", val: row.statusLabel || "—" },
+      ];
+      cells.forEach((c, i) => {
+        const td = el("td", c.cls, c.val);
+        td.setAttribute("data-label", colLabels[i]);
+        tr.appendChild(td);
+      });
       const tdAct = el("td");
+      tdAct.setAttribute("data-label", "");
       const btn = el("button", "btn btn--primary btn--small", "ورود به پرونده");
       btn.type = "button";
       btn.addEventListener("click", (e) => {
@@ -82,8 +91,46 @@
     host.appendChild(wrap);
   }
 
+  function resolveDocTypeLabel(module, type, customLabel) {
+    if (customLabel) return customLabel(type);
+    const t = Number(type);
+    if (module === "guarantee" && window.GuaranteeWorkflowModel) {
+      return GuaranteeWorkflowModel.documentTypeLabel(t);
+    }
+    if (module === "loan" && window.LoanWorkflowModel) {
+      return LoanWorkflowModel.documentTypeLabel(t);
+    }
+    if (window.WorkflowModel) {
+      return WorkflowModel.documentTypeLabel(t);
+    }
+    return "نوع " + t;
+  }
+
+  function formatAttachmentMeta(doc, opts) {
+    const name = pick(doc, "fileName", "FileName") || "فایل";
+    const type = pick(doc, "documentType", "DocumentType");
+    const ver = Number(pick(doc, "version", "Version")) || 1;
+    const typeLabel = resolveDocTypeLabel(opts.module, type, opts.docTypeLabel);
+    const uploadedAt = pick(doc, "uploadedAt", "UploadedAt");
+    let text = typeLabel + " — نسخه " + ver + " — " + name;
+    if (uploadedAt) text += " · " + formatDate(uploadedAt);
+    return text;
+  }
+
+  function sortAttachments(docs) {
+    return docs.slice().sort((a, b) => {
+      const ta = Number(pick(a, "documentType", "DocumentType")) || 0;
+      const tb = Number(pick(b, "documentType", "DocumentType")) || 0;
+      if (ta !== tb) return ta - tb;
+      const va = Number(pick(a, "version", "Version")) || 0;
+      const vb = Number(pick(b, "version", "Version")) || 0;
+      return vb - va;
+    });
+  }
+
   function renderAttachments(host, docs, opts) {
     if (!host) return;
+    opts = opts || {};
     host.innerHTML = "";
     const card = el("div", "card");
     card.appendChild(el("div", "card__title", "پیوست‌ها"));
@@ -91,12 +138,10 @@
       card.appendChild(el("div", "muted", "هنوز فایلی بارگذاری نشده است."));
     } else {
       const list = el("div", "portal-doc-list");
-      docs.forEach((doc) => {
+      sortAttachments(docs).forEach((doc) => {
         const item = el("div", "portal-doc-list__item portal-doc-list__item--row");
-        const name = pick(doc, "fileName", "FileName") || "فایل";
-        const type = pick(doc, "documentType", "DocumentType");
         const meta = el("div", "portal-doc-list__meta");
-        meta.textContent = (opts.docTypeLabel ? opts.docTypeLabel(type) : "نوع " + type) + " — " + name;
+        meta.textContent = formatAttachmentMeta(doc, opts);
         item.appendChild(meta);
         const id = pick(doc, "id", "Id");
         if (id && opts.onDownload) {
@@ -116,6 +161,183 @@
       card.appendChild(zone);
     }
     host.appendChild(card);
+  }
+
+  function getPhases(module) {
+    if (module === "guarantee" && window.GuaranteeWorkflowModel) return GuaranteeWorkflowModel.PHASES || {};
+    if (module === "loan" && window.LoanWorkflowModel) return LoanWorkflowModel.PHASES || {};
+    if (window.WorkflowModel) return WorkflowModel.PHASES || {};
+    return {};
+  }
+
+  function stepMetaForStatus(module, status) {
+    const value = Number(status);
+    if (!value) return null;
+    if (module === "loan" && window.LoanWorkflowModel) return LoanWorkflowModel.stepForStatus(value);
+    if (module === "guarantee" && window.GuaranteeWorkflowModel) return GuaranteeWorkflowModel.stepForStatus(value);
+    if (window.WorkflowModel && WorkflowModel.getStep) return WorkflowModel.getStep(value);
+    return null;
+  }
+
+  function resolveStatusAtTime(history, createdAt) {
+    if (!history || !history.length || !createdAt) return null;
+    const target = new Date(createdAt).getTime();
+    if (!Number.isFinite(target)) return null;
+    const sorted = history.slice().sort(
+      (a, b) =>
+        new Date(pick(a, "createdAt", "CreatedAt") || 0).getTime() -
+        new Date(pick(b, "createdAt", "CreatedAt") || 0).getTime()
+    );
+    let status = Number(pick(sorted[0], "fromStatus", "FromStatus")) || null;
+    sorted.forEach((item) => {
+      const at = new Date(pick(item, "createdAt", "CreatedAt") || 0).getTime();
+      if (at <= target) status = Number(pick(item, "toStatus", "ToStatus"));
+    });
+    return status || null;
+  }
+
+  function resolveCommentStepMeta(module, comment, history) {
+    const phase = Number(pick(comment, "phase", "Phase"));
+    const phases = getPhases(module);
+    const phaseTitle = phases[phase] || "فاز " + phase;
+    const createdAt = pick(comment, "createdAt", "CreatedAt");
+    const status = resolveStatusAtTime(history, createdAt);
+    const step = stepMetaForStatus(module, status);
+    const stepTitle = (step && (step.title || step.Title)) || phaseTitle;
+    const unit = (step && (step.unit || step.Unit)) || "all";
+    return { phase, phaseTitle, status, stepTitle, unit };
+  }
+
+  function buildCommentMetaParts(comment, stepMeta) {
+    const parts = [];
+    if (stepMeta && stepMeta.stepTitle) parts.push(stepMeta.stepTitle);
+    const role = pick(comment, "senderRole", "SenderRole");
+    if (role) parts.push(role);
+    if (pick(comment, "isRevisionRequest", "IsRevisionRequest")) parts.push("درخواست اصلاح");
+    else if (pick(comment, "isInternal", "IsInternal")) parts.push("داخلی");
+    parts.push(formatDate(pick(comment, "createdAt", "CreatedAt")));
+    return parts;
+  }
+
+  let commentStepModalEl = null;
+
+  function closeCommentStepModal() {
+    if (commentStepModalEl) {
+      commentStepModalEl.remove();
+      commentStepModalEl = null;
+    }
+  }
+
+  function showCommentStepModal(detail) {
+    closeCommentStepModal();
+    const modal = el("div", "modal portal-comment-step-modal");
+    const body = el("div", "modal__body");
+    body.appendChild(
+      el(
+        "div",
+        "modal__title",
+        "گفتگوی مرحله: " + (detail.stepTitle || detail.phaseTitle || "—")
+      )
+    );
+    body.appendChild(
+      el(
+        "div",
+        "muted portal-stage__hint",
+        "نظرات ثبت‌شده در این مرحله — برای مقایسه با صفحه فعلی پرونده، این پنجره را باز نگه دارید."
+      )
+    );
+
+    const phaseComments = (detail.comments || []).filter(
+      (c) => Number(pick(c, "phase", "Phase")) === Number(detail.phase)
+    );
+    if (!phaseComments.length) {
+      body.appendChild(el("div", "muted", "نظری برای این مرحله ثبت نشده است."));
+    } else {
+      const list = renderCommentThreadList(phaseComments, {
+        module: detail.module,
+        history: detail.history || [],
+        allComments: detail.comments,
+        showOpenButton: false,
+        highlightCommentId: detail.commentId,
+      });
+      body.appendChild(list);
+    }
+
+    const actions = el("div", "row");
+    actions.style.marginTop = "12px";
+    const closeBtn = el("button", "btn", "بستن");
+    closeBtn.type = "button";
+    closeBtn.addEventListener("click", closeCommentStepModal);
+    actions.appendChild(closeBtn);
+    body.appendChild(actions);
+    modal.appendChild(body);
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) closeCommentStepModal();
+    });
+    document.body.appendChild(modal);
+    commentStepModalEl = modal;
+  }
+
+  function openCommentStepView(detail) {
+    if (window.CasesHub && typeof window.CasesHub.setSubTab === "function") {
+      window.CasesHub.setSubTab("workflow");
+    } else {
+      document.querySelector('.case-subtab[data-subtab="workflow"]')?.click();
+    }
+    document.dispatchEvent(new CustomEvent("testpanel:open-comment-step", { detail }));
+    showCommentStepModal(detail);
+  }
+
+  function renderCommentThreadList(comments, opts) {
+    opts = opts || {};
+    const list = el("div", "portal-thread__list");
+    if (!comments.length) return list;
+
+    const module = opts.module || "investment";
+    const history = opts.history || opts.historyContext || [];
+    const showOpen = opts.showOpenButton !== false;
+
+    comments.forEach((comment) => {
+      const stepMeta = resolveCommentStepMeta(module, comment, history);
+      const commentId = pick(comment, "id", "Id");
+      const item = el("div", "portal-thread__item portal-thread__item--with-action");
+      item.dataset.commentPhase = String(stepMeta.phase || "");
+      if (commentId) item.dataset.commentId = String(commentId);
+      if (opts.highlightCommentId && String(opts.highlightCommentId) === String(commentId)) {
+        item.classList.add("is-highlight");
+      }
+
+      const main = el("div", "portal-thread__item-main");
+      const meta = el("div", "portal-thread__meta");
+      const stepLine = el("span", "portal-thread__step", stepMeta.stepTitle || stepMeta.phaseTitle || "—");
+      meta.appendChild(stepLine);
+      meta.appendChild(document.createTextNode(" · " + buildCommentMetaParts(comment, stepMeta).slice(1).join(" · ")));
+      main.appendChild(meta);
+      main.appendChild(el("div", "portal-thread__message", pick(comment, "message", "Message") || "—"));
+      item.appendChild(main);
+
+      if (showOpen) {
+        const openBtn = el("button", "btn btn--small", "باز کردن");
+        openBtn.type = "button";
+        openBtn.addEventListener("click", () => {
+          openCommentStepView({
+            module,
+            phase: stepMeta.phase,
+            phaseTitle: stepMeta.phaseTitle,
+            status: stepMeta.status,
+            stepTitle: stepMeta.stepTitle,
+            unit: stepMeta.unit,
+            commentId,
+            comments: opts.allComments || comments,
+            history,
+          });
+        });
+        item.appendChild(openBtn);
+      }
+
+      list.appendChild(item);
+    });
+    return list;
   }
 
   function renderTimeline(host, history, comments, opts) {
@@ -152,18 +374,13 @@
     if (!comments.length) {
       cCard.appendChild(el("div", "muted", "نظری ثبت نشده است."));
     } else {
-      const thread = el("div", "portal-thread__list");
-      comments.forEach((c) => {
-        const item = el("div", "portal-thread__item");
-        const meta = el("div", "portal-thread__meta");
-        meta.textContent =
-          formatDate(pick(c, "createdAt", "CreatedAt")) +
-          (pick(c, "isInternal", "IsInternal") ? " · داخلی" : "");
-        item.appendChild(meta);
-        item.appendChild(el("div", "portal-thread__message", pick(c, "message", "Message") || "—"));
-        thread.appendChild(item);
-      });
-      cCard.appendChild(thread);
+      cCard.appendChild(
+        renderCommentThreadList(comments, {
+          module: opts.module || "investment",
+          history,
+          allComments: comments,
+        })
+      );
     }
     if (opts && opts.onAddComment) {
       const row = el("div", "formrow");
@@ -192,6 +409,9 @@
     pick,
     formatDate,
     statusTitle,
+    resolveCommentStepMeta,
+    renderCommentThreadList,
+    openCommentStepView,
     renderCaseTable,
     renderAttachments,
     renderTimeline,

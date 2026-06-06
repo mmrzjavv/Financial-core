@@ -11,6 +11,7 @@ public static class LoanPermissions
     public const string ManageContracts = "loan_cases:manage_contracts";
     public const string ManageInstallments = "loan_cases:manage_installments";
     public const string ManagePayments = "loan_cases:manage_payments";
+    public const string RepayInstallments = "loan_cases:repay_installments";
     public const string CeoApprove = "loan_cases:ceo_approve";
     public const string UploadDocuments = "loan_cases:upload_documents";
     public const string DownloadDocuments = "loan_cases:download_documents";

@@ -217,7 +217,7 @@ public sealed class LoanCasesController(ILoanCaseAppService service) : ApiContro
     }
 
     [HttpPost("{id:guid}/installments/{installmentId:guid}/mark-paid")]
-    [Authorize(Policy = "InternalOnly")]
+    [Authorize]
     public async Task<IActionResult> MarkInstallmentPaid(
         Guid id,
         Guid installmentId,
@@ -229,11 +229,11 @@ public sealed class LoanCasesController(ILoanCaseAppService service) : ApiContro
     }
 
     [HttpPost("{id:guid}/repayment/complete")]
-    [Authorize(Policy = "InternalOnly")]
+    [Authorize]
     public async Task<IActionResult> CompleteRepayment(Guid id, CancellationToken ct)
     {
         var result = await service.CompleteRepaymentAsync(id, ct);
-        return Respond(result, LoanSuccessMessages.CreditReviewApproved, HttpStatusCode.Accepted);
+        return Respond(result, LoanSuccessMessages.RepaymentCompleted, HttpStatusCode.Accepted);
     }
 
     [HttpPost("{id:guid}/documents/presign")]

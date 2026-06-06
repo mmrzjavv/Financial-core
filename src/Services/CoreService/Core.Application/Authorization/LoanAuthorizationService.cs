@@ -49,6 +49,7 @@ public sealed class LoanAuthorizationService(IUserContext userContext) : ILoanAu
         LoanPermissions.ManageContracts,
         LoanPermissions.ManageInstallments,
         LoanPermissions.ManagePayments,
+        LoanPermissions.RepayInstallments,
         LoanPermissions.CeoApprove,
         LoanPermissions.UploadDocuments,
         LoanPermissions.DownloadDocuments
@@ -61,6 +62,7 @@ public sealed class LoanAuthorizationService(IUserContext userContext) : ILoanAu
             [
                 LoanPermissions.Create,
                 LoanPermissions.ReadOwn,
+                LoanPermissions.RepayInstallments,
                 LoanPermissions.UploadDocuments,
                 LoanPermissions.DownloadDocuments
             ],

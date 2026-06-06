@@ -50,7 +50,7 @@ public sealed class LoanCaseStateManager : ILoanCaseStateManager
 
         { (LoanCaseStatus.ReadyForPayment, LoanWorkflowAction.RegisterPayment, UserRoleClaims.FinancialExpert), LoanCaseStatus.RepaymentPhase },
 
-        { (LoanCaseStatus.RepaymentPhase, LoanWorkflowAction.Approve, UserRoleClaims.FinancialExpert), LoanCaseStatus.Completed }
+        { (LoanCaseStatus.RepaymentPhase, LoanWorkflowAction.Approve, UserRoleClaims.Applicant), LoanCaseStatus.Completed }
     };
 
     static LoanCaseStateManager()

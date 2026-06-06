@@ -15,13 +15,16 @@ public sealed class KanbanAppService(
     ICoreUnitOfWork unitOfWork,
     ICaseAuthorizationService caseAuthorizationService,
     IGuaranteeAuthorizationService guaranteeAuthorizationService,
+    ILoanAuthorizationService loanAuthorizationService,
     IUserContext userContext,
     ICaseStateManager investmentStateManager,
-    IGuaranteeCaseStateManager guaranteeStateManager) : IKanbanAppService
+    IGuaranteeCaseStateManager guaranteeStateManager,
+    ILoanCaseStateManager loanStateManager) : IKanbanAppService
 {
     private const string InvestmentApiBase = "/api/v1/investmentcases";
     private const string GuaranteeApiBase = "/api/v1/guaranteecases";
     private const string RenewalApiBase = "/api/v1/guarantee-renewals";
+    private const string LoanApiBase = "/api/v1/loancases";
 
     public Task<Result<IReadOnlyList<KanbanCaseCardDto>>> GetActionRequiredAsync(CancellationToken cancellationToken)
         => GetActionRequiredAsync(module: null, cancellationToken);
@@ -55,6 +58,9 @@ public sealed class KanbanAppService(
         if (module is null or CaseModuleType.GuaranteeRenewal)
             cards.AddRange(await LoadRenewalActionCardsAsync(userId, role, cancellationToken));
 
+        if (module is null or CaseModuleType.Loan)
+            cards.AddRange(await LoadLoanActionCardsAsync(userId, cancellationToken));
+
         var sorted = cards.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt).ToArray();
         return Result<IReadOnlyList<KanbanCaseCardDto>>.Ok(sorted);
     }
@@ -78,6 +84,9 @@ public sealed class KanbanAppService(
 
         if (module is null or CaseModuleType.GuaranteeRenewal)
             items.AddRange(await LoadRenewalWatchAsync(userId, role, cancellationToken));
+
+        if (module is null or CaseModuleType.Loan)
+            items.AddRange(await LoadLoanWatchAsync(userId, cancellationToken));
 
         return Result<IReadOnlyList<KanbanCaseSummaryDto>>.Ok(items.OrderByDescending(x => x.CreatedAt).ToArray());
     }
@@ -183,6 +192,42 @@ public sealed class KanbanAppService(
                 []));
     }
 
+    private async Task<IEnumerable<KanbanCaseCardDto>> LoadLoanActionCardsAsync(
+        string userId,
+        CancellationToken ct)
+    {
+        var lRole = LoanKanbanRules.ResolveWorkflowRole(userContext.Roles);
+        var projections = await unitOfWork.LoanCases.ListActiveKanbanProjectionsAsync(
+            userId, loanAuthorizationService.IsInternalUser, ct);
+
+        return projections
+            .Where(x => LoanKanbanRules.IsActionRequired(x.CurrentStatus, lRole))
+            .Select(x =>
+            {
+                var allowed = loanStateManager
+                    .GetAllowedActions(x.CurrentStatus, lRole)
+                    .Select(a => a.ToString())
+                    .ToArray();
+
+                return new KanbanCaseCardDto(
+                    x.Id,
+                    x.CaseNumber,
+                    CaseModuleType.Loan,
+                    LoanApiBase,
+                    nameof(LoanCaseStatus),
+                    (int)x.CurrentStatus,
+                    LoanKanbanRules.GetPhaseTitle(x.CurrentPhase),
+                    LoanKanbanRules.GetStatusTitle(x.CurrentStatus),
+                    x.ApplicantType,
+                    x.RequestedAmount?.ToString("N0"),
+                    x.CompanyName,
+                    x.CreatedAt,
+                    x.UpdatedAt,
+                    LoanKanbanRules.GetPendingActionLabel(x.CurrentStatus, lRole),
+                    allowed);
+            });
+    }
+
     private async Task<IEnumerable<KanbanCaseSummaryDto>> LoadInvestmentWatchAsync(
         string userId,
         string role,
@@ -256,6 +301,30 @@ public sealed class KanbanAppService(
                 "در جریان بررسی"));
     }
 
+    private async Task<IEnumerable<KanbanCaseSummaryDto>> LoadLoanWatchAsync(
+        string userId,
+        CancellationToken ct)
+    {
+        var lRole = LoanKanbanRules.ResolveWorkflowRole(userContext.Roles);
+        var projections = await unitOfWork.LoanCases.ListActiveKanbanProjectionsAsync(
+            userId, loanAuthorizationService.IsInternalUser, ct);
+
+        return projections
+            .Where(x => LoanKanbanRules.IsWatching(x.CurrentStatus, lRole))
+            .Select(x => new KanbanCaseSummaryDto(
+                x.Id,
+                x.CaseNumber,
+                CaseModuleType.Loan,
+                LoanApiBase,
+                nameof(LoanCaseStatus),
+                (int)x.CurrentStatus,
+                LoanKanbanRules.GetPhaseTitle(x.CurrentPhase),
+                LoanKanbanRules.GetStatusTitle(x.CurrentStatus),
+                x.CompanyName ?? x.RequestedAmount?.ToString("N0"),
+                x.CreatedAt,
+                LoanKanbanRules.GetPendingActionLabel(x.CurrentStatus, lRole)));
+    }
+
     private static bool IsRenewalActionRequired(GuaranteeRenewalStatus status, string role) => (status, role) switch
     {
         (GuaranteeRenewalStatus.Draft, UserRoleClaims.Applicant) => true,
@@ -287,7 +356,9 @@ public sealed class KanbanAppService(
         var canRead = caseAuthorizationService.HasPermission(CasePermissions.ReadOwn)
                         || caseAuthorizationService.HasPermission(CasePermissions.ReadAll)
                         || guaranteeAuthorizationService.HasPermission(GuaranteePermissions.ReadOwn)
-                        || guaranteeAuthorizationService.HasPermission(GuaranteePermissions.ReadAll);
+                        || guaranteeAuthorizationService.HasPermission(GuaranteePermissions.ReadAll)
+                        || loanAuthorizationService.HasPermission(LoanPermissions.ReadOwn)
+                        || loanAuthorizationService.HasPermission(LoanPermissions.ReadAll);
 
         if (!canRead)
             return Result<(string, string)>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
@@ -295,6 +366,9 @@ public sealed class KanbanAppService(
         var role = GuaranteeKanbanRules.ResolveWorkflowRole(userContext.Roles);
         if (string.IsNullOrWhiteSpace(role))
             role = CaseKanbanRules.ResolveWorkflowRole(userContext.Roles);
+
+        if (string.IsNullOrWhiteSpace(role))
+            role = LoanKanbanRules.ResolveWorkflowRole(userContext.Roles);
 
         if (string.IsNullOrWhiteSpace(role))
             return Result<(string, string)>.Fail(Error.Forbidden(ApiMessages.NotAllowed));

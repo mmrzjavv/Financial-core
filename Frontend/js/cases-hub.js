@@ -188,6 +188,7 @@
         path: apiBase() + "/" + state.detailId + "/documents",
       });
       UIComponents.renderAttachments(host, unwrap(res.body) || [], {
+        module: state.module,
         onDownload: (docId) => downloadDocument(docId),
       });
     } catch (e) {
@@ -197,13 +198,38 @@
   }
 
   async function downloadDocument(docId) {
-    const res = await state.panel.apiRequest({
-      method: "GET",
-      path: apiBase() + "/" + state.detailId + "/documents/" + encodeURIComponent(docId) + "/download?presign=true",
-    });
-    const body = unwrap(res.body) || res.body;
-    const url = body.url || body.Url;
-    if (url) window.open(url, "_blank", "noopener");
+    if (state.module === "investment") {
+      const res = await state.panel.apiRequest({
+        method: "GET",
+        path: apiBase() + "/" + state.detailId + "/documents/" + encodeURIComponent(docId) + "/download?presign=true",
+      });
+      const body = unwrap(res.body) || res.body;
+      const url = body.url || body.Url;
+      if (url) window.open(url, "_blank", "noopener");
+      return;
+    }
+
+    const session = state.panel.getActiveSession();
+    const headers = {};
+    if (session?.accessToken) headers.Authorization = "Bearer " + session.accessToken;
+    const url = state.panel.makeUrl(
+      apiBase() + "/" + state.detailId + "/documents/" + encodeURIComponent(docId) + "/download"
+    );
+    const res = await fetch(url, { method: "GET", headers });
+    if (!res.ok) throw new Error("دانلود فایل با کد " + res.status + " ناموفق بود.");
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(disposition);
+    const fileName = match ? decodeURIComponent(match[1].replace(/"/g, "")) : "document";
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = fileName;
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
   }
 
   async function renderHistoryPanel() {
@@ -220,6 +246,7 @@
         }),
       ]);
       UIComponents.renderTimeline(host, unwrap(histRes.body) || [], unwrap(commRes.body) || [], {
+        module: state.module,
         onAddComment: (message, done) => {
           void state.panel
             .apiRequest({
@@ -352,7 +379,7 @@
     qs("#navDashboard")?.classList.toggle("hidden", !show);
   }
 
-  window.CasesHub = { openCase, loadCases, getModule: () => state.module };
+  window.CasesHub = { openCase, loadCases, getModule: () => state.module, setSubTab };
 
   window.initCasesHub = function initCasesHub(panel) {
     state.panel = panel;

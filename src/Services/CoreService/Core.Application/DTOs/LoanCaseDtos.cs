@@ -1,8 +1,11 @@
+using System.Text.Json.Serialization;
 using Core.Application.Requests;
 using Core.Domain.Enums;
 
 namespace Core.Application.DTOs;
 
+[JsonDerivedType(typeof(LoanCaseApplicantDto), typeDiscriminator: "applicant")]
+[JsonDerivedType(typeof(LoanCaseInternalDto), typeDiscriminator: "internal")]
 public abstract record LoanCaseDto(
     Guid Id,
     string CaseNumber,

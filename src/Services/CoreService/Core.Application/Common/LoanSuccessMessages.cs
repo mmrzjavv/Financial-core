@@ -26,4 +26,5 @@ public static class LoanSuccessMessages
     public const string PaymentRegistered = "پرداخت ثبت شد.";
     public const string PaymentsRetrieved = "پرداخت‌ها دریافت شد.";
     public const string InstallmentsRetrieved = "اقساط دریافت شد.";
+    public const string RepaymentCompleted = "بازپرداخت تکمیل شد.";
 }

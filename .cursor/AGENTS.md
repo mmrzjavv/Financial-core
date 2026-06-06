@@ -8,7 +8,7 @@ Lightweight index. **Do not duplicate** skill/workflow content here.
 |-------|------|-------------|
 | Rules | `rules/*.mdc` | Every request (always) |
 | Memory | `memory/engineering-memory.md` | On demand — stack, paths, philosophy |
-| Skills | `skills/*.md` | Slash command or matching task |
+| Skills | `skills/*/SKILL.md` | Slash command or matching task |
 | Workflows | `workflows/*.md` | Multi-step delivery loops |
 
 ## Philosophy

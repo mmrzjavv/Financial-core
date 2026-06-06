@@ -35,3 +35,13 @@ public sealed class RegisterLoanPaymentRequestValidator : AbstractValidator<Regi
         RuleFor(x => x.StageNumber).GreaterThan(0);
     }
 }
+
+public sealed class MarkLoanInstallmentPaidRequestValidator : AbstractValidator<MarkLoanInstallmentPaidRequest>
+{
+    public MarkLoanInstallmentPaidRequestValidator()
+    {
+        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.TransactionNumber).NotEmpty().MaximumLength(128);
+        RuleFor(x => x.Notes).MaximumLength(2000);
+    }
+}

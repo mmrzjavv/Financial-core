@@ -1,7 +1,7 @@
 /* global GuaranteeWorkflowModel */
 (function () {
   const model = window.GuaranteeWorkflowModel;
-  const state = { panel: null, caseId: "", caseData: null, documents: [], comments: [], busy: false };
+  const state = { panel: null, caseId: "", caseData: null, documents: [], comments: [], history: [], busy: false };
   let uploadFieldCounter = 0;
 
   const qs = (sel, root) => (root || document).querySelector(sel);
@@ -250,6 +250,12 @@
       path: gPath("/" + state.caseId + "/comments?includeInternal=" + (isInternalUser() ? "true" : "false")),
     });
     state.comments = unwrap(commentsRes.body) || [];
+    try {
+      const historyRes = await state.panel.apiRequest({ method: "GET", path: gPath("/" + state.caseId + "/history") });
+      state.history = unwrap(historyRes.body) || [];
+    } catch (_) {
+      state.history = [];
+    }
     render();
   }
 
@@ -432,16 +438,25 @@
   function renderCommentsHistory(card, phase, title, options) {
     options = options || {};
     const block = el("div", "portal-thread card portal-card portal-card--nested");
+    block.dataset.commentPhase = String(phase);
     block.appendChild(el("div", "card__title", title || "تاریخچه نظرات"));
 
-    const list = el("div", "portal-thread__list");
     let items = commentsForPhase(phase);
     if (options.revisionOnly) {
       items = items.filter((c) => pick(c, "isRevisionRequest", "IsRevisionRequest"));
     }
     if (!items.length) {
-      list.appendChild(el("div", "muted", options.emptyText || "هنوز نظری ثبت نشده است."));
+      block.appendChild(el("div", "muted", options.emptyText || "هنوز نظری ثبت نشده است."));
+    } else if (window.UIComponents && UIComponents.renderCommentThreadList) {
+      block.appendChild(
+        UIComponents.renderCommentThreadList(items, {
+          module: "guarantee",
+          history: state.history,
+          allComments: state.comments,
+        })
+      );
     } else {
+      const list = el("div", "portal-thread__list");
       items.forEach((comment) => {
         const row = el("div", "portal-thread__item");
         const meta = el("div", "portal-thread__meta muted");
@@ -457,8 +472,8 @@
         row.appendChild(el("div", "portal-thread__message", pick(comment, "message", "Message") || "—"));
         list.appendChild(row);
       });
+      block.appendChild(list);
     }
-    block.appendChild(list);
     card.appendChild(block);
   }
 
@@ -639,8 +654,6 @@
   }
 
   function renderDossierComments(parent) {
-    const block = el("div", "portal-thread");
-    const list = el("div", "portal-thread__list");
     const items = state.comments
       .slice()
       .sort(
@@ -649,25 +662,37 @@
           new Date(pick(b, "createdAt", "CreatedAt") || 0).getTime()
       );
     if (!items.length) {
-      list.appendChild(el("div", "muted", "نظری ثبت نشده است."));
-    } else {
-      items.forEach((comment) => {
-        const row = el("div", "portal-thread__item");
-        const phase = Number(pick(comment, "phase", "Phase"));
-        const phaseTitle = model.PHASES[phase] || "فاز " + phase;
-        const role = pick(comment, "senderRole", "SenderRole") || "";
-        const revision = pick(comment, "isRevisionRequest", "IsRevisionRequest");
-        const internal = pick(comment, "isInternal", "IsInternal");
-        const parts = [phaseTitle, role];
-        if (revision) parts.push("درخواست اصلاح");
-        else if (internal) parts.push("داخلی");
-        const when = formatUploadedAt(comment);
-        if (when) parts.push(when);
-        row.appendChild(el("div", "portal-thread__meta muted", parts.join(" · ")));
-        row.appendChild(el("div", "portal-thread__message", pick(comment, "message", "Message") || "—"));
-        list.appendChild(row);
-      });
+      parent.appendChild(el("div", "muted", "نظری ثبت نشده است."));
+      return;
     }
+    if (window.UIComponents && UIComponents.renderCommentThreadList) {
+      parent.appendChild(
+        UIComponents.renderCommentThreadList(items, {
+          module: "guarantee",
+          history: state.history,
+          allComments: state.comments,
+        })
+      );
+      return;
+    }
+    const block = el("div", "portal-thread");
+    const list = el("div", "portal-thread__list");
+    items.forEach((comment) => {
+      const row = el("div", "portal-thread__item");
+      const phase = Number(pick(comment, "phase", "Phase"));
+      const phaseTitle = model.PHASES[phase] || "فاز " + phase;
+      const role = pick(comment, "senderRole", "SenderRole") || "";
+      const revision = pick(comment, "isRevisionRequest", "IsRevisionRequest");
+      const internal = pick(comment, "isInternal", "IsInternal");
+      const parts = [phaseTitle, role];
+      if (revision) parts.push("درخواست اصلاح");
+      else if (internal) parts.push("داخلی");
+      const when = formatUploadedAt(comment);
+      if (when) parts.push(when);
+      row.appendChild(el("div", "portal-thread__meta muted", parts.join(" · ")));
+      row.appendChild(el("div", "portal-thread__message", pick(comment, "message", "Message") || "—"));
+      list.appendChild(row);
+    });
     block.appendChild(list);
     parent.appendChild(block);
   }
@@ -1748,6 +1773,17 @@
       if (ev.detail?.module !== "guarantee") return;
       state.caseId = ev.detail?.caseId || state.panel.getGuaranteeCaseId() || "";
       if (state.caseId) refreshCase();
+    });
+
+    document.addEventListener("testpanel:open-comment-step", (ev) => {
+      if (ev.detail?.module && ev.detail.module !== "guarantee") return;
+      const target =
+        (ev.detail?.commentId &&
+          document.querySelector(`#guaranteePortalRoot [data-comment-id="${ev.detail.commentId}"]`)) ||
+        (ev.detail?.phase != null &&
+          document.querySelector(`#guaranteePortalRoot [data-comment-phase="${ev.detail.phase}"]`));
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.classList.add("is-highlight");
     });
 
     qs("#gPortalStages")?.addEventListener("change", (ev) => {

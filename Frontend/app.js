@@ -566,9 +566,11 @@
       b.addEventListener("click", () => {
         qsa(".navbtn").forEach((x) => x.classList.remove("is-active"));
         b.classList.add("is-active");
+        b.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
         const target = b.getAttribute("data-tab");
         qsa(".tab").forEach((t) => t.classList.remove("is-active"));
         qs("#" + target).classList.add("is-active");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         setGlobalError("");
         if (target === "tabInbox" && typeof window.kanbanRefresh === "function") {
           window.kanbanRefresh();
