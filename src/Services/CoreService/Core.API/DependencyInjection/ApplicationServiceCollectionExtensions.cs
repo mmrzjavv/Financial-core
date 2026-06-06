@@ -18,12 +18,16 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IGuaranteeCaseStateManager, GuaranteeCaseStateManager>();
         services.AddScoped<IGuaranteeCaseAppService, GuaranteeCaseAppService>();
         services.AddScoped<IGuaranteeRenewalAppService, GuaranteeRenewalAppService>();
+        services.AddScoped<ILoanCaseStateManager, LoanCaseStateManager>();
+        services.AddScoped<ILoanCaseAppService, LoanCaseAppService>();
         services.AddScoped<IKanbanAppService, KanbanAppService>();
         services.AddScoped<ICompanyAppService, CompanyAppService>();
         services.AddScoped<ICaseAuthorizationService, CaseAuthorizationService>();
         services.AddScoped<IGuaranteeAuthorizationService, GuaranteeAuthorizationService>();
+        services.AddScoped<ILoanAuthorizationService, LoanAuthorizationService>();
         services.AddScoped<ICaseNumberGenerator, CaseNumberGenerator>();
         services.AddScoped<IGuaranteeCaseNumberGenerator, GuaranteeCaseNumberGenerator>();
+        services.AddScoped<ILoanCaseNumberGenerator, LoanCaseNumberGenerator>();
 
         return services;
     }

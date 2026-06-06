@@ -3,63 +3,223 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>پنل جریان پرونده سرمایه‌گذاری</title>
+    <title>پنل پرونده‌های مالی</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div class="topbar__left">
-        <div class="brand">پنل جریان پرونده</div>
-        <div class="muted">نمای مرحله‌ای واحدها و بارگذاری واقعی مدارک</div>
+        <div class="brand">پنل پرونده‌های مالی</div>
+        <div class="muted">سرمایه‌گذاری · ضمانت‌نامه · تسهیلات</div>
       </div>
       <div class="topbar__right">
         <div class="pill">
-          <span class="muted">Base URL:</span>
+          <span class="muted">API:</span>
           <span id="baseUrlLabel" class="mono"></span>
-          <button id="btnEditConfig" class="btn btn--small">Edit</button>
+          <button id="btnEditConfig" class="btn btn--small">تنظیمات</button>
         </div>
         <div class="pill">
-          <span class="muted">Session:</span>
+          <span class="muted">نشست:</span>
           <span id="activeSessionLabel" class="mono"></span>
-          <button id="btnLogout" class="btn btn--small btn--warn">Logout</button>
+          <button id="btnLogout" class="btn btn--small btn--warn">خروج</button>
         </div>
       </div>
     </header>
 
     <main class="layout">
       <aside class="sidebar">
-        <button class="navbtn is-active" data-tab="tabPortal">سرمایه‌گذاری</button>
-        <button class="navbtn" data-tab="tabGuarantee">ضمانت‌نامه</button>
-        <button class="navbtn" data-tab="tabAuth">Auth</button>
-        <button class="navbtn" data-tab="tabUsers">Users & Roles</button>
-        <button class="navbtn" data-tab="tabCases">Cases</button>
-        <button class="navbtn" data-tab="tabWorkflow">Workflow</button>
-        <button class="navbtn" data-tab="tabAutomation">Automation</button>
-        <button class="navbtn" data-tab="tabDocs">Documents</button>
-        <button class="navbtn" data-tab="tabComments">Comments</button>
-        <button class="navbtn" data-tab="tabEval">Evaluations</button>
-        <button class="navbtn" data-tab="tabDashboardCeo">مدیرعامل · سقف اعتبار</button>
-        <button class="navbtn navbtn--registry hidden" data-tab="tabCaseRegistry" id="navCaseRegistry">فهرست پرونده‌ها</button>
-        <button class="navbtn" data-tab="tabDashboardBoard">هیئت مدیره</button>
-        <button class="navbtn" data-tab="tabDebug">Debug Tools</button>
+        <button class="navbtn is-active" data-tab="tabCases">پرونده‌ها</button>
+        <button class="navbtn" data-tab="tabInbox">کارتابل</button>
+        <button class="navbtn" data-tab="tabAccount">حساب کاربری</button>
+        <button class="navbtn hidden" data-tab="tabDashboard" id="navDashboard">داشبورد</button>
       </aside>
 
       <section class="content">
         <div id="globalError" class="alert alert--error hidden"></div>
 
-        <div id="tabPortal" class="tab is-active">
-          <div id="portalError" class="alert alert--error hidden"></div>
-          <div id="portalInfo" class="alert alert--ok hidden"></div>
+        <!-- 1. Cases -->
+        <div id="tabCases" class="tab is-active">
+          <div id="casesListView">
+            <div class="card">
+              <div class="card__title">پرونده‌ها</div>
+              <div class="cases-module-tabs">
+                <button type="button" class="btn cases-module-tab is-active" data-module="investment">سرمایه‌گذاری</button>
+                <button type="button" class="btn cases-module-tab" data-module="guarantee">ضمانت‌نامه</button>
+                <button type="button" class="btn cases-module-tab" data-module="loan">تسهیلات</button>
+              </div>
+            </div>
 
+            <div id="casesCreateInvestment" class="card cases-create-panel">
+              <div class="card__title">ایجاد پرونده سرمایه‌گذاری</div>
+              <div class="row">
+                <div class="formrow">
+                  <label>نوع متقاضی</label>
+                  <select id="caseApplicantTypeHub">
+                    <option value="1">حقیقی</option>
+                    <option value="2">حقوقی</option>
+                  </select>
+                </div>
+                <div class="formrow hidden" id="caseCompanyRowHub">
+                  <label>شرکت</label>
+                  <select id="caseCompanyIdHub"><option value="">—</option></select>
+                </div>
+              </div>
+              <div class="row">
+                <button id="btnLoadCompaniesHub" type="button" class="btn">بارگذاری شرکت‌ها</button>
+                <button id="btnCreateCaseHub" type="button" class="btn btn--primary">ایجاد پرونده</button>
+              </div>
+            </div>
+
+            <div id="casesCreateGuarantee" class="card cases-create-panel hidden">
+              <div class="card__title">ایجاد پرونده ضمانت‌نامه</div>
+              <div class="row">
+                <div class="formrow">
+                  <label>نوع متقاضی</label>
+                  <select id="gApplicantTypeHub">
+                    <option value="1">حقیقی</option>
+                    <option value="2">حقوقی</option>
+                  </select>
+                </div>
+                <div class="formrow hidden" id="gCompanyRowHub">
+                  <label>شرکت</label>
+                  <select id="gCompanyIdHub"><option value="">—</option></select>
+                </div>
+              </div>
+              <div class="row">
+                <button id="gLoadCompaniesHub" type="button" class="btn">بارگذاری شرکت‌ها</button>
+                <button id="gCreateCaseHub" type="button" class="btn btn--primary">ایجاد پرونده</button>
+              </div>
+            </div>
+
+            <div id="casesCreateLoan" class="card cases-create-panel hidden">
+              <div class="card__title">ایجاد پرونده تسهیلات</div>
+              <div class="row">
+                <div class="formrow">
+                  <label>نوع متقاضی</label>
+                  <select id="lApplicantTypeHub">
+                    <option value="1">حقیقی</option>
+                    <option value="2">حقوقی</option>
+                  </select>
+                </div>
+                <div class="formrow hidden" id="lCompanyRowHub">
+                  <label>شرکت</label>
+                  <select id="lCompanyIdHub"><option value="">—</option></select>
+                </div>
+              </div>
+              <div class="row">
+                <button id="lLoadCompaniesHub" type="button" class="btn">بارگذاری شرکت‌ها</button>
+                <button id="lCreateCaseHub" type="button" class="btn btn--primary">ایجاد پرونده</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="row">
+                <button id="casesRefreshList" type="button" class="btn btn--primary">بروزرسانی فهرست</button>
+                <span id="casesListMeta" class="muted"></span>
+              </div>
+              <div id="casesListError" class="alert alert--error hidden"></div>
+              <div id="casesListLoading" class="muted hidden">در حال بارگذاری…</div>
+              <div id="casesTableHost"></div>
+            </div>
+          </div>
+
+          <div id="casesDetailView" class="hidden">
+            <div class="card case-detail-header">
+              <div class="row">
+                <button id="caseDetailBack" type="button" class="btn">← بازگشت به فهرست</button>
+                <span id="caseDetailNumber" class="mono muted"></span>
+              </div>
+              <div class="case-subtabs">
+                <button type="button" class="btn case-subtab is-active" data-subtab="workflow">فرم و اقدامات</button>
+                <button type="button" class="btn case-subtab" data-subtab="attachments">پیوست‌ها</button>
+                <button type="button" class="btn case-subtab" data-subtab="history">تاریخچه پرونده</button>
+              </div>
+            </div>
+
+            <div id="caseSubWorkflow">
+              <div id="investmentPortalRoot">
+                <div id="portalError" class="alert alert--error hidden"></div>
+                <div id="portalInfo" class="alert alert--ok hidden"></div>
+                <div class="card portal-summary">
+                  <div id="portalCaseEmpty" class="portal-empty hidden"></div>
+                  <div id="portalCaseHeader">
+                    <div class="portal-summary__grid">
+                      <div><span class="muted">شماره</span><div id="portalCaseNumber" class="portal-summary__value"></div></div>
+                      <div><span class="muted">وضعیت</span><div id="portalCaseStatus" class="portal-summary__value"></div></div>
+                      <div><span class="muted">فاز</span><div id="portalCasePhase" class="portal-summary__value"></div></div>
+                      <div><span class="muted">نقش فعال</span><div id="portalCaseRole" class="portal-summary__value"></div></div>
+                    </div>
+                    <div id="portalActionHint" class="portal-action-hint hidden"></div>
+                    <div class="row">
+                      <button id="portalRefreshCase" class="btn btn--primary">بروزرسانی</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="portalStepper" class="portal-stepper"></div>
+                <div id="portalUnitTabs" class="portal-unit-tabs"></div>
+                <div id="portalStageHost" class="portal-stage-host"></div>
+              </div>
+
+              <div id="guaranteePortalRoot" class="hidden">
+                <div id="gPortalError" class="alert alert--error hidden"></div>
+                <div id="gPortalInfo" class="alert alert--ok hidden"></div>
+                <div id="gPortalEmpty" class="portal-empty hidden"></div>
+                <div id="gPortalHeader" class="card portal-summary">
+                  <div class="portal-summary__grid">
+                    <div><span class="muted">شماره</span><div id="gCaseNumber" class="portal-summary__value"></div></div>
+                    <div><span class="muted">وضعیت</span><div id="gCaseStatus" class="portal-summary__value"></div></div>
+                    <div><span class="muted">شرکت</span><div id="gCaseCompany" class="portal-summary__value"></div></div>
+                    <div><span class="muted">نقش</span><div id="gCaseRole" class="portal-summary__value"></div></div>
+                  </div>
+                  <div id="gPortalActionHint" class="portal-action-hint hidden"></div>
+                  <div class="row">
+                    <button id="gPortalRefreshCase" type="button" class="btn btn--primary">بروزرسانی</button>
+                  </div>
+                </div>
+                <div id="gPortalStepper" class="portal-stepper"></div>
+                <div id="gPortalStages" class="portal-stages"></div>
+              </div>
+
+              <div id="loanPortalRoot" class="hidden">
+                <div id="lPortalError" class="alert alert--error hidden"></div>
+                <div id="lPortalInfo" class="alert alert--ok hidden"></div>
+                <div id="lPortalEmpty" class="portal-empty hidden"></div>
+                <div id="lPortalHeader" class="card portal-summary">
+                  <div class="portal-summary__grid">
+                    <div><span class="muted">شماره</span><div id="lCaseNumber" class="portal-summary__value"></div></div>
+                    <div><span class="muted">وضعیت</span><div id="lCaseStatus" class="portal-summary__value"></div></div>
+                    <div><span class="muted">شرکت</span><div id="lCaseCompany" class="portal-summary__value"></div></div>
+                    <div><span class="muted">نقش</span><div id="lCaseRole" class="portal-summary__value"></div></div>
+                  </div>
+                  <div id="lPortalActionHint" class="portal-action-hint hidden"></div>
+                  <div class="row">
+                    <button id="lPortalRefreshCase" type="button" class="btn btn--primary">بروزرسانی</button>
+                  </div>
+                </div>
+                <div id="lPortalStages" class="portal-stages"></div>
+              </div>
+            </div>
+
+            <div id="caseSubAttachments" class="hidden">
+              <div id="caseAttachmentsHost"></div>
+            </div>
+            <div id="caseSubHistory" class="hidden">
+              <div id="caseHistoryHost"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Inbox -->
+        <div id="tabInbox" class="tab">
           <div class="card kanban-board">
             <div class="kanban-board__header">
               <div class="card__title">کارتابل</div>
-              <div class="muted">پرونده‌های منتظر اقدام شما و پرونده‌های در جریان با نقش آینده</div>
+              <div class="muted">منتظر اقدام شما · پرونده‌های در جریان</div>
               <div class="row">
-                <button id="kanbanRefresh" type="button" class="btn btn--primary">بروزرسانی کارتابل</button>
+                <button id="kanbanRefresh" type="button" class="btn btn--primary">بروزرسانی</button>
               </div>
             </div>
-            <div id="kanbanLoading" class="muted hidden">در حال بارگذاری کارتابل…</div>
+            <div id="kanbanLoading" class="muted hidden">در حال بارگذاری…</div>
             <div id="kanbanError" class="alert alert--error hidden"></div>
             <div class="kanban-columns">
               <div class="kanban-column">
@@ -67,806 +227,74 @@
                 <div id="kanbanActionList" class="kanban-list"></div>
               </div>
               <div class="kanban-column kanban-column--watch">
-                <div class="kanban-column__title">پیگیری (نقش آینده) <span id="kanbanWatchCount" class="kanban-column__count">0</span></div>
+                <div class="kanban-column__title">پیگیری <span id="kanbanWatchCount" class="kanban-column__count">0</span></div>
                 <div id="kanbanWatchList" class="kanban-list"></div>
               </div>
             </div>
           </div>
-
-          <div class="card portal-summary">
-            <div id="portalCaseEmpty" class="portal-empty">پرونده سرمایه‌گذاری انتخاب نشده است. از تب «Cases» پرونده بسازید، از کارتابل یکی را باز کنید، یا (مدیرعامل/ادمین) از «فهرست پرونده‌ها» انتخاب کنید.</div>
-            <div id="portalCaseHeader" class="hidden">
-              <div class="portal-summary__grid">
-                <div><span class="muted">شماره پرونده</span><div id="portalCaseNumber" class="portal-summary__value"></div></div>
-                <div><span class="muted">شناسه</span><div id="portalCaseId" class="portal-summary__value mono"></div></div>
-                <div><span class="muted">وضعیت</span><div id="portalCaseStatus" class="portal-summary__value"></div></div>
-                <div><span class="muted">فاز</span><div id="portalCasePhase" class="portal-summary__value"></div></div>
-                <div><span class="muted">نقش فعال</span><div id="portalCaseRole" class="portal-summary__value"></div></div>
-              </div>
-              <div id="portalActionHint" class="portal-action-hint hidden"></div>
-              <div class="row">
-                <button id="portalRefreshCase" class="btn btn--primary">بروزرسانی پرونده</button>
-              </div>
-            </div>
-          </div>
-
-          <div id="portalStepper" class="portal-stepper"></div>
-          <div id="portalUnitTabs" class="portal-unit-tabs"></div>
-          <div id="portalStageHost" class="portal-stage-host"></div>
         </div>
 
-        <div id="tabAuth" class="tab">
+        <!-- 3. Account -->
+        <div id="tabAccount" class="tab">
           <div class="grid2">
             <div class="card">
-              <div class="card__title">Send OTP</div>
-              <div class="formrow">
-                <label>Phone</label>
-                <input id="authPhone" placeholder="09xxxxxxxxx" />
-              </div>
-              <button id="btnSendOtp" class="btn">Send OTP</button>
-              <div class="hint">API: <span class="mono">POST /api/v1/identity/users/send-otp</span></div>
+              <div class="card__title">ورود با OTP</div>
+              <div class="formrow"><label>موبایل</label><input id="authPhone" placeholder="09xxxxxxxxx" /></div>
+              <button id="btnSendOtp" class="btn">ارسال کد</button>
+              <div class="formrow"><label>کد تایید</label><input id="verifyOtp" placeholder="123456" /></div>
+              <div class="formrow"><label>موبایل (تایید)</label><input id="verifyPhone" placeholder="09xxxxxxxxx" /></div>
+              <div class="formrow"><label>برچسب نشست</label><input id="sessionLabel" placeholder="مثلاً متقاضی" /></div>
+              <button id="btnVerifyOtp" class="btn btn--primary">ورود و ذخیره نشست</button>
             </div>
-
             <div class="card">
-              <div class="card__title">Verify OTP (Login)</div>
-              <div class="formrow">
-                <label>Phone</label>
-                <input id="verifyPhone" placeholder="09xxxxxxxxx" />
+              <div class="card__title">نشست فعال</div>
+              <div class="row">
+                <button id="btnRefresh" class="btn">تازه‌سازی توکن</button>
+                <button id="btnProfile" class="btn">پروفایل</button>
               </div>
-              <div class="formrow">
-                <label>OTP</label>
-                <input id="verifyOtp" placeholder="123456" />
-              </div>
-              <div class="formrow">
-                <label>Save as</label>
-                <input id="sessionLabel" placeholder="e.g. Applicant - Ali" />
-              </div>
-              <button id="btnVerifyOtp" class="btn btn--primary">Verify & Save Session</button>
-              <div class="hint">API: <span class="mono">POST /api/v1/identity/users/verify-otp</span></div>
+              <input id="refreshTokenInput" type="hidden" />
             </div>
           </div>
-
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Refresh Token</div>
-              <div class="formrow">
-                <label>Refresh token</label>
-                <input id="refreshTokenInput" placeholder="uses active session if empty" />
-              </div>
-              <button id="btnRefresh" class="btn">Refresh</button>
-              <div class="hint">API: <span class="mono">POST /api/v1/identity/users/refresh-token</span> (uses Authorization bearer access token)</div>
-            </div>
-
-            <div class="card">
-              <div class="card__title">Profile & Sessions</div>
-              <div class="row">
-                <button id="btnProfile" class="btn">Get Profile</button>
-                <button id="btnSessions" class="btn">Active Sessions</button>
-              </div>
-              <div class="row">
-                <button id="btnRevokeSession" class="btn btn--warn">Revoke Session (sid)</button>
-                <input id="revokeSid" class="mono" placeholder="sessionId (sid)" />
-              </div>
-              <div class="row">
-                <button id="btnRevokeAll" class="btn btn--warn">Revoke All</button>
-              </div>
-            </div>
-          </div>
-
           <div class="card">
-            <div class="card__title">Saved Sessions (Role Switching)</div>
-            <div class="hint">Switching role = switching saved JWT session. Backend permissions are enforced by token role/claims.</div>
+            <div class="card__title">نشست‌های ذخیره‌شده (تعویض نقش)</div>
             <div id="sessionsList" class="list"></div>
           </div>
         </div>
 
-        <div id="tabUsers" class="tab">
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Create User</div>
-              <div class="formrow"><label>Phone</label><input id="createUserPhone" placeholder="09xxxxxxxxx" /></div>
-              <div class="formrow"><label>First name</label><input id="createUserFirst" /></div>
-              <div class="formrow"><label>Last name</label><input id="createUserLast" /></div>
-              <div class="formrow"><label>Email</label><input id="createUserEmail" /></div>
-              <div class="formrow"><label>National code</label><input id="createUserNat" /></div>
-              <button id="btnCreateUser" class="btn btn--primary">Create</button>
-              <div class="hint">API: <span class="mono">POST /api/v1/identity/users</span></div>
-            </div>
-
-            <div class="card">
-              <div class="card__title">Update User (Admin)</div>
-              <div class="formrow"><label>User Id</label><input id="updateUserId" class="mono" placeholder="guid" /></div>
-              <div class="formrow">
-                <label>Role</label>
-                <select id="updateUserRole"></select>
-              </div>
-              <div class="formrow">
-                <label>Is Active</label>
-                <select id="updateUserActive">
-                  <option value="">(no change)</option>
-                  <option value="true">true</option>
-                  <option value="false">false</option>
-                </select>
-              </div>
-              <button id="btnUpdateUser" class="btn">Update</button>
-              <div class="hint">API: <span class="mono">PUT /api/v1/identity/users/{id}</span></div>
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Get User By Id</div>
-              <div class="row">
-                <input id="getUserId" class="mono" placeholder="guid" />
-                <button id="btnGetUser" class="btn">Get</button>
-              </div>
-              <div class="hint">API: <span class="mono">GET /api/v1/identity/users/{id}</span></div>
-            </div>
-
-            <div class="card">
-              <div class="card__title">List Users (Paged)</div>
-              <div class="row">
-                <input id="usersTake" placeholder="take" value="10" />
-                <input id="usersSkip" placeholder="skip" value="0" />
-                <button id="btnListUsers" class="btn">List</button>
-              </div>
-              <div class="hint">API: <span class="mono">GET /api/v1/identity/users?take=10&amp;skip=0</span></div>
-            </div>
-          </div>
-        </div>
-
-        <div id="tabGuarantee" class="tab">
-          <div id="gPortalError" class="alert alert--error hidden"></div>
-          <div id="gPortalInfo" class="alert alert--ok hidden"></div>
-          <div class="card">
-            <div class="card__title">ایجاد پرونده ضمانت‌نامه</div>
-            <div class="formrow">
-              <label>نوع متقاضی</label>
-              <select id="gApplicantType">
-                <option value="1">حقیقی</option>
-                <option value="2">حقوقی (شرکت)</option>
-              </select>
-            </div>
-            <div class="formrow" id="gCompanyRow" style="display: none">
-              <label>شرکت</label>
-              <select id="gCompanyId">
-                <option value="">ابتدا «بارگذاری شرکت‌ها» را بزنید</option>
-              </select>
-            </div>
-            <div class="row">
-              <button id="gLoadCompanies" type="button" class="btn">بارگذاری شرکت‌ها</button>
-              <button id="gCreateCase" type="button" class="btn btn--primary">ایجاد پرونده</button>
-            </div>
-            <div class="hint">برای حقوقی، شرکت خود را از <span class="mono">GET /api/v1/identity/companies/mine</span> انتخاب کنید (همان تب پرونده‌ها).</div>
-          </div>
-          <div class="card">
-            <div class="card__title">باز کردن پرونده موجود</div>
-            <div class="row">
-              <input id="gCaseIdInput" class="mono" placeholder="شناسه پرونده (GUID)" />
-              <button id="gLoadCase" type="button" class="btn">بارگذاری</button>
-            </div>
-          </div>
-          <div id="gPortalEmpty" class="portal-empty">پرونده ضمانت‌نامه انتخاب نشده است.</div>
-          <div id="gPortalHeader" class="hidden card portal-summary">
-            <div class="portal-summary__grid">
-              <div><span class="muted">شماره</span><div id="gCaseNumber" class="portal-summary__value"></div></div>
-              <div><span class="muted">شناسه</span><div id="gCaseId" class="portal-summary__value mono"></div></div>
-              <div><span class="muted">وضعیت</span><div id="gCaseStatus" class="portal-summary__value"></div></div>
-              <div><span class="muted">شرکت</span><div id="gCaseCompany" class="portal-summary__value"></div></div>
-              <div><span class="muted">نقش فعال</span><div id="gCaseRole" class="portal-summary__value"></div></div>
-            </div>
-            <div id="gPortalActionHint" class="portal-action-hint hidden"></div>
-            <div class="row">
-              <button id="gPortalRefreshCase" type="button" class="btn btn--primary">بروزرسانی پرونده</button>
-            </div>
-          </div>
-          <div id="gPortalStepper" class="portal-stepper"></div>
-          <div id="gPortalStages" class="portal-stages"></div>
-        </div>
-
-        <div id="tabCases" class="tab">
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">ثبت شرکت</div>
-              <div class="formrow"><label>نام شرکت</label><input id="companyName" /></div>
-              <div class="formrow"><label>کد اقتصادی</label><input id="companyEconomicCode" /></div>
-              <div class="formrow"><label>شماره ثبت</label><input id="companyRegistrationNumber" /></div>
-              <div class="formrow"><label>شناسه ملی</label><input id="companyNationalId" /></div>
-              <div class="formrow"><label>تلفن</label><input id="companyPhoneNumber" /></div>
-              <div class="formrow"><label>آدرس</label><input id="companyAddress" /></div>
-              <div class="formrow"><label>شهر</label><input id="companyCity" /></div>
-              <div class="formrow"><label>استان</label><input id="companyProvince" /></div>
-              <div class="formrow"><label>کد پستی</label><input id="companyPostalCode" /></div>
-              <div class="row">
-                <button id="btnCreateCompany" class="btn btn--primary">ثبت شرکت</button>
-                <button id="btnLoadCompanies" class="btn">بارگذاری شرکت‌ها</button>
-              </div>
-              <div class="hint">API: <span class="mono">POST /api/v1/identity/companies</span> · <span class="mono">GET /api/v1/identity/companies/mine</span></div>
-            </div>
-
-            <div class="card">
-              <div class="card__title">ایجاد پرونده</div>
-              <div class="formrow">
-                <label>نوع متقاضی</label>
-                <select id="caseApplicantType">
-                  <option value="1">حقیقی (1)</option>
-                  <option value="2">حقوقی (2)</option>
-                </select>
-              </div>
-              <div class="formrow" id="caseCompanyRow">
-                <label>شرکت</label>
-                <select id="caseCompanyId">
-                  <option value="">ابتدا شرکت‌ها را بارگذاری کنید</option>
-                </select>
-              </div>
-              <button id="btnCreateCase" class="btn btn--primary">ایجاد پرونده</button>
-              <div class="hint">API: <span class="mono">POST /api/v1/investmentcases</span></div>
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Select Current Case</div>
-              <div class="formrow"><label>Case Id</label><input id="currentCaseId" class="mono" placeholder="guid" /></div>
-              <button id="btnSetCurrentCase" class="btn">Set Current Case</button>
-              <div class="hint">Used by workflow, docs, comments, evaluations.</div>
-              <div class="row">
-                <button id="btnGetCase" class="btn">Get Case</button>
-                <button id="btnGetHistory" class="btn">History</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__title">Search Cases</div>
-            <div class="grid3">
-              <div class="formrow"><label>Case number</label><input id="searchCaseNumber" /></div>
-              <div class="formrow"><label>Applicant userId</label><input id="searchApplicantUserId" class="mono" /></div>
-              <div class="formrow"><label>Status</label><select id="searchStatus"></select></div>
-              <div class="formrow"><label>Phase</label><select id="searchPhase"></select></div>
-              <div class="formrow"><label>From</label><input id="searchFrom" placeholder="2026-01-01T00:00:00Z" /></div>
-              <div class="formrow"><label>To</label><input id="searchTo" placeholder="2026-12-31T23:59:59Z" /></div>
-              <div class="formrow"><label>Page</label><input id="searchPage" value="1" /></div>
-              <div class="formrow"><label>PageSize</label><input id="searchPageSize" value="10" /></div>
-            </div>
-            <button id="btnSearchCases" class="btn">Search</button>
-            <div class="hint">API: <span class="mono">GET /api/v1/investmentcases?...query</span></div>
-          </div>
-        </div>
-
-        <div id="tabAutomation" class="tab">
-          <div class="card">
-            <div class="card__title">Run Full Workflow</div>
-            <p class="hint">
-              Provisions test users, logs in with the configured dev OTP, creates a case, uploads contract files directly to presigned storage, and drives the case to completion.
-            </p>
-            <div class="row">
-              <button id="btnRunFullWorkflow" class="btn btn--primary">Run Full Workflow</button>
-              <button id="btnStopWorkflow" class="btn btn--warn" disabled>Stop</button>
-            </div>
-            <div class="row">
-              <span class="muted">Status:</span>
-              <span id="workflowRunStatus" class="mono">Idle</span>
-            </div>
-            <div id="workflowRunLog" class="workflow-log"></div>
-          </div>
-        </div>
-
-        <div id="tabWorkflow" class="tab">
-          <div class="card">
-            <div class="card__title">Current Case</div>
-            <div class="row">
-              <span class="muted">CaseId:</span> <span id="currentCaseLabel" class="mono"></span>
-              <button id="btnReloadCase" class="btn btn--small">Reload</button>
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Data Entry 1 (Applicant)</div>
-              <textarea id="dataEntry1Json" class="code" spellcheck="false"></textarea>
-              <div class="row">
-                <button id="btnUpdateDE1" class="btn">Update</button>
-                <button id="btnSubmitDE1" class="btn btn--primary">Submit</button>
-              </div>
-              <div class="row">
-                <input id="de1Comment" placeholder="comment (optional)" />
-              </div>
-              <div class="hint mono">PUT /api/v1/investmentcases/{id}/data-entry1 • POST /api/v1/investmentcases/{id}/data-entry1/submit</div>
-            </div>
-
-            <div class="card">
-              <div class="card__title">Data Entry 1 Review (Internal)</div>
-              <div class="row">
-                <input id="de1ApproveComment" placeholder="approve comment (optional)" />
-                <button id="btnApproveDE1" class="btn btn--primary">Approve</button>
-              </div>
-              <div class="row">
-                <input id="de1RevisionMsg" placeholder="revision message" />
-                <button id="btnReviseDE1" class="btn btn--warn">Request Revision</button>
-              </div>
-              <div class="hint mono">POST /api/v1/investmentcases/{id}/data-entry1/approve • /revision-request</div>
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Data Entry 2 (Applicant)</div>
-              <textarea id="dataEntry2Json" class="code" spellcheck="false"></textarea>
-              <div class="row">
-                <button id="btnUpdateDE2" class="btn">Update</button>
-                <button id="btnSubmitDE2" class="btn btn--primary">Submit</button>
-              </div>
-              <div class="row">
-                <input id="de2Comment" placeholder="comment (optional)" />
-              </div>
-              <div class="hint mono">PUT /api/v1/investmentcases/{id}/data-entry2 • POST /api/v1/investmentcases/{id}/data-entry2/submit</div>
-            </div>
-
-            <div class="card">
-              <div class="card__title">Data Entry 2 Review (Internal)</div>
-              <div class="row">
-                <input id="de2ApproveComment" placeholder="approve comment (optional)" />
-                <button id="btnApproveDE2" class="btn btn--primary">Approve</button>
-              </div>
-              <div class="row">
-                <input id="de2RevisionMsg" placeholder="revision message" />
-                <button id="btnReviseDE2" class="btn btn--warn">Request Revision</button>
-              </div>
-              <div class="hint mono">POST /api/v1/investmentcases/{id}/data-entry2/approve • /revision-request</div>
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Valuation (Internal)</div>
-              <textarea id="valuationJson" class="code" spellcheck="false"></textarea>
-              <div class="row">
-                <button id="btnRecordValuation" class="btn">Record</button>
-              </div>
-              <div class="row">
-                <input id="valInitialComment" placeholder="initial approval comment" />
-                <button id="btnApproveValInitial" class="btn btn--primary">Initial Approve</button>
-              </div>
-              <div class="row">
-                <input id="valSecondaryComment" placeholder="secondary approval comment" />
-                <button id="btnApproveValSecondary" class="btn btn--primary">Secondary Approve</button>
-              </div>
-              <div class="hint mono">POST /api/v1/investmentcases/{id}/valuations • /initial/approve • /secondary/approve</div>
-            </div>
-
-            <div class="card">
-              <div class="card__title">Contracts & Legal</div>
-              <div class="row">
-                <input id="preContractS3Key" class="mono" placeholder="s3Key for preliminary contract" />
-                <button id="btnUploadPreContract" class="btn">Upload Preliminary (Internal)</button>
-              </div>
-              <div class="row">
-                <input id="preContractApproveComment" placeholder="applicant approve comment" />
-                <button id="btnApprovePreContract" class="btn btn--primary">Applicant Approve</button>
-              </div>
-              <div class="row">
-                <input id="preContractRevisionMsg" placeholder="applicant revision message" />
-                <button id="btnRequestPreContractRevision" class="btn btn--warn">Applicant Revision</button>
-              </div>
-              <div class="row">
-                <input id="finalizeDraftComment" placeholder="finalize draft comment" />
-                <button id="btnFinalizeDraft" class="btn">Finalize Draft (Internal)</button>
-              </div>
-              <div class="row">
-                <input id="confirmSignatureComment" placeholder="confirm signature comment" />
-                <button id="btnConfirmSignature" class="btn">Confirm Signature (Internal)</button>
-              </div>
-              <div class="row">
-                <input id="signedContractS3Key" class="mono" placeholder="s3Key for signed contract" />
-                <button id="btnUploadSignedContract" class="btn">Upload Signed (Internal)</button>
-              </div>
-              <div class="hint mono">/contracts/* endpoints on current case</div>
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Financial Worksheet (Internal)</div>
-              <textarea id="worksheetJson" class="code" spellcheck="false"></textarea>
-              <div class="row">
-                <button id="btnUpdateWorksheet" class="btn">Update</button>
-                <input id="worksheetComment" placeholder="comment (optional)" />
-                <button id="btnSubmitWorksheet" class="btn btn--primary">Submit</button>
-              </div>
-              <div class="row">
-                <input id="worksheetApproveComment" placeholder="approve comment (optional)" />
-                <button id="btnApproveWorksheet" class="btn btn--primary">Approve</button>
-              </div>
-              <div class="row">
-                <input id="worksheetRevisionMsg" placeholder="revision message" />
-                <button id="btnRevisionWorksheet" class="btn btn--warn">Request Revision</button>
-              </div>
-              <div class="hint mono">PUT /financial-worksheet • POST /submit • /approve • /revision-request</div>
-            </div>
-
-            <div class="card">
-              <div class="card__title">Payments (Internal)</div>
-              <textarea id="paymentJson" class="code" spellcheck="false"></textarea>
-              <div class="row">
-                <button id="btnRecordPayment" class="btn">Record Payment</button>
-              </div>
-              <div class="row">
-                <input id="paymentId" class="mono" placeholder="paymentId (guid)" />
-                <button id="btnConfirmPayment" class="btn btn--primary">Confirm</button>
-                <button id="btnCancelPayment" class="btn btn--warn">Cancel</button>
-              </div>
-              <div class="hint mono">POST /payments • POST /payments/{paymentId}/confirm • /cancel</div>
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Reject / Cancel / Archive</div>
-              <div class="row">
-                <input id="rejectReason" placeholder="reject reason" />
-                <button id="btnRejectCase" class="btn btn--warn">Reject (Internal)</button>
-              </div>
-              <div class="row">
-                <input id="cancelReason" placeholder="cancel reason" />
-                <button id="btnCancelCase" class="btn btn--warn">Cancel</button>
-              </div>
-              <div class="row">
-                <input id="archiveReason" placeholder="archive reason" />
-                <button id="btnArchiveCase" class="btn">Archive</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div id="tabDocs" class="tab">
-          <div class="card">
-            <div class="card__title">Presigned Upload (Case Documents)</div>
-            <div class="grid3">
-              <div class="formrow">
-                <label>DocumentType</label>
-                <select id="docType"></select>
-              </div>
-              <div class="formrow">
-                <label>File</label>
-                <input id="docFile" type="file" />
-              </div>
-              <div class="formrow">
-                <label>MimeType</label>
-                <input id="docMime" placeholder="auto from file" />
-              </div>
-            </div>
-            <div class="row">
-              <button id="btnPresign" class="btn">Presign</button>
-              <button id="btnUploadToPresignUrl" class="btn btn--primary" disabled>Upload To URL</button>
-              <button id="btnConfirmUpload" class="btn" disabled>Confirm Upload</button>
-            </div>
-            <div class="row">
-              <span class="muted">Last S3Key:</span> <span id="lastS3Key" class="mono"></span>
-            </div>
-            <div class="hint mono">POST /api/v1/investmentcases/{id}/documents/presign → PUT Url → POST /documents/confirm?s3Key=...</div>
-          </div>
-
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">List Documents</div>
-              <button id="btnListDocs" class="btn">Get Documents</button>
-              <div class="hint mono">GET /api/v1/investmentcases/{id}/documents</div>
-            </div>
-
-            <div class="card">
-              <div class="card__title">Presigned Download</div>
-              <div class="row">
-                <input id="downloadDocumentId" class="mono" placeholder="documentId (guid)" />
-                <button id="btnPresignDownload" class="btn">Get Download URL</button>
-              </div>
-              <div class="row">
-                <a id="downloadLink" class="mono" href="#" target="_blank" rel="noreferrer">download link</a>
-              </div>
-              <div class="hint mono">GET /api/v1/investmentcases/{id}/documents/{documentId}/download</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__title">Generic File Tools</div>
-            <div class="grid2">
-              <div>
-                <div class="formrow"><label>PUT to URL (presigned)</label><input id="genericPutUrl" class="mono" placeholder="https://..." /></div>
-                <div class="formrow"><label>File</label><input id="genericPutFile" type="file" /></div>
-                <div class="formrow"><label>Content-Type</label><input id="genericPutContentType" placeholder="auto from file" /></div>
-                <button id="btnGenericPut" class="btn">PUT Upload</button>
-              </div>
-              <div>
-                <div class="formrow"><label>Multipart POST (FormData)</label><input id="multipartPath" class="mono" placeholder="/api/v1/attachment/..." /></div>
-                <div class="formrow"><label>File field name</label><input id="multipartField" value="file" /></div>
-                <div class="formrow"><label>File</label><input id="multipartFile" type="file" /></div>
-                <button id="btnMultipartPost" class="btn">POST Multipart</button>
-              </div>
-            </div>
-            <div class="hint">For multipart endpoints, set Path to a gateway path (relative to Base URL).</div>
-          </div>
-        </div>
-
-        <div id="tabComments" class="tab">
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Get Comments</div>
-              <div class="row">
-                <select id="includeInternal">
-                  <option value="false">includeInternal=false</option>
-                  <option value="true">includeInternal=true</option>
-                </select>
-                <button id="btnGetComments" class="btn">Fetch</button>
-              </div>
-              <div class="hint mono">GET /api/v1/investmentcases/{id}/comments?includeInternal=...</div>
-            </div>
-
-            <div class="card">
-              <div class="card__title">Add Comment</div>
-              <textarea id="commentJson" class="code" spellcheck="false"></textarea>
-              <button id="btnAddComment" class="btn btn--primary">Add</button>
-              <div class="hint mono">POST /api/v1/investmentcases/{id}/comments</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__title">Add Comment Attachment</div>
-            <div class="row">
-              <input id="commentId" class="mono" placeholder="commentId (guid)" />
-              <input id="commentAttachmentS3Key" class="mono" placeholder="s3Key" />
-              <input id="commentAttachmentFileName" placeholder="fileName" />
-              <button id="btnAddCommentAttachment" class="btn">Add Attachment</button>
-            </div>
-            <div class="hint mono">POST /api/v1/investmentcases/{id}/comments/{commentId}/attachments?s3Key=...&fileName=...</div>
-          </div>
-        </div>
-
-        <div id="tabEval" class="tab">
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Upsert Evaluation (Internal)</div>
-              <textarea id="evalJson" class="code" spellcheck="false"></textarea>
-              <button id="btnUpsertEval" class="btn btn--primary">Upsert</button>
-              <div class="hint mono">POST /api/v1/investmentcases/{id}/evaluations</div>
-            </div>
-            <div class="card">
-              <div class="card__title">Get Evaluations</div>
-              <button id="btnGetEvals" class="btn">Fetch</button>
-              <div class="hint mono">GET /api/v1/investmentcases/{id}/evaluations</div>
-            </div>
-          </div>
-        </div>
-
-
-        <div id="tabDashboardCeo" class="tab">
+        <!-- 4. Dashboard -->
+        <div id="tabDashboard" class="tab">
           <div class="card">
             <div class="card__title">داشبورد مدیرعامل</div>
-            <div class="row">
-              <button id="btnLoadCeoDashboard" type="button" class="btn btn--primary">بارگذاری</button>
-            </div>
+            <button id="btnLoadCeoDashboard" type="button" class="btn btn--primary">بارگذاری</button>
             <div id="ceoDashboardError" class="alert alert--error hidden"></div>
             <div id="ceoDashboardMetrics" class="dashboard-metrics hidden"></div>
             <div id="ceoDashboardFunnel" class="dashboard-chart hidden"></div>
             <div id="ceoDashboardActivity" class="dashboard-list hidden"></div>
           </div>
-
           <div id="ceoGuaranteeCreditAccess" class="alert alert--error hidden">
-            این بخش فقط با نقش <strong>مدیرعامل (CEO)</strong> در دسترس است. از تب Auth با نقش ۱۲ وارد شوید.
+            سقف اعتبار ضمانت‌نامه فقط با نقش مدیرعامل در دسترس است.
           </div>
-
           <div id="ceoGuaranteeCreditPanel" class="card ceo-credit-panel">
             <div class="card__title">سقف اعتبار کل صندوق (ضمانت‌نامه)</div>
-            <p class="muted portal-stage__hint">
-              مدیرعامل <strong>یک سقف</strong> برای همه ضمانت‌نامه‌های صندوق تعیین می‌کند — بدون انتخاب پرونده.
-              API: <span class="mono">PUT /guaranteecases/fund-credit-limit</span>
-            </p>
             <div id="ceoCreditError" class="alert alert--error hidden"></div>
             <div id="ceoCreditInfo" class="alert alert--ok hidden"></div>
-
-            <div class="row">
-              <button id="ceoCreditLoadFund" type="button" class="btn">بارگذاری وضعیت صندوق</button>
-            </div>
-
+            <button id="ceoCreditLoadFund" type="button" class="btn">بارگذاری وضعیت</button>
             <div id="ceoCreditDetail">
-              <div class="card portal-card portal-card--nested">
-                <div class="card__title">وضعیت اعتباری فعلی (کل صندوق)</div>
-                <div id="ceoCreditSnapshotRows" class="portal-readonly-block"></div>
-              </div>
-
-              <div class="card portal-card portal-card--nested">
-                <div class="card__title">تعیین / تغییر سقف اعتبار (ریال)</div>
-                <p class="muted portal-stage__hint">
-                  با ثبت سقف جدید، «شروع دوره» تعیین می‌کند از چه تاریخی صادره و تعهدات در جدول ۱ شمرده شوند؛ ضمانت‌نامه‌های قبل از این تاریخ در سقف لحاظ نمی‌شوند.
-                </p>
-                <div class="formrow">
-                  <label>شروع دوره سقف</label>
-                  <input id="ceoCreditPeriodStart" type="date" />
-                </div>
-                <div class="formrow">
-                  <label>تاریخ انقضای سقف</label>
-                  <input id="ceoCreditExpiresAt" type="date" />
-                </div>
-                <div class="formrow">
-                  <label>سقف اعتبار ضمانت‌نامه با چک — کل صندوق</label>
-                  <input id="ceoCreditLimitInput" type="number" min="1" step="1" placeholder="مثلاً 50000000000" title="حداکثر ۱۶ رقم — اگر خطای ذخیره گرفتید اسکریپت FixGuaranteeFundCreditLimitPrecision.sql را روی DB بزنید" />
-                </div>
-                <div id="ceoCreditCurrentLimit" class="muted ceo-credit-current"></div>
-                <div class="row">
-                  <button id="ceoCreditSave" type="button" class="btn btn--primary">ذخیره سقف صندوق</button>
-                </div>
-              </div>
+              <div id="ceoCreditSnapshotRows" class="portal-readonly-block"></div>
+              <div class="formrow"><label>شروع دوره</label><input id="ceoCreditPeriodStart" type="date" /></div>
+              <div class="formrow"><label>انقضا</label><input id="ceoCreditExpiresAt" type="date" /></div>
+              <div class="formrow"><label>سقف (ریال)</label><input id="ceoCreditLimitInput" type="number" min="1" /></div>
+              <div id="ceoCreditCurrentLimit" class="muted ceo-credit-current"></div>
+              <button id="ceoCreditSave" type="button" class="btn btn--primary">ذخیره سقف</button>
             </div>
           </div>
-        </div>
-
-        <div id="tabCaseRegistry" class="tab">
-          <div id="registryAccessDenied" class="alert alert--error hidden">
-            این بخش فقط برای <strong>مدیرعامل (CEO)</strong> و <strong>Admin</strong> است. از تب Auth با نقش ۱۲ یا ۱۰۰ وارد شوید.
-          </div>
-
-          <div id="registryPanel" class="hidden">
-            <div class="card">
-              <div class="card__title">فهرست کل پرونده‌ها</div>
-              <p class="muted portal-stage__hint">
-                مشاهده و جستجوی همه پرونده‌های سرمایه‌گذاری و ضمانت‌نامه — جزئیات کامل، تاریخچه، مدارک و نظرات.
-              </p>
-              <div class="registry-module-tabs">
-                <button type="button" class="btn registry-module-tab is-active" data-registry-module="investment">سرمایه‌گذاری</button>
-                <button type="button" class="btn registry-module-tab" data-registry-module="guarantee">ضمانت‌نامه</button>
-              </div>
-            </div>
-
-            <div class="registry-layout">
-              <div class="registry-list-pane">
-                <div class="card">
-                  <div class="card__title">جستجو و فیلتر</div>
-                  <div class="grid2">
-                    <div class="formrow">
-                      <label>شماره پرونده</label>
-                      <input id="registryCaseNumber" placeholder="مثلاً GC-2026…" />
-                    </div>
-                    <div class="formrow">
-                      <label>شناسه متقاضی</label>
-                      <input id="registryApplicantUserId" class="mono" placeholder="GUID کاربر" />
-                    </div>
-                    <div class="formrow">
-                      <label>وضعیت</label>
-                      <select id="registryStatus"></select>
-                    </div>
-                    <div class="formrow">
-                      <label>فاز</label>
-                      <select id="registryPhase"></select>
-                    </div>
-                    <div class="formrow">
-                      <label>از تاریخ</label>
-                      <input id="registryFrom" placeholder="2026-01-01T00:00:00Z" />
-                    </div>
-                    <div class="formrow">
-                      <label>تا تاریخ</label>
-                      <input id="registryTo" placeholder="2026-12-31T23:59:59Z" />
-                    </div>
-                    <div class="formrow">
-                      <label>صفحه</label>
-                      <input id="registryPage" type="number" min="1" value="1" />
-                    </div>
-                    <div class="formrow">
-                      <label>تعداد در صفحه</label>
-                      <input id="registryPageSize" type="number" min="1" max="100" value="25" />
-                    </div>
-                  </div>
-                  <div class="row">
-                    <button id="registrySearch" type="button" class="btn btn--primary">بارگذاری فهرست</button>
-                    <span id="registryListMeta" class="muted"></span>
-                  </div>
-                  <div id="registryListError" class="alert alert--error hidden"></div>
-                </div>
-
-                <div class="card registry-table-card">
-                  <div id="registryListLoading" class="muted hidden">در حال بارگذاری…</div>
-                  <div class="registry-table-wrap">
-                    <table class="registry-table">
-                      <thead>
-                        <tr>
-                          <th>شماره</th>
-                          <th>وضعیت</th>
-                          <th>متقاضی / شرکت</th>
-                          <th>تاریخ</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody id="registryTableBody"></tbody>
-                    </table>
-                  </div>
-                  <div id="registryListEmpty" class="portal-empty hidden">پرونده‌ای یافت نشد.</div>
-                </div>
-              </div>
-
-              <div class="registry-detail-pane">
-                <div id="registryDetailEmpty" class="card portal-empty">یک پرونده از جدول انتخاب کنید.</div>
-                <div id="registryDetailHost" class="hidden"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div id="tabDashboardBoard" class="tab">
           <div class="card">
             <div class="card__title">داشبورد هیئت مدیره</div>
-            <div class="row">
-              <button id="btnLoadBoardDashboard" type="button" class="btn btn--primary">بارگذاری</button>
-            </div>
+            <button id="btnLoadBoardDashboard" type="button" class="btn btn--primary">بارگذاری</button>
             <div id="boardDashboardError" class="alert alert--error hidden"></div>
             <div id="boardDashboardSummary" class="dashboard-metrics hidden"></div>
             <div id="boardDashboardTrend" class="dashboard-chart hidden"></div>
             <div id="boardDashboardStatus" class="dashboard-chart hidden"></div>
-          </div>
-        </div>
-
-        <div id="tabDebug" class="tab">
-          <div class="grid2">
-            <div class="card">
-              <div class="card__title">Manual Request</div>
-              <div class="grid3">
-                <div class="formrow">
-                  <label>Method</label>
-                  <select id="manualMethod">
-                    <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
-                  </select>
-                </div>
-                <div class="formrow">
-                  <label>Path or URL</label>
-                  <input id="manualPath" class="mono" placeholder="/api/v1/..." />
-                </div>
-                <div class="formrow">
-                  <label>Auth</label>
-                  <select id="manualAuth">
-                    <option value="use">Use active token</option>
-                    <option value="none">No auth</option>
-                  </select>
-                </div>
-              </div>
-              <div class="formrow">
-                <label>Headers (JSON)</label>
-                <textarea id="manualHeaders" class="code" spellcheck="false">{}</textarea>
-              </div>
-              <div class="formrow">
-                <label>Body (JSON or text)</label>
-                <textarea id="manualBody" class="code" spellcheck="false"></textarea>
-              </div>
-              <button id="btnManualSend" class="btn btn--primary">Send</button>
-            </div>
-
-            <div class="card">
-              <div class="card__title">Auth State</div>
-              <div class="row">
-                <button id="btnShowTokens" class="btn">Show Token Payload</button>
-                <button id="btnClearStorage" class="btn btn--warn">Clear Local Storage</button>
-              </div>
-              <pre id="tokenViewer" class="code small"></pre>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__title">Request / Response Inspector</div>
-            <div class="grid2">
-              <div>
-                <div class="muted">Last Request</div>
-                <pre id="lastRequest" class="code"></pre>
-              </div>
-              <div>
-                <div class="muted">Last Response</div>
-                <pre id="lastResponse" class="code"></pre>
-              </div>
-            </div>
-            <div class="row">
-              <span class="muted">Status:</span> <span id="lastStatus" class="mono"></span>
-              <span class="muted">Time:</span> <span id="lastTime" class="mono"></span>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__title">Request Log</div>
-            <div id="reqLog" class="list"></div>
           </div>
         </div>
       </section>
@@ -874,37 +302,32 @@
 
     <div id="configModal" class="modal hidden">
       <div class="modal__body">
-        <div class="modal__title">Config</div>
-        <div class="formrow">
-          <label>API Gateway Base URL</label>
-          <input id="cfgBaseUrl" class="mono" />
-        </div>
-        <div class="formrow">
-          <label>Cases API version segment</label>
-          <input id="cfgCasesVersion" class="mono" placeholder="1 or 1.0" />
-        </div>
-        <div class="formrow">
-          <label>Dev OTP</label>
-          <input id="cfgDevOtp" class="mono" placeholder="123456" />
-        </div>
+        <div class="modal__title">تنظیمات</div>
+        <div class="formrow"><label>Base URL</label><input id="cfgBaseUrl" class="mono" placeholder="http://localhost:5081" /></div>
+        <div class="formrow"><label>نسخه API پرونده‌ها</label><input id="cfgCasesVersion" class="mono" /></div>
+        <div class="formrow"><label>OTP توسعه</label><input id="cfgDevOtp" class="mono" /></div>
         <div class="row right">
-          <button id="btnCloseConfig" class="btn">Close</button>
-          <button id="btnSaveConfig" class="btn btn--primary">Save</button>
+          <button id="btnCloseConfig" class="btn">بستن</button>
+          <button id="btnSaveConfig" class="btn btn--primary">ذخیره</button>
         </div>
-        <div class="hint">Saved in localStorage.</div>
       </div>
     </div>
+
+    <!-- Hidden stubs for app.js compatibility -->
+    <input id="currentCaseId" type="hidden" />
+    <span id="currentCaseLabel" class="hidden"></span>
 
     <script src="config.js"></script>
     <script src="js/workflow-model.js"></script>
     <script src="js/guarantee-workflow-model.js"></script>
+    <script src="js/loan-workflow-model.js"></script>
+    <script src="js/ui-components.js"></script>
     <script src="js/kanban.js"></script>
     <script src="js/portal.js"></script>
     <script src="js/guarantee-portal.js"></script>
+    <script src="js/loan-portal.js"></script>
     <script src="js/guarantee-ceo-credit.js"></script>
-    <script src="js/cases-registry.js"></script>
-    <script src="workflow-runner.js"></script>
+    <script src="js/cases-hub.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
-

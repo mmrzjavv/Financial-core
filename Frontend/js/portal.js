@@ -1393,8 +1393,10 @@
     const current = pickStatus(state.caseData);
     renderStageForStatus(host, current, true);
 
-    renderDocumentsList(host);
-    renderHistory(host);
+    if (!qs("#caseAttachmentsHost")) {
+      renderDocumentsList(host);
+      renderHistory(host);
+    }
   }
 
   function renderSummary() {
@@ -1411,7 +1413,8 @@
     empty.classList.add("hidden");
     header.classList.remove("hidden");
     qs("#portalCaseNumber").textContent = pickCaseNumber(state.caseData) || "—";
-    qs("#portalCaseId").textContent = pickId(state.caseData) || state.caseId;
+    const caseIdEl = qs("#portalCaseId");
+    if (caseIdEl) caseIdEl.textContent = pickId(state.caseData) || state.caseId;
     const step = model.getStep(pickStatus(state.caseData));
     qs("#portalCaseStatus").textContent = step ? step.title : String(pickStatus(state.caseData));
     qs("#portalCasePhase").textContent = model.PHASES[pickPhase(state.caseData)] || "—";

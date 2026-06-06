@@ -1,0 +1,29 @@
+namespace Core.Domain.Enums;
+
+public enum LoanDocumentType
+{
+    SupplementaryAttachmentForm = 1,
+    FundRequiredDocsAndCompanySpecs = 2,
+    EstablishmentGazette = 3,
+    CeoBoardIdCards = 4,
+    FinancialAndCreditContracts = 5,
+    FinancialStatements = 6,
+    BankAccountTurnover = 7,
+    MainLoanRequestForm = 8,
+    ProposedFinancingContract = 9,
+    EmployeeInsuranceReceipt = 10,
+    ActivityLicenses = 11,
+    CreditInquiryResult = 12,
+    RawContract = 13,
+    InstallmentScheduleExport = 14,
+    SignedContract = 15,
+    SignedAttachment1 = 16,
+    SignedAttachment2 = 17,
+    SignedAttachment3 = 18,
+    SignedAttachment4 = 19,
+    SignedAttachment5 = 20,
+    SignedAttachment6 = 21,
+    FinalContract = 22,
+    PaymentReceipt = 23,
+    Other = 99
+}

@@ -38,6 +38,11 @@ public static class AuthorizationServiceCollectionExtensions
 
             options.AddPolicy("GuaranteeCases.CeoOnly", p => p.RequireRole(UserRoleClaims.Ceo, "CEO"));
 
+            options.AddPolicy("LoanCases.CeoApprove", p => p.RequireRole(
+                UserRoleClaims.Ceo,
+                UserRoleClaims.Admin,
+                "CEO"));
+
             options.AddPolicy("InvestmentCases.Review", p => p.Requirements.Add(new PermissionRequirement("investment_cases:review")));
             options.AddPolicy("InvestmentCases.FinanceReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:finance_review")));
             options.AddPolicy("InvestmentCases.LegalReview", p => p.Requirements.Add(new PermissionRequirement("investment_cases:legal_review")));

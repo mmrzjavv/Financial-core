@@ -39,6 +39,14 @@ public sealed class CoreDbContext : DbContextBase, ICoreDbContext
     public DbSet<GuaranteeRenewalCase> GuaranteeRenewalCases => Set<GuaranteeRenewalCase>();
     public DbSet<GuaranteeApplicantCreditProfile> GuaranteeApplicantCreditProfiles => Set<GuaranteeApplicantCreditProfile>();
     public DbSet<GuaranteeFundCreditLimit> GuaranteeFundCreditLimits => Set<GuaranteeFundCreditLimit>();
+    public DbSet<LoanCase> LoanCases => Set<LoanCase>();
+    public DbSet<LoanCaseApplication> LoanCaseApplications => Set<LoanCaseApplication>();
+    public DbSet<LoanApprovalDetail> LoanApprovalDetails => Set<LoanApprovalDetail>();
+    public DbSet<LoanCaseDocument> LoanCaseDocuments => Set<LoanCaseDocument>();
+    public DbSet<LoanInstallment> LoanInstallments => Set<LoanInstallment>();
+    public DbSet<LoanPayment> LoanPayments => Set<LoanPayment>();
+    public DbSet<LoanCaseComment> LoanCaseComments => Set<LoanCaseComment>();
+    public DbSet<LoanCaseWorkflowHistory> LoanCaseWorkflowHistories => Set<LoanCaseWorkflowHistory>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();

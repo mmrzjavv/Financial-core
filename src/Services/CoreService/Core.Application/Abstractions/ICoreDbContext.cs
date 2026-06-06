@@ -29,6 +29,14 @@ public interface ICoreDbContext
     DbSet<GuaranteeRenewalCase> GuaranteeRenewalCases { get; }
     DbSet<GuaranteeApplicantCreditProfile> GuaranteeApplicantCreditProfiles { get; }
     DbSet<GuaranteeFundCreditLimit> GuaranteeFundCreditLimits { get; }
+    DbSet<LoanCase> LoanCases { get; }
+    DbSet<LoanCaseApplication> LoanCaseApplications { get; }
+    DbSet<LoanApprovalDetail> LoanApprovalDetails { get; }
+    DbSet<LoanCaseDocument> LoanCaseDocuments { get; }
+    DbSet<LoanInstallment> LoanInstallments { get; }
+    DbSet<LoanPayment> LoanPayments { get; }
+    DbSet<LoanCaseComment> LoanCaseComments { get; }
+    DbSet<LoanCaseWorkflowHistory> LoanCaseWorkflowHistories { get; }
     DbSet<User> Users { get; }
     DbSet<Company> Companies { get; }
     DbSet<RefreshToken> RefreshTokens { get; }

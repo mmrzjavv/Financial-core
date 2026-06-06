@@ -591,3 +591,11 @@ a{color:#7dd3fc}
 .registry-history-item:last-child,
 .registry-comment-item:last-child,
 .registry-doc-item:last-child{border-bottom:none}
+
+.cases-module-tabs,.case-subtabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cases-module-tab.is-active,.case-subtab.is-active{
+  border-color:var(--primary);
+  background:rgba(59,130,246,.15);
+}
+.case-detail-header{margin-bottom:12px}
+.cases-create-panel .row{align-items:flex-end}

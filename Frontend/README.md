@@ -32,7 +32,7 @@ If you don’t have Python, use any static file server you already have (IIS, ng
 
 Top bar → **Edit**:
 
-- **API Gateway Base URL**: default `http://localhost:5141`
+- **Core API Base URL**: default `http://localhost:5081` (matches `Core.API` `launchSettings.json`)
 - **Cases API version segment**: default `1` (routes are `/api/v{version}/investmentcases`)
 
 Config is stored in `localStorage`.

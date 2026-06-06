@@ -18,5 +18,6 @@ public enum SmsTemplateId
     CeoApproved = 110,
     PaymentRecorded = 111,
     CaseRejected = 112,
-    CaseCompleted = 113
+    CaseCompleted = 113,
+    LoanInstallmentDueReminder = 120
 }

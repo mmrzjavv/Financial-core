@@ -12,5 +12,6 @@ public interface ICoreUnitOfWork : IDisposable
     IInvestmentCaseRepository InvestmentCases { get; }
     IGuaranteeCaseRepository GuaranteeCases { get; }
     IGuaranteeRenewalCaseRepository GuaranteeRenewals { get; }
+    ILoanCaseRepository LoanCases { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

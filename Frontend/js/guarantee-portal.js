@@ -278,7 +278,8 @@
     empty?.classList.add("hidden");
     header?.classList.remove("hidden");
     qs("#gCaseNumber").textContent = pick(state.caseData, "caseNumber", "CaseNumber") || "—";
-    qs("#gCaseId").textContent = state.caseId;
+    const gCaseIdEl = qs("#gCaseId");
+    if (gCaseIdEl) gCaseIdEl.textContent = state.caseId;
     const st = pickStatus(state.caseData);
     const step = model.stepForStatus(st);
     qs("#gCaseStatus").textContent = step.title + " (" + st + ")";
@@ -1744,7 +1745,7 @@
     });
 
     document.addEventListener("testpanel:case-changed", (ev) => {
-      if (state.panel.getCaseModule() !== "guarantee") return;
+      if (ev.detail?.module !== "guarantee") return;
       state.caseId = ev.detail?.caseId || state.panel.getGuaranteeCaseId() || "";
       if (state.caseId) refreshCase();
     });

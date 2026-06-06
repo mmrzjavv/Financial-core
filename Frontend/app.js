@@ -207,6 +207,10 @@
     return "/api/v" + TESTPANEL_CONFIG.casesVersion + "/guarantee-renewals";
   }
 
+  function loanCasesBasePath() {
+    return "/api/v" + TESTPANEL_CONFIG.casesVersion + "/loancases";
+  }
+
   function kanbanBasePath() {
     return "/api/v" + TESTPANEL_CONFIG.casesVersion + "/kanban";
   }
@@ -235,6 +239,14 @@
     return "";
   }
 
+  function getLoanCaseId() {
+    const st = loadState();
+    const dedicated = (st.loanCaseId || "").trim();
+    if (dedicated) return dedicated;
+    if (st.caseModule === "loan") return (st.currentCaseId || "").trim();
+    return "";
+  }
+
   function migrateCaseState() {
     const st = loadState();
     const patch = {};
@@ -252,8 +264,10 @@
 
   function clearInvestmentCaseId() {
     saveState({ investmentCaseId: "", currentCaseId: "" });
-    qs("#currentCaseId").value = "";
-    qs("#currentCaseLabel").textContent = "(not set)";
+    const caseInput = qs("#currentCaseId");
+    if (caseInput) caseInput.value = "";
+    const caseLabel = qs("#currentCaseLabel");
+    if (caseLabel) caseLabel.textContent = "(not set)";
     document.dispatchEvent(
       new CustomEvent("testpanel:case-changed", { detail: { caseId: "", module: "investment" } })
     );
@@ -262,8 +276,17 @@
   function setGuaranteeCaseId(id) {
     const v = String(id || "").trim();
     saveState({ guaranteeCaseId: v, caseModule: "guarantee" });
-    qs("#currentCaseLabel").textContent = v || "(not set)";
+    const caseLabel = qs("#currentCaseLabel");
+    if (caseLabel) caseLabel.textContent = v || "(not set)";
     document.dispatchEvent(new CustomEvent("testpanel:case-changed", { detail: { caseId: v, module: "guarantee" } }));
+  }
+
+  function setLoanCaseId(id) {
+    const v = String(id || "").trim();
+    saveState({ loanCaseId: v, caseModule: "loan" });
+    const caseLabel = qs("#currentCaseLabel");
+    if (caseLabel) caseLabel.textContent = v || "(not set)";
+    document.dispatchEvent(new CustomEvent("testpanel:case-changed", { detail: { caseId: v, module: "loan" } }));
   }
 
   const inspector = {
@@ -276,12 +299,15 @@
   };
 
   function renderInspector() {
-    qs("#lastRequest").textContent = pretty(inspector.lastRequest) || "";
+    const req = qs("#lastRequest");
+    if (!req) return;
+    req.textContent = pretty(inspector.lastRequest) || "";
     qs("#lastResponse").textContent = pretty(inspector.lastResponse) || "";
     qs("#lastStatus").textContent = inspector.lastStatus || "";
     qs("#lastTime").textContent = inspector.lastTime || "";
 
     const logRoot = qs("#reqLog");
+    if (!logRoot) return;
     logRoot.innerHTML = "";
     for (const item of inspector.log) {
       const div = document.createElement("div");
@@ -449,9 +475,12 @@
     const patch = { caseModule: mod, currentCaseId: v };
     if (mod === "investment") patch.investmentCaseId = v;
     else if (mod === "guarantee") patch.guaranteeCaseId = v;
+    else if (mod === "loan") patch.loanCaseId = v;
     saveState(patch);
-    qs("#currentCaseId").value = v;
-    qs("#currentCaseLabel").textContent = v || "(not set)";
+    const caseInput = qs("#currentCaseId");
+    if (caseInput) caseInput.value = v;
+    const caseLabel = qs("#currentCaseLabel");
+    if (caseLabel) caseLabel.textContent = v || "(not set)";
     document.dispatchEvent(new CustomEvent("testpanel:case-changed", { detail: { caseId: v, module: mod } }));
   }
 
@@ -541,23 +570,13 @@
         qsa(".tab").forEach((t) => t.classList.remove("is-active"));
         qs("#" + target).classList.add("is-active");
         setGlobalError("");
-        if (target === "tabPortal") {
-          setCaseModule("investment");
-          const invId = getInvestmentCaseId();
-          qs("#currentCaseId").value = invId;
-          document.dispatchEvent(
-            new CustomEvent("testpanel:case-changed", { detail: { caseId: invId, module: "investment" } })
-          );
-        } else if (target === "tabGuarantee") {
-          setCaseModule("guarantee");
-          const gId = getGuaranteeCaseId();
-          document.dispatchEvent(
-            new CustomEvent("testpanel:case-changed", { detail: { caseId: gId, module: "guarantee" } })
-          );
-        } else if (target === "tabCaseRegistry" && typeof window.refreshCasesRegistryAccess === "function") {
-          window.refreshCasesRegistryAccess();
+        if (target === "tabInbox" && typeof window.kanbanRefresh === "function") {
+          window.kanbanRefresh();
         }
-        if (target === "tabDashboardCeo" && typeof window.refreshGuaranteeCeoCreditAccess === "function") {
+        if (target === "tabCases" && window.CasesHub) {
+          window.CasesHub.loadCases();
+        }
+        if (target === "tabDashboard" && typeof window.refreshGuaranteeCeoCreditAccess === "function") {
           window.refreshGuaranteeCeoCreditAccess();
         }
       });
@@ -565,10 +584,7 @@
   }
 
   function fillSelects() {
-    optFill(qs("#updateUserRole"), ROLE_OPTIONS);
-    optFill(qs("#searchPhase"), CASE_PHASES);
-    optFill(qs("#searchStatus"), CASE_STATUSES);
-    optFill(qs("#docType"), DOC_TYPES);
+    /* legacy selects removed from UI */
   }
 
   function setDefaultJsonTemplates() {
@@ -793,33 +809,9 @@
       })
     );
 
-    qs("#btnProfile").addEventListener("click", () =>
+    qs("#btnProfile")?.addEventListener("click", () =>
       withUiError(async () => {
         await apiRequest({ method: "GET", path: "/api/v1/identity/users/profile" });
-      })
-    );
-
-    qs("#btnSessions").addEventListener("click", () =>
-      withUiError(async () => {
-        await apiRequest({ method: "GET", path: "/api/v1/identity/users/sessions" });
-      })
-    );
-
-    qs("#btnRevokeSession").addEventListener("click", () =>
-      withUiError(async () => {
-        const sid = qs("#revokeSid").value.trim();
-        if (!sid) throw new Error("شناسه نشست (sid) الزامی است.");
-        await apiRequest({
-          method: "POST",
-          path: "/api/v1/identity/users/sessions/revoke",
-          body: { sessionId: sid },
-        });
-      })
-    );
-
-    qs("#btnRevokeAll").addEventListener("click", () =>
-      withUiError(async () => {
-        await apiRequest({ method: "POST", path: "/api/v1/identity/users/sessions/revoke-all" });
       })
     );
   }
@@ -1746,38 +1738,30 @@
     wireTabs();
     wireConfigModal();
     wireAuth();
-    wireUsers();
-    wireCases();
-    wireWorkflow();
-    wireDocuments();
-    wireComments();
-    wireEvaluations();
     wireDashboard();
-    wireDebugTools();
 
     renderInspector();
     renderSessionsList();
     renderTopbar();
 
-    const st = loadState();
     migrateCaseState();
     const invId = getInvestmentCaseId();
-    setCurrentCaseId(invId, "investment");
+    if (invId) setCurrentCaseId(invId, "investment");
 
-    // Make auth phone inputs a bit friendlier
     const active = getActiveSession();
     if (active && active.phone) {
-      qs("#authPhone").value = active.phone;
-      qs("#verifyPhone").value = active.phone;
+      const authPhone = qs("#authPhone");
+      const verifyPhone = qs("#verifyPhone");
+      if (authPhone) authPhone.value = active.phone;
+      if (verifyPhone) verifyPhone.value = active.phone;
     }
-
-    setDefaultJsonTemplates();
 
     window.TestPanel = {
       apiRequest,
       casesBasePath,
       guaranteeCasesBasePath,
       guaranteeRenewalsBasePath,
+      loanCasesBasePath,
       kanbanBasePath,
       unwrapEnvelope,
       saveSessionFromLogin,
@@ -1788,6 +1772,8 @@
       setCurrentCaseId,
       setGuaranteeCaseId,
       getGuaranteeCaseId,
+      setLoanCaseId,
+      getLoanCaseId,
       getInvestmentCaseId,
       clearInvestmentCaseId,
       getCaseModule,
@@ -1795,29 +1781,12 @@
       getCurrentCaseId: getInvestmentCaseId,
     };
 
-    if (typeof window.initKanban === "function") {
-      window.initKanban(window.TestPanel);
-    }
-
-    if (typeof window.initPortal === "function") {
-      window.initPortal(window.TestPanel);
-    }
-
-    if (typeof window.initGuaranteePortal === "function") {
-      window.initGuaranteePortal(window.TestPanel);
-    }
-
-    if (typeof window.initGuaranteeCeoCredit === "function") {
-      window.initGuaranteeCeoCredit(window.TestPanel);
-    }
-
-    if (typeof window.initCasesRegistry === "function") {
-      window.initCasesRegistry(window.TestPanel);
-    }
-
-    if (typeof window.initWorkflowRunner === "function") {
-      window.initWorkflowRunner(window.TestPanel);
-    }
+    if (typeof window.initKanban === "function") window.initKanban(window.TestPanel);
+    if (typeof window.initPortal === "function") window.initPortal(window.TestPanel);
+    if (typeof window.initGuaranteePortal === "function") window.initGuaranteePortal(window.TestPanel);
+    if (typeof window.initLoanPortal === "function") window.initLoanPortal(window.TestPanel);
+    if (typeof window.initGuaranteeCeoCredit === "function") window.initGuaranteeCeoCredit(window.TestPanel);
+    if (typeof window.initCasesHub === "function") window.initCasesHub(window.TestPanel);
   }
 
   document.addEventListener("DOMContentLoaded", init);

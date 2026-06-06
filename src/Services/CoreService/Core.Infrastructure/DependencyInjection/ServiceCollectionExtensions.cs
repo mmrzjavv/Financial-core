@@ -1,6 +1,7 @@
 using BuildingBlocks.Domain.Abstractions;
 using BuildingBlocks.Application.Abstractions;
 using Core.Application.Abstractions;
+using Core.Application.Common;
 using Core.Application.Abstractions.Persistence;
 using Core.Application.Dashboard;
 using Core.Application.Identity.Abstractions;
@@ -37,14 +38,17 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IInvestmentCaseRepository, InvestmentCaseRepository>();
         services.AddScoped<IGuaranteeCaseRepository, GuaranteeCaseRepository>();
         services.AddScoped<IGuaranteeRenewalCaseRepository, GuaranteeRenewalCaseRepository>();
+        services.AddScoped<ILoanCaseRepository, LoanCaseRepository>();
         services.AddScoped<ICoreUnitOfWork, CoreUnitOfWork>();
         services.AddScoped<ICaseDtoMapper, CaseDtoMapper>();
         services.AddScoped<IGuaranteeCaseDtoMapper, GuaranteeCaseDtoMapper>();
+        services.AddScoped<ILoanCaseDtoMapper, LoanCaseDtoMapper>();
 
         services.AddSingleton<ILiaraObjectStorage, LiaraObjectStorage>();
         services.AddScoped<IDocumentStorage, LiaraDocumentStorage>();
 
         services.Configure<SmsOptions>(configuration.GetSection("Sms"));
+        services.Configure<LoanSettingsOptions>(configuration.GetSection(LoanSettingsOptions.SectionName));
         services.AddSingleton<SmsDispatchQueue>();
         services.AddScoped<ISmsDispatcher, SmsDispatcher>();
         services.AddScoped<ICaseWorkflowSmsNotifier, CaseWorkflowSmsNotifier>();
@@ -57,6 +61,8 @@ public static class ServiceCollectionExtensions
 
         if (configuration.GetValue("Sms:QueueEnabled", true))
             services.AddHostedService<SmsQueueBackgroundService>();
+
+        services.AddHostedService<LoanInstallmentReminderBackgroundService>();
 
         services.AddScoped<IExecutiveDashboardService, ExecutiveDashboardService>();
 

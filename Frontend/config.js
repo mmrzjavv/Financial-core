@@ -4,7 +4,7 @@
     baseUrl: "http://localhost:5081",
     casesVersion: "1",
     devOtp: "123456",
-    storageKey: "workflow_test_panel.config.v1",
+    storageKey: "workflow_test_panel.config.v2",
     workflowPersonas: [
       { key: "admin", phone: "09100000001", role: 100, firstName: "Admin", lastName: "Tester", label: "Admin" },
       { key: "applicant", phone: "09100000002", role: 1, firstName: "Applicant", lastName: "Tester", label: "Applicant" },
@@ -27,7 +27,32 @@
     }
   }
 
-  const stored = safeParseJson(localStorage.getItem(DEFAULTS.storageKey), {});
+  const LEGACY_STORAGE_KEYS = [
+    "workflow_test_panel.config.v1",
+  ];
+  const LEGACY_BASE_URLS = new Set([
+    "http://localhost:7000",
+    "http://localhost:5141",
+  ]);
+
+  function loadStoredConfig() {
+    const fromCurrent = safeParseJson(localStorage.getItem(DEFAULTS.storageKey), {});
+    if (Object.keys(fromCurrent).length) return fromCurrent;
+
+    for (const key of LEGACY_STORAGE_KEYS) {
+      const legacy = safeParseJson(localStorage.getItem(key), {});
+      if (!Object.keys(legacy).length) continue;
+      const legacyBaseUrl = String(legacy.baseUrl || "").trim().replace(/\/+$/, "");
+      if (LEGACY_BASE_URLS.has(legacyBaseUrl)) {
+        legacy.baseUrl = DEFAULTS.baseUrl;
+      }
+      return legacy;
+    }
+
+    return {};
+  }
+
+  const stored = loadStoredConfig();
   const cfg = {
     ...DEFAULTS,
     ...stored,

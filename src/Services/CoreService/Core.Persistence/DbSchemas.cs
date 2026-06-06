@@ -5,4 +5,5 @@ public static class DbSchemas
     public const string Identity = "Identity";
     public const string Investment = "Investment";
     public const string Guarantee = "Guarantee";
+    public const string Loan = "Loan";
 }

@@ -17,6 +17,7 @@
     const m = Number(pick(item, "module", "Module") || 1);
     if (m === 2) return "ضمانت‌نامه";
     if (m === 3) return "تمدید";
+    if (m === 4) return "تسهیلات";
     return "سرمایه‌گذاری";
   }
 
@@ -129,19 +130,27 @@
     items.forEach((item) => host.appendChild(builder(item)));
   }
 
-  function openCase(caseId, card) {
-    if (!caseId || !state.panel) return;
+  function resolveModule(card) {
     const module = card?.dataset?.module;
     const apiBase = card?.dataset?.apiBase || "";
-    if (module === "2" || (apiBase && apiBase.indexOf("guaranteecases") >= 0)) {
-      state.panel.setGuaranteeCaseId(caseId);
-      const tab = document.querySelector('[data-tab="tabGuarantee"]');
-      if (tab) tab.click();
+    if (module === "4" || apiBase.indexOf("loancases") >= 0) return "loan";
+    if (module === "2" || apiBase.indexOf("guaranteecases") >= 0) return "guarantee";
+    if (module === "3" || apiBase.indexOf("guarantee-renewals") >= 0) return "guarantee";
+    return "investment";
+  }
+
+  function openCase(caseId, card) {
+    if (!caseId || !state.panel) return;
+    const mod = resolveModule(card);
+    const casesTab = document.querySelector('[data-tab="tabCases"]');
+    if (casesTab) casesTab.click();
+    if (window.CasesHub && typeof window.CasesHub.openCase === "function") {
+      window.CasesHub.openCase(mod, caseId);
       return;
     }
-    state.panel.setCurrentCaseId(caseId, "investment");
-    const portalTab = document.querySelector('[data-tab="tabPortal"]');
-    if (portalTab) portalTab.click();
+    if (mod === "loan") state.panel.setLoanCaseId(caseId);
+    else if (mod === "guarantee") state.panel.setGuaranteeCaseId(caseId);
+    else state.panel.setCurrentCaseId(caseId, "investment");
   }
 
   function render() {

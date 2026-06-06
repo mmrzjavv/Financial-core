@@ -85,4 +85,16 @@ public static class ApiMessages
     public const string CreditLimitDatabasePrecisionTooSmall =
         "ستون سقف در دیتابیس ظرفیت مبلغ را ندارد. اسکریپت scripts/FixGuaranteeFundCreditLimitPrecision.sql را اجرا کنید.";
     public const string OnlyCeoCanSetCreditLimit = "تعیین سقف اعتبار فقط توسط مدیرعامل امکان‌پذیر است.";
+
+    public const string LoanCaseNotFound = "پرونده تسهیلات یافت نشد.";
+    public const string LoanApplicationIncomplete = "اطلاعات درخواست تسهیلات ناقص است.";
+    public const string LoanApprovalDetailIncomplete = "فرم تصویب تکمیل نشده است.";
+    public const string LoanApplicationNotEditable = "در وضعیت فعلی امکان ویرایش درخواست وجود ندارد.";
+    public const string LoanRawContractMissing = "قرارداد خام بارگذاری نشده است.";
+    public const string LoanInstallmentsMissing = "جدول اقساط ثبت نشده است.";
+    public const string LoanSignedContractMissing = "قرارداد امضاشده بارگذاری نشده است.";
+    public const string LoanFinalContractMissing = "قرارداد نهایی بارگذاری نشده است.";
+    public const string LoanApprovalDetailNotEditable = "در وضعیت فعلی امکان ویرایش فرم تصویب وجود ندارد.";
+    public const string LoanInstallmentsNotEditable = "در وضعیت فعلی امکان ویرایش اقساط وجود ندارد.";
+    public const string LoanRepaymentIncomplete = "همه اقساط هنوز پرداخت نشده‌اند.";
 }

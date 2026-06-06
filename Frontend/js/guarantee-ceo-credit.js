@@ -377,7 +377,7 @@
 
 
 
-    document.querySelector('[data-tab="tabDashboardCeo"]')?.addEventListener("click", () => {
+    document.querySelector('[data-tab="tabDashboard"]')?.addEventListener("click", () => {
 
       updateAccessUi();
 
