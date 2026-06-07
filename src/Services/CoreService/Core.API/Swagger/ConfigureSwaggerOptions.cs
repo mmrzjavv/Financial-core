@@ -18,14 +18,7 @@ internal sealed class ConfigureSwaggerOptions(IApiVersionDescriptionProvider pro
                 {
                     Title = OpenApiMetadata.Title,
                     Version = description.ApiVersion.ToString(),
-                    Description = OpenApiMetadata.Description,
-                    Contact = new OpenApiContact
-                    {
-                        Name = OpenApiMetadata.ContactName,
-                        Email = OpenApiMetadata.ContactEmail,
-                        Url = new Uri($"mailto:{OpenApiMetadata.ContactEmail}")
-                    },
-                   
+                    Description = OpenApiMetadata.Description
                 });
         }
     }

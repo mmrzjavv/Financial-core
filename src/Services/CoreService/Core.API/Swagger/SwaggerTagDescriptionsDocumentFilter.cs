@@ -8,7 +8,11 @@ internal sealed class SwaggerTagDescriptionsDocumentFilter : IDocumentFilter
 {
     private static readonly Dictionary<string, string> TagDescriptions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["InvestmentCases"] = "Investment case lifecycle — workflow, documents (presign/confirm), kanban, payments (one platform module)",
+        ["InvestmentCases"] = "Investment case lifecycle — workflow, documents, reviews, CEO approval",
+        ["GuaranteeCases"] = "Guarantee applications — credit limits, workflow, documents",
+        ["GuaranteeRenewals"] = "Guarantee renewal requests",
+        ["LoanCases"] = "Loan applications — workflow, documents, approvals",
+        ["Kanban"] = "Cross-module work queues — action-required and watching",
         ["User"] = "Panel users — OTP, login, sessions, profile",
         ["Companies"] = "Applicant company profiles",
         ["Dashboard"] = "Executive dashboards — CEO and board"
