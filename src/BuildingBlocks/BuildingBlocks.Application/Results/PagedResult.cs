@@ -6,6 +6,10 @@ public sealed record PagedResult<T>(
     int PageSize,
     long TotalCount)
 {
-    public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    public int PageNumber => Page;
+
+    public int TotalPages => PageSize == 0
+        ? 0
+        : (int)Math.Ceiling((double)TotalCount / PageSize);
 }
 
