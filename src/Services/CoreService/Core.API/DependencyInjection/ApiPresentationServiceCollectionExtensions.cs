@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text;
+using System.Text.Json.Serialization;
 using Asp.Versioning;
 using BuildingBlocks.Application.Results;
+using BuildingBlocks.Observability.DependencyInjection;
 using Core.API.Authorization;
 using Core.API.Http;
 using Core.API.Swagger;
@@ -33,7 +35,7 @@ public static class ApiPresentationServiceCollectionExtensions
             });
         });
 
-        services.AddProblemDetails();
+        services.AddPlatformObservability();
 
         services.AddApiVersioning(options =>
         {
@@ -48,6 +50,10 @@ public static class ApiPresentationServiceCollectionExtensions
         });
 
         services.AddControllers()
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            })
             .ConfigureApiBehaviorOptions(options =>
             {
                 options.InvalidModelStateResponseFactory = context =>
