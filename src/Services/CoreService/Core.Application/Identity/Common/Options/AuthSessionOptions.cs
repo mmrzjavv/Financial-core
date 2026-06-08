@@ -9,5 +9,8 @@ public class AuthSessionOptions
 
     /// <summary>Maximum concurrent active sessions per user (oldest sessions revoked on new login).</summary>
     public int MaxActiveSessions { get; set; } = 3;
+
+    /// <summary>Users with session activity within this window are considered online.</summary>
+    public int OnlineActivityWindowMinutes { get; set; } = 30;
 }
 

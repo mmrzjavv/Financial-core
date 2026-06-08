@@ -1,0 +1,47 @@
+using Core.Application.Requests;
+using Core.Domain.Identity.Entities;
+
+namespace Core.Application.Mappers;
+
+public sealed class CompanyDtoMapper : ICompanyDtoMapper
+{
+    public CompanyDto? Map(Company? company)
+        => company is null
+            ? null
+            : new CompanyDto(
+                company.Id,
+                company.Name,
+                company.EconomicCode,
+                company.RegistrationNumber,
+                company.NationalId,
+                company.PhoneNumber,
+                company.Address,
+                company.City,
+                company.Province,
+                company.PostalCode);
+
+    public CompanyDto? MapFlat(
+        Guid? companyId,
+        string? name,
+        string? economicCode,
+        string? registrationNumber,
+        string? nationalId,
+        string? phoneNumber,
+        string? address,
+        string? city,
+        string? province,
+        string? postalCode)
+        => companyId is null
+            ? null
+            : new CompanyDto(
+                companyId.Value,
+                name ?? string.Empty,
+                economicCode ?? string.Empty,
+                registrationNumber,
+                nationalId,
+                phoneNumber,
+                address,
+                city,
+                province,
+                postalCode);
+}

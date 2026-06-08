@@ -19,6 +19,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IGuaranteeCaseAppService, GuaranteeCaseAppService>();
         services.AddScoped<IGuaranteeRenewalAppService, GuaranteeRenewalAppService>();
         services.AddScoped<ILoanCaseStateManager, LoanCaseStateManager>();
+        services.AddScoped<IFundCreditLimitAppService, FundCreditLimitAppService>();
         services.AddScoped<ILoanCaseAppService, LoanCaseAppService>();
         services.AddScoped<IKanbanAppService, KanbanAppService>();
         services.AddScoped<ICompanyAppService, CompanyAppService>();

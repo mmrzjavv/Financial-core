@@ -1,4 +1,5 @@
 using Core.API.Authorization;
+using Core.Application.Identity.Authorization;
 using Core.Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
 
@@ -11,6 +12,10 @@ public static class AuthorizationServiceCollectionExtensions
         services.AddAuthorization(options =>
         {
             options.AddPolicy("AdminOnly", p => p.RequireRole(UserRoleClaims.Admin));
+            options.AddPolicy("Users.Delete", p => p.Requirements.Add(new PermissionRequirement(Permissions.Users_Delete)));
+            options.AddPolicy("Sessions.Read", p => p.Requirements.Add(new PermissionRequirement(Permissions.Sessions_Read)));
+            options.AddPolicy("Sessions.Revoke", p => p.Requirements.Add(new PermissionRequirement(Permissions.Sessions_Revoke)));
+            options.AddPolicy("Users.ViewOnline", p => p.Requirements.Add(new PermissionRequirement(Permissions.Users_ViewOnline)));
             options.AddPolicy("ApplicantOnly", p => p.RequireRole(UserRoleClaims.Applicant, UserRoleClaims.Admin));
             options.AddPolicy("InternalOnly", p => p.RequireRole(
                 UserRoleClaims.InvestmentExpert,
@@ -28,6 +33,12 @@ public static class AuthorizationServiceCollectionExtensions
                 UserRoleClaims.LegalUnit,
                 UserRoleClaims.FinancialUnit,
                 UserRoleClaims.InvestmentUnit,
+                "CEO"));
+
+            options.AddPolicy("FundCreditLimits.Manage", p => p.RequireRole(
+                UserRoleClaims.Ceo,
+                UserRoleClaims.TechnicalExpert,
+                UserRoleClaims.Admin,
                 "CEO"));
 
             options.AddPolicy("GuaranteeCases.CreditReview", p => p.Requirements.Add(new PermissionRequirement("guarantee_cases:credit_review")));
@@ -56,6 +67,34 @@ public static class AuthorizationServiceCollectionExtensions
                 UserRoleClaims.Ceo,
                 UserRoleClaims.InvestmentManager,
                 UserRoleClaims.Admin,
+                "CEO"));
+            options.AddPolicy("Dashboard.Executive", p => p.RequireRole(
+                UserRoleClaims.Ceo,
+                UserRoleClaims.InvestmentManager,
+                UserRoleClaims.FinancialManager,
+                UserRoleClaims.Admin,
+                "CEO"));
+            options.AddPolicy("Dashboard.Department", p => p.RequireRole(
+                UserRoleClaims.InvestmentExpert,
+                UserRoleClaims.InvestmentManager,
+                UserRoleClaims.LegalExpert,
+                UserRoleClaims.LegalManager,
+                UserRoleClaims.FinancialExpert,
+                UserRoleClaims.FinancialManager,
+                UserRoleClaims.TechnicalExpert,
+                UserRoleClaims.TechnicalManager,
+                UserRoleClaims.CreditExpert,
+                UserRoleClaims.CreditManager,
+                UserRoleClaims.Admin,
+                UserRoleClaims.LegalUnit,
+                UserRoleClaims.FinancialUnit,
+                UserRoleClaims.InvestmentUnit));
+            options.AddPolicy("Dashboard.Applicant", p => p.RequireRole(UserRoleClaims.Applicant, UserRoleClaims.Admin));
+
+            options.AddPolicy("Companies.Delete", p => p.RequireRole(
+                UserRoleClaims.Ceo,
+                UserRoleClaims.Admin,
+                UserRoleClaims.TechnicalExpert,
                 "CEO"));
         });
 

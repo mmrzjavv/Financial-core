@@ -26,4 +26,9 @@ public sealed class CompaniesController(ICompanyAppService service) : ApiControl
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] SaveCompanyRequest request, CancellationToken ct)
         => Respond(await service.UpdateAsync(id, request, ct), CompanySuccessMessages.CompanyUpdated);
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "Companies.Delete")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        => Respond(await service.DeleteAsync(id, ct), CompanySuccessMessages.CompanyDeleted);
 }

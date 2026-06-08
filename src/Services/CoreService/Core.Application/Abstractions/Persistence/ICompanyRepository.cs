@@ -6,4 +6,5 @@ namespace Core.Application.Abstractions.Persistence;
 public interface ICompanyRepository : IWriteRepository<Company, Guid>
 {
     Task<List<Company>> GetOwnedByUserAsync(Guid ownerUserId, CancellationToken cancellationToken = default);
+    Task<bool> HasLinkedCasesAsync(Guid companyId, CancellationToken cancellationToken = default);
 }

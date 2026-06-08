@@ -15,6 +15,7 @@ public interface ICompanyAppService
     Task<Result<IReadOnlyList<CompanyDto>>> GetMyCompaniesAsync(CancellationToken cancellationToken);
     Task<Result<CompanyDto>> CreateAsync(SaveCompanyRequest request, CancellationToken cancellationToken);
     Task<Result<CompanyDto>> UpdateAsync(Guid companyId, SaveCompanyRequest request, CancellationToken cancellationToken);
+    Task<Result> DeleteAsync(Guid companyId, CancellationToken cancellationToken);
 }
 
 public sealed class CompanyAppService(
@@ -126,6 +127,49 @@ public sealed class CompanyAppService(
             userId, companyId, company.Name);
 
         return Result<CompanyDto>.Ok(mapper.Map<CompanyDto>(company));
+    }
+
+    public async Task<Result> DeleteAsync(Guid companyId, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            ApplicationLog.Blocked(logger, "DeleteCompany", "user is not authenticated");
+            return Result.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
+        }
+
+        ApplicationLog.Started(logger, "DeleteCompany", userId.ToString());
+
+        var company = await unitOfWork.Companies.GetByIdAsync(companyId, asNoTracking: false, cancellationToken);
+        if (company is null)
+        {
+            ApplicationLog.Blocked(logger, "DeleteCompany", "company not found", userId.ToString());
+            return Result.Fail(Error.NotFound(ApiMessages.CompanyNotFound));
+        }
+
+        if (await unitOfWork.Companies.HasLinkedCasesAsync(companyId, cancellationToken))
+        {
+            ApplicationLog.Blocked(logger, "DeleteCompany", "company has linked cases", userId.ToString());
+            return Result.Fail(Error.Conflict(ApiMessages.CompanyHasLinkedCases));
+        }
+
+        company.IsDeleted = true;
+        company.UpdateDate = DateTime.UtcNow;
+        unitOfWork.Companies.Update(company);
+
+        var linkedUsers = await unitOfWork.Users.GetAllAsync(u => u.CompanyId == companyId, disableTracking: false);
+        foreach (var linkedUser in linkedUsers)
+        {
+            linkedUser.CompanyId = null;
+            await unitOfWork.Users.UpdateAsync(linkedUser);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        ApplicationLog.Completed(logger,
+            "User {UserId} deleted company {CompanyId} ({CompanyName}) and cleared {UserCount} linked user(s)",
+            userId, companyId, company.Name, linkedUsers.Count);
+
+        return Result.Ok();
     }
 
     private bool TryGetCurrentUserId(out Guid userId)

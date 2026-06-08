@@ -45,6 +45,11 @@ public sealed class UserController(IUserService userService) : ApiControllerBase
     public Task<IActionResult> GetActiveSessions(CancellationToken ct)
         => Execute(userService.GetActiveSessionsAsync(ct));
 
+    [HttpGet("online")]
+    [Authorize(Policy = "Users.ViewOnline")]
+    public Task<IActionResult> GetOnlineUsers(CancellationToken ct)
+        => Execute(userService.GetOnlineUsersAsync(ct));
+
     [HttpPost("sessions/revoke")]
     [Authorize]
     public Task<IActionResult> RevokeSession([FromBody] RevokeSessionDto dto, CancellationToken ct)
@@ -56,19 +61,25 @@ public sealed class UserController(IUserService userService) : ApiControllerBase
         => Execute(userService.RevokeAllSessionsAsync(ct));
 
     [HttpGet("{id:guid}/sessions")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = "Sessions.Read")]
     public Task<IActionResult> GetUserSessions(Guid id, CancellationToken ct)
         => Execute(userService.GetUserActiveSessionsAsAdminAsync(id, ct));
 
     [HttpPost("{id:guid}/sessions/revoke-all")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = "Sessions.Revoke")]
     public Task<IActionResult> AdminRevokeAllSessions(Guid id, CancellationToken ct)
         => Execute(userService.AdminRevokeAllSessionsAsync(id, ct));
 
     [HttpPost("{id:guid}/sessions/revoke")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = "Sessions.Revoke")]
     public Task<IActionResult> AdminRevokeSession(Guid id, [FromBody] RevokeSessionDto dto, CancellationToken ct)
         => Execute(userService.AdminRevokeSessionAsync(id, dto, ct));
+
+    /// <summary>Force-logout an online user by revoking all active sessions.</summary>
+    [HttpPost("{id:guid}/kick")]
+    [Authorize(Policy = "Sessions.Revoke")]
+    public Task<IActionResult> KickUser(Guid id, CancellationToken ct)
+        => Execute(userService.KickUserAsync(id, ct));
 
     [HttpGet("{id:guid}")]
     [Authorize]
@@ -96,9 +107,9 @@ public sealed class UserController(IUserService userService) : ApiControllerBase
         => Execute(userService.UpdateAsync(id, dto, ct));
 
     [HttpDelete("{id:guid}")]
-    [Authorize]
+    [Authorize(Policy = "Users.Delete")]
     public Task<IActionResult> Delete(Guid id, CancellationToken ct)
-        => Execute(userService.DeleteAsync(id));
+        => Execute(userService.DeleteAsync(id, ct));
 
     private async Task<IActionResult> Execute<T>(Task<ApiOperationResult<T>> action)
         => Respond(await action.ConfigureAwait(false));

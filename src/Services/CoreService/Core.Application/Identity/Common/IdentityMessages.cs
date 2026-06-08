@@ -19,7 +19,14 @@ public static class IdentityMessages
     public const string LogoutSucceeded = "خروج از حساب انجام شد.";
     public const string SessionAccessDenied = "به این نشست دسترسی ندارید.";
     public const string AdminAccessDenied = "فقط مدیر سیستم به این عملیات دسترسی دارد.";
+    public const string UserDeleteAccessDenied = "شما مجوز حذف کاربر را ندارید.";
+    public const string CannotDeleteSelf = "امکان حذف حساب خودتان وجود ندارد.";
+    public const string CannotDeleteProtectedUser = "امکان حذف این نقش کاربری وجود ندارد.";
     public const string UserSessionsRevokedByAdmin = "نشست‌های کاربر توسط مدیر قطع شد.";
+    public const string SessionRevokeAccessDenied = "شما مجوز قطع نشست کاربران را ندارید.";
+    public const string OnlineUsersAccessDenied = "شما مجوز مشاهده کاربران آنلاین را ندارید.";
+    public const string UserKickedOut = "کاربر از سامانه خارج شد.";
+    public const string CannotKickSelf = "امکان خارج کردن حساب خودتان از سامانه وجود ندارد.";
     public const string PhoneAlreadyRegistered = "این شماره موبایل قبلاً ثبت شده است.";
     public const string EmailAlreadyRegistered = "این ایمیل قبلاً ثبت شده است.";
     public const string NationalCodeAlreadyRegistered = "این کد ملی قبلاً ثبت شده است.";
@@ -27,6 +34,7 @@ public static class IdentityMessages
     public const string UserUpdated = "اطلاعات کاربر به‌روزرسانی شد.";
     public const string UserDeleted = "کاربر حذف شد.";
     public const string OnlyAdminCanChangeRole = "فقط مدیر سیستم می‌تواند نقش کاربر را تغییر دهد.";
+    public const string InvalidUserRole = "نقش کاربر نامعتبر است.";
     public const string OtpLocked = "به دلیل چند تلاش اشتباه، ورود موقتاً غیرفعال شده است. بعداً دوباره تلاش کنید.";
     public const string OtpExpired = "کد تایید منقضی شده است.";
     public const string InvalidOtp = "کد تایید نامعتبر است.";

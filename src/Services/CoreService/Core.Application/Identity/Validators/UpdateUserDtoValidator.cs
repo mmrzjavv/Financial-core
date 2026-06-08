@@ -1,5 +1,6 @@
 using Core.Application.Identity.Common;
 using Core.Application.Identity.DTOs.User;
+using Core.Domain.Identity;
 using FluentValidation;
 
 namespace Core.Application.Identity.Validators;
@@ -29,5 +30,9 @@ public sealed class UpdateUserDtoValidator : AbstractValidator<UpdateUserDto>
             .Length(10).WithMessage(IdentityMessages.NationalCodeLength)
             .Matches(@"^\d{10}$").WithMessage(IdentityMessages.NationalCodeDigitsOnly)
             .When(x => !string.IsNullOrEmpty(x.NationalCode));
+
+        RuleFor(x => x.RoleNumber)
+            .Must(roleNumber => roleNumber is null || Enum.IsDefined(typeof(UserRole), roleNumber.Value))
+            .WithMessage(IdentityMessages.InvalidUserRole);
     }
 }

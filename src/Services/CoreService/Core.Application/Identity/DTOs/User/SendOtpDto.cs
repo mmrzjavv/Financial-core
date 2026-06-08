@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using Core.Application.Identity.Serialization;
 using Core.Application.Identity.Tokens;
 using Core.Domain.Identity;
 
@@ -54,7 +56,9 @@ public class UpdateUserDto
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? NationalCode { get; set; }
+    [JsonConverter(typeof(NullableUserRoleJsonConverter))]
     public UserRole? Role { get; set; }
+    public int? RoleNumber { get; set; }
     public bool? IsActive { get; set; }
     public bool? IsPhoneVerified { get; set; }
     public DateTime? LastLoginAt { get; set; }

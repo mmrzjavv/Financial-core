@@ -72,7 +72,9 @@ public sealed class UserRepository(CoreDbContext context) : IUserRepository
     public Task<User> UpdateAsync(User entity)
     {
         entity.UpdateDate = DateTime.UtcNow;
-        context.Users.Update(entity);
+        if (context.Entry(entity).State == EntityState.Detached)
+            context.Users.Update(entity);
+
         return Task.FromResult(entity);
     }
 

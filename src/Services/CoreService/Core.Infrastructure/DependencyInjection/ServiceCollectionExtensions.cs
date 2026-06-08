@@ -9,7 +9,9 @@ using Core.Application.Identity.Common.Options;
 using Core.Application.Mappers;
 using Core.Application.Notifications.Sms;
 using Core.Infrastructure.Identity.Persistence;
+using Core.Infrastructure.Dashboard;
 using Core.Infrastructure.Notifications.Sms;
+using Core.Infrastructure.Identity;
 using Core.Infrastructure.Persistence;
 using Core.Infrastructure.Storage;
 
@@ -40,9 +42,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGuaranteeRenewalCaseRepository, GuaranteeRenewalCaseRepository>();
         services.AddScoped<ILoanCaseRepository, LoanCaseRepository>();
         services.AddScoped<ICoreUnitOfWork, CoreUnitOfWork>();
+        services.AddScoped<ICompanyDtoMapper, CompanyDtoMapper>();
         services.AddScoped<ICaseDtoMapper, CaseDtoMapper>();
         services.AddScoped<IGuaranteeCaseDtoMapper, GuaranteeCaseDtoMapper>();
         services.AddScoped<ILoanCaseDtoMapper, LoanCaseDtoMapper>();
+        services.AddScoped<IFundCreditLimitDtoMapper, FundCreditLimitDtoMapper>();
+        services.AddScoped<IKanbanDtoMapper, KanbanDtoMapper>();
+        services.AddScoped<IUserDisplayLookup, UserDisplayLookup>();
 
         services.AddSingleton<ILiaraObjectStorage, LiaraObjectStorage>();
         services.AddScoped<IDocumentStorage, LiaraDocumentStorage>();
@@ -64,7 +70,13 @@ public static class ServiceCollectionExtensions
 
         services.AddHostedService<LoanInstallmentReminderBackgroundService>();
 
+        services.AddScoped<IDashboardStatsRepository, DashboardStatsRepository>();
+        services.AddScoped<IDashboardAggregationService, DashboardAggregationService>();
+        services.AddScoped<IDashboardAnalyticsService, DashboardAnalyticsService>();
         services.AddScoped<IExecutiveDashboardService, ExecutiveDashboardService>();
+
+        if (configuration.GetValue("Dashboard:AggregationEnabled", true))
+            services.AddHostedService<DashboardAggregationBackgroundService>();
 
         return services;
     }

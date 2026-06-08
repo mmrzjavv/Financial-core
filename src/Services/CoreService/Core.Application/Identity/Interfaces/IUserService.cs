@@ -12,13 +12,15 @@ public interface IUserService
     Task<ApiOperationResult<UserDto>> RevokeSessionAsync(RevokeSessionDto dto, CancellationToken cancellationToken = default);
     Task<ApiOperationResult<UserDto>> RevokeAllSessionsAsync(CancellationToken cancellationToken = default);
     Task<ApiOperationResult<SessionDto>> GetActiveSessionsAsync(CancellationToken cancellationToken = default);
+    Task<ApiOperationResult<OnlineUserDto>> GetOnlineUsersAsync(CancellationToken cancellationToken = default);
     Task<ApiOperationResult<SessionDto>> GetUserActiveSessionsAsAdminAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<ApiOperationResult<UserDto>> AdminRevokeAllSessionsAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<ApiOperationResult<UserDto>> AdminRevokeSessionAsync(Guid userId, RevokeSessionDto dto, CancellationToken cancellationToken = default);
+    Task<ApiOperationResult<UserDto>> KickUserAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<ApiOperationResult<UserDto>> GetByIdAsync(Guid id);
     Task<ApiOperationResult<UserDto>> GetPagedAsync(int take, int skip);
     Task<ApiOperationResult<UserDto>> CreateAsync(CreateUserDto dto);
     Task<ApiOperationResult<UserDto>> UpdateAsync(Guid id, UpdateUserDto dto, CancellationToken cancellationToken = default);
-    Task<ApiOperationResult<UserDto>> DeleteAsync(Guid id);
+    Task<ApiOperationResult<UserDto>> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ApiOperationResult<UserDto>> GetProfileAsync(CancellationToken cancellationToken = default);
 }

@@ -7,6 +7,7 @@ public static class Permissions
     public const string Users_Read = "users:read";
     public const string Users_Write = "users:write";
     public const string Users_Delete = "users:delete";
+    public const string Users_ViewOnline = "users:view_online";
     public const string Users_ManageRoles = "users:manage_roles";
 
     public const string Companies_Read = "companies:read";
@@ -46,6 +47,7 @@ public static class RolePermissions
         Permissions.Users_Read,
         Permissions.Users_Write,
         Permissions.Users_Delete,
+        Permissions.Users_ViewOnline,
         Permissions.Users_ManageRoles,
         Permissions.Companies_Read,
         Permissions.Companies_Write,
@@ -146,8 +148,11 @@ public static class RolePermissions
             [UserRoleClaims.Ceo] =
             [
                 Permissions.Users_Read,
+                Permissions.Users_Delete,
+                Permissions.Users_ViewOnline,
                 Permissions.Companies_Read,
                 Permissions.Sessions_Read,
+                Permissions.Sessions_Revoke,
                 Permissions.InvestmentCases_Read,
                 Permissions.InvestmentCases_CeoApprove,
                 Permissions.GuaranteeCases_Read,
