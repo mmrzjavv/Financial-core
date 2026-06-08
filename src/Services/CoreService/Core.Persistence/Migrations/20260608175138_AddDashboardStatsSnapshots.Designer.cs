@@ -3,6 +3,7 @@ using System;
 using Core.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Core.Persistence.Migrations
 {
     [DbContext(typeof(CoreDbContext))]
-    partial class CoreDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260608175138_AddDashboardStatsSnapshots")]
+    partial class AddDashboardStatsSnapshots
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -22,7 +25,375 @@ namespace Core.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Core.Domain.Entities.Analytics.DashboardStatsSnapshot", b =>
+            modelBuilder.Entity("Core.Domain.Entities.CaseComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<bool>("IsInternal")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsRevisionRequest")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Phase")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SenderRole")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("SenderUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentId");
+
+                    b.HasIndex("CaseId", "Phase", "CreatedAt");
+
+                    b.ToTable("case_comments", "Investment");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.CaseCommentAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CaseCommentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CommentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("S3Key")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaseCommentId");
+
+                    b.HasIndex("CommentId");
+
+                    b.ToTable("case_comment_attachments", "Investment");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.CaseDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DocumentType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("MimeType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("S3Key")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UploadedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("S3Key")
+                        .IsUnique();
+
+                    b.HasIndex("CaseId", "DocumentType", "Version");
+
+                    b.ToTable("case_documents", "Investment");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.CaseEvaluation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<int>("Phase")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReviewerRole")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ReviewerUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaseId", "Phase", "ReviewerUserId");
+
+                    b.ToTable("case_evaluations", "Investment");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.CaseEvaluationItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("EvaluationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsApproved")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EvaluationId", "Title")
+                        .IsUnique();
+
+                    b.ToTable("case_evaluation_items", "Investment");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.CaseRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<int>("Phase")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReviewResult")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReviewedByUserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("RevisionNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SubmittedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaseId", "SubmittedAt");
+
+                    b.HasIndex("CaseId", "Phase", "RevisionNumber")
+                        .IsUnique();
+
+                    b.ToTable("case_revisions", "Investment");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.CaseValuation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaseId", "Type", "CreatedAt");
+
+                    b.ToTable("case_valuations", "Investment");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.CaseWorkflowHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ActorRole")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChangedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<int>("FromPhase")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FromStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ToPhase")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ToStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CaseId", "CreatedAt");
+
+                    b.ToTable("case_workflow_history", "Investment");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.DashboardStatsSnapshot", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -57,43 +428,55 @@ namespace Core.Persistence.Migrations
                     b.ToTable("dashboard_stats_snapshots", "Analytics");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Fund.FundCreditLimit", b =>
+            modelBuilder.Entity("Core.Domain.Entities.FinancialWorksheet", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("CreditLimitWithCheck")
+                    b.Property<decimal>("ApprovedAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
-                    b.Property<DateOnly>("ExpiresAt")
-                        .HasColumnType("date");
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
-                    b.Property<string>("LastSetByUserId")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
 
-                    b.Property<int>("ModuleType")
-                        .HasColumnType("integer");
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
 
-                    b.Property<DateOnly>("PeriodStart")
-                        .HasColumnType("date");
+                    b.Property<string>("Iban")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("PaymentSchedule")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ModuleType", "PeriodStart", "ExpiresAt");
+                    b.HasIndex("CaseId")
+                        .IsUnique();
 
-                    b.ToTable("fund_credit_limits", "Fund");
+                    b.ToTable("financial_worksheets", "Investment");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeApplicantCreditProfile", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeApplicantCreditProfile", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -136,7 +519,7 @@ namespace Core.Persistence.Migrations
                     b.ToTable("guarantee_applicant_credit_profiles", "Guarantee");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeApprovalForm", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeApprovalForm", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -233,7 +616,7 @@ namespace Core.Persistence.Migrations
                     b.ToTable("guarantee_approval_forms", "Guarantee");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCase", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCase", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -297,18 +680,10 @@ namespace Core.Persistence.Migrations
 
                     b.HasIndex("CurrentStatus");
 
-                    b.HasIndex("ApplicantUserId", "CreatedAt");
-
-                    b.HasIndex("CompanyId", "CreatedAt");
-
-                    b.HasIndex("CurrentPhase", "CreatedAt");
-
-                    b.HasIndex("CurrentStatus", "CreatedAt");
-
                     b.ToTable("guarantee_cases", "Guarantee");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCaseApplication", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCaseApplication", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -399,19 +774,13 @@ namespace Core.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BeneficiaryNationalId");
-
                     b.HasIndex("CaseId")
                         .IsUnique();
-
-                    b.HasIndex("GuaranteeType");
-
-                    b.HasIndex("RequestedGuaranteeAmount");
 
                     b.ToTable("guarantee_case_applications", "Guarantee");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCaseComment", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCaseComment", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -461,7 +830,7 @@ namespace Core.Persistence.Migrations
                     b.ToTable("guarantee_case_comments", "Guarantee");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCaseDocument", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCaseDocument", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -525,7 +894,7 @@ namespace Core.Persistence.Migrations
                     b.ToTable("guarantee_case_documents", "Guarantee");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCaseWorkflowHistory", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCaseWorkflowHistory", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -583,7 +952,40 @@ namespace Core.Persistence.Migrations
                     b.ToTable("guarantee_case_workflow_history", "Guarantee");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeRenewalCase", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeFundCreditLimit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<decimal>("CreditLimitWithCheck")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateOnly>("ExpiresAt")
+                        .HasColumnType("date");
+
+                    b.Property<string>("LastSetByUserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("guarantee_fund_credit_limit", "Guarantee");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeRenewalCase", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -651,7 +1053,7 @@ namespace Core.Persistence.Migrations
                     b.ToTable("guarantee_renewal_cases", "Guarantee");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCase", b =>
+            modelBuilder.Entity("Core.Domain.Entities.InvestmentCase", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -715,20 +1117,10 @@ namespace Core.Persistence.Migrations
 
                     b.HasIndex("CurrentStatus");
 
-                    b.HasIndex("ApplicantType", "CreatedAt");
-
-                    b.HasIndex("ApplicantUserId", "CreatedAt");
-
-                    b.HasIndex("CompanyId", "CreatedAt");
-
-                    b.HasIndex("CurrentPhase", "CreatedAt");
-
-                    b.HasIndex("CurrentStatus", "CreatedAt");
-
                     b.ToTable("investment_cases", "Investment");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseApplicantProfile", b =>
+            modelBuilder.Entity("Core.Domain.Entities.InvestmentCaseDataEntry1", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -764,19 +1156,13 @@ namespace Core.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BusinessStage");
-
                     b.HasIndex("CaseId")
                         .IsUnique();
-
-                    b.HasIndex("ContactEmail");
-
-                    b.HasIndex("RequestedAmount");
 
                     b.ToTable("case_data_entry_1", "Investment");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseAttractionBasis", b =>
+            modelBuilder.Entity("Core.Domain.Entities.InvestmentCaseDataEntry2", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -806,483 +1192,7 @@ namespace Core.Persistence.Migrations
                     b.ToTable("case_data_entry_2", "Investment");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseComment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CaseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("timezone('utc', now())");
-
-                    b.Property<bool>("IsInternal")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsRevisionRequest")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)");
-
-                    b.Property<Guid?>("ParentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Phase")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("SenderRole")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("SenderUserId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParentId");
-
-                    b.HasIndex("CaseId", "Phase", "CreatedAt");
-
-                    b.ToTable("case_comments", "Investment");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseCommentAttachment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CommentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid?>("InvestmentCaseCommentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("S3Key")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CommentId");
-
-                    b.HasIndex("InvestmentCaseCommentId");
-
-                    b.ToTable("case_comment_attachments", "Investment");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseDocument", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CaseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("timezone('utc', now())");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("DocumentType")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<string>("MimeType")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("S3Key")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("UploadedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UploadedByUserId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<int>("Version")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("S3Key")
-                        .IsUnique();
-
-                    b.HasIndex("CaseId", "DocumentType", "Version");
-
-                    b.ToTable("case_documents", "Investment");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseEvaluation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CaseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("timezone('utc', now())");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)");
-
-                    b.Property<int>("Phase")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("ReviewerRole")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("ReviewerUserId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CaseId", "Phase", "ReviewerUserId");
-
-                    b.ToTable("case_evaluations", "Investment");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseEvaluationItem", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Comment")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<Guid>("EvaluationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsApproved")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EvaluationId", "Title")
-                        .IsUnique();
-
-                    b.ToTable("case_evaluation_items", "Investment");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseFinancialWorksheet", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("ApprovedAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<string>("BankName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<Guid>("CaseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("timezone('utc', now())");
-
-                    b.Property<string>("Iban")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<string>("PaymentSchedule")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApprovedAmount");
-
-                    b.HasIndex("CaseId")
-                        .IsUnique();
-
-                    b.ToTable("financial_worksheets", "Investment");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCasePayment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<Guid>("CaseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("timezone('utc', now())");
-
-                    b.Property<string>("CreatedByUserId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<int>("Method")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<DateOnly>("PaymentDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("ReceiptS3Key")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("TransactionNumber")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TransactionNumber")
-                        .IsUnique();
-
-                    b.HasIndex("CaseId", "PaymentDate");
-
-                    b.ToTable("payment_records", "Investment");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseRevision", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CaseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("timezone('utc', now())");
-
-                    b.Property<int>("Phase")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ReviewResult")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset?>("ReviewedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ReviewedByUserId")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<int>("RevisionNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("SubmittedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SubmittedByUserId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CaseId", "SubmittedAt");
-
-                    b.HasIndex("CaseId", "Phase", "RevisionNumber")
-                        .IsUnique();
-
-                    b.ToTable("case_revisions", "Investment");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseValuation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<Guid>("CaseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("timezone('utc', now())");
-
-                    b.Property<string>("CreatedByUserId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Notes")
-                        .IsRequired()
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CaseId", "Type", "CreatedAt");
-
-                    b.ToTable("case_valuations", "Investment");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseWorkflowHistory", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("ActorRole")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<Guid>("CaseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ChangedByUserId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Comment")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<Guid>("CorrelationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("timezone('utc', now())");
-
-                    b.Property<int>("FromPhase")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("FromStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ToPhase")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ToStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CaseId", "CreatedAt");
-
-                    b.ToTable("case_workflow_history", "Investment");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanApprovalDetail", b =>
+            modelBuilder.Entity("Core.Domain.Entities.LoanApprovalDetail", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1377,21 +1287,13 @@ namespace Core.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ApprovedAmount");
-
                     b.HasIndex("CaseId")
                         .IsUnique();
-
-                    b.HasIndex("FacilityType");
-
-                    b.HasIndex("IsCreditLineActive");
-
-                    b.HasIndex("RepaymentMonths");
 
                     b.ToTable("loan_approval_details", "Loan");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCase", b =>
+            modelBuilder.Entity("Core.Domain.Entities.LoanCase", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1455,20 +1357,10 @@ namespace Core.Persistence.Migrations
 
                     b.HasIndex("CurrentStatus");
 
-                    b.HasIndex("ApplicantType", "CreatedAt");
-
-                    b.HasIndex("ApplicantUserId", "CreatedAt");
-
-                    b.HasIndex("CompanyId", "CreatedAt");
-
-                    b.HasIndex("CurrentPhase", "CreatedAt");
-
-                    b.HasIndex("CurrentStatus", "CreatedAt");
-
                     b.ToTable("loan_cases", "Loan");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCaseApplication", b =>
+            modelBuilder.Entity("Core.Domain.Entities.LoanCaseApplication", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1514,17 +1406,13 @@ namespace Core.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ApplicantCategory");
-
                     b.HasIndex("CaseId")
                         .IsUnique();
-
-                    b.HasIndex("RequestedAmount");
 
                     b.ToTable("loan_case_applications", "Loan");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCaseComment", b =>
+            modelBuilder.Entity("Core.Domain.Entities.LoanCaseComment", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1574,7 +1462,7 @@ namespace Core.Persistence.Migrations
                     b.ToTable("loan_case_comments", "Loan");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCaseDocument", b =>
+            modelBuilder.Entity("Core.Domain.Entities.LoanCaseDocument", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1638,7 +1526,7 @@ namespace Core.Persistence.Migrations
                     b.ToTable("loan_case_documents", "Loan");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCaseWorkflowHistory", b =>
+            modelBuilder.Entity("Core.Domain.Entities.LoanCaseWorkflowHistory", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1698,7 +1586,7 @@ namespace Core.Persistence.Migrations
                     b.ToTable("loan_case_workflow_history", "Loan");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanInstallment", b =>
+            modelBuilder.Entity("Core.Domain.Entities.LoanInstallment", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1759,8 +1647,6 @@ namespace Core.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CaseId", "IsPaid");
-
                     b.HasIndex("CaseId", "RowNumber")
                         .IsUnique();
 
@@ -1769,7 +1655,7 @@ namespace Core.Persistence.Migrations
                     b.ToTable("loan_installments", "Loan");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanPayment", b =>
+            modelBuilder.Entity("Core.Domain.Entities.LoanPayment", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1820,6 +1706,64 @@ namespace Core.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("loan_payments", "Loan");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.PaymentRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("timezone('utc', now())");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateOnly>("PaymentDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ReceiptS3Key")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TransactionNumber")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TransactionNumber")
+                        .IsUnique();
+
+                    b.HasIndex("CaseId", "PaymentDate");
+
+                    b.ToTable("payment_records", "Investment");
                 });
 
             modelBuilder.Entity("Core.Domain.Identity.Entities.Company", b =>
@@ -2081,123 +2025,15 @@ namespace Core.Persistence.Migrations
                     b.ToTable("UserSessions", "Identity");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeApprovalForm", b =>
+            modelBuilder.Entity("Core.Domain.Entities.CaseComment", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Guarantee.GuaranteeCase", "Case")
-                        .WithOne("ApprovalForm")
-                        .HasForeignKey("Core.Domain.Entities.Guarantee.GuaranteeApprovalForm", "CaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Case");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCase", b =>
-                {
-                    b.HasOne("Core.Domain.Identity.Entities.Company", "ApplicantCompany")
-                        .WithMany()
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("ApplicantCompany");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCaseApplication", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.Guarantee.GuaranteeCase", "Case")
-                        .WithOne("Application")
-                        .HasForeignKey("Core.Domain.Entities.Guarantee.GuaranteeCaseApplication", "CaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Case");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCaseComment", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.Guarantee.GuaranteeCase", "Case")
+                    b.HasOne("Core.Domain.Entities.InvestmentCase", "Case")
                         .WithMany("Comments")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Case");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCaseDocument", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.Guarantee.GuaranteeCase", "Case")
-                        .WithMany("Documents")
-                        .HasForeignKey("CaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Case");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCaseWorkflowHistory", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.Guarantee.GuaranteeCase", "Case")
-                        .WithMany("WorkflowHistory")
-                        .HasForeignKey("CaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Case");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeRenewalCase", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.Guarantee.GuaranteeCase", "ParentGuaranteeCase")
-                        .WithMany()
-                        .HasForeignKey("ParentGuaranteeCaseId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("ParentGuaranteeCase");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCase", b =>
-                {
-                    b.HasOne("Core.Domain.Identity.Entities.Company", "ApplicantCompany")
-                        .WithMany()
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("ApplicantCompany");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseApplicantProfile", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCase", "Case")
-                        .WithOne("ApplicantProfile")
-                        .HasForeignKey("Core.Domain.Entities.Investment.InvestmentCaseApplicantProfile", "CaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Case");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseAttractionBasis", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCase", "Case")
-                        .WithOne("AttractionBasis")
-                        .HasForeignKey("Core.Domain.Entities.Investment.InvestmentCaseAttractionBasis", "CaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Case");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseComment", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCase", "Case")
-                        .WithMany("Comments")
-                        .HasForeignKey("CaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCaseComment", "Parent")
+                    b.HasOne("Core.Domain.Entities.CaseComment", "Parent")
                         .WithMany("Replies")
                         .HasForeignKey("ParentId");
 
@@ -2206,16 +2042,16 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Parent");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseCommentAttachment", b =>
+            modelBuilder.Entity("Core.Domain.Entities.CaseCommentAttachment", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCaseComment", null)
+                    b.HasOne("Core.Domain.Entities.CaseComment", null)
                         .WithMany("Attachments")
-                        .HasForeignKey("InvestmentCaseCommentId");
+                        .HasForeignKey("CaseCommentId");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseDocument", b =>
+            modelBuilder.Entity("Core.Domain.Entities.CaseDocument", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCase", "Case")
+                    b.HasOne("Core.Domain.Entities.InvestmentCase", "Case")
                         .WithMany("Documents")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2224,9 +2060,9 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseEvaluation", b =>
+            modelBuilder.Entity("Core.Domain.Entities.CaseEvaluation", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCase", "Case")
+                    b.HasOne("Core.Domain.Entities.InvestmentCase", "Case")
                         .WithMany("Evaluations")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2235,9 +2071,9 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseEvaluationItem", b =>
+            modelBuilder.Entity("Core.Domain.Entities.CaseEvaluationItem", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCaseEvaluation", "Evaluation")
+                    b.HasOne("Core.Domain.Entities.CaseEvaluation", "Evaluation")
                         .WithMany("Items")
                         .HasForeignKey("EvaluationId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2246,31 +2082,9 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Evaluation");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseFinancialWorksheet", b =>
+            modelBuilder.Entity("Core.Domain.Entities.CaseRevision", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCase", "Case")
-                        .WithOne("FinancialWorksheet")
-                        .HasForeignKey("Core.Domain.Entities.Investment.InvestmentCaseFinancialWorksheet", "CaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Case");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCasePayment", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCase", "Case")
-                        .WithMany("Payments")
-                        .HasForeignKey("CaseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Case");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseRevision", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCase", "Case")
+                    b.HasOne("Core.Domain.Entities.InvestmentCase", "Case")
                         .WithMany("Revisions")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2279,9 +2093,9 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseValuation", b =>
+            modelBuilder.Entity("Core.Domain.Entities.CaseValuation", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCase", "Case")
+                    b.HasOne("Core.Domain.Entities.InvestmentCase", "Case")
                         .WithMany("Valuations")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2290,9 +2104,9 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseWorkflowHistory", b =>
+            modelBuilder.Entity("Core.Domain.Entities.CaseWorkflowHistory", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Investment.InvestmentCase", "Case")
+                    b.HasOne("Core.Domain.Entities.InvestmentCase", "Case")
                         .WithMany("WorkflowHistory")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2301,18 +2115,29 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanApprovalDetail", b =>
+            modelBuilder.Entity("Core.Domain.Entities.FinancialWorksheet", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Loan.LoanCase", "Case")
-                        .WithOne("ApprovalDetail")
-                        .HasForeignKey("Core.Domain.Entities.Loan.LoanApprovalDetail", "CaseId")
+                    b.HasOne("Core.Domain.Entities.InvestmentCase", "Case")
+                        .WithOne("FinancialWorksheet")
+                        .HasForeignKey("Core.Domain.Entities.FinancialWorksheet", "CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCase", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeApprovalForm", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.GuaranteeCase", "Case")
+                        .WithOne("ApprovalForm")
+                        .HasForeignKey("Core.Domain.Entities.GuaranteeApprovalForm", "CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Case");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCase", b =>
                 {
                     b.HasOne("Core.Domain.Identity.Entities.Company", "ApplicantCompany")
                         .WithMany()
@@ -2322,20 +2147,20 @@ namespace Core.Persistence.Migrations
                     b.Navigation("ApplicantCompany");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCaseApplication", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCaseApplication", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Loan.LoanCase", "Case")
+                    b.HasOne("Core.Domain.Entities.GuaranteeCase", "Case")
                         .WithOne("Application")
-                        .HasForeignKey("Core.Domain.Entities.Loan.LoanCaseApplication", "CaseId")
+                        .HasForeignKey("Core.Domain.Entities.GuaranteeCaseApplication", "CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCaseComment", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCaseComment", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Loan.LoanCase", "Case")
+                    b.HasOne("Core.Domain.Entities.GuaranteeCase", "Case")
                         .WithMany("Comments")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2344,9 +2169,9 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCaseDocument", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCaseDocument", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Loan.LoanCase", "Case")
+                    b.HasOne("Core.Domain.Entities.GuaranteeCase", "Case")
                         .WithMany("Documents")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2355,9 +2180,9 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCaseWorkflowHistory", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCaseWorkflowHistory", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Loan.LoanCase", "Case")
+                    b.HasOne("Core.Domain.Entities.GuaranteeCase", "Case")
                         .WithMany("WorkflowHistory")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2366,9 +2191,117 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanInstallment", b =>
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeRenewalCase", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Loan.LoanCase", "Case")
+                    b.HasOne("Core.Domain.Entities.GuaranteeCase", "ParentGuaranteeCase")
+                        .WithMany()
+                        .HasForeignKey("ParentGuaranteeCaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ParentGuaranteeCase");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.InvestmentCase", b =>
+                {
+                    b.HasOne("Core.Domain.Identity.Entities.Company", "ApplicantCompany")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApplicantCompany");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.InvestmentCaseDataEntry1", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.InvestmentCase", "Case")
+                        .WithOne("DataEntry1")
+                        .HasForeignKey("Core.Domain.Entities.InvestmentCaseDataEntry1", "CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Case");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.InvestmentCaseDataEntry2", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.InvestmentCase", "Case")
+                        .WithOne("DataEntry2")
+                        .HasForeignKey("Core.Domain.Entities.InvestmentCaseDataEntry2", "CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Case");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.LoanApprovalDetail", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.LoanCase", "Case")
+                        .WithOne("ApprovalDetail")
+                        .HasForeignKey("Core.Domain.Entities.LoanApprovalDetail", "CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Case");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.LoanCase", b =>
+                {
+                    b.HasOne("Core.Domain.Identity.Entities.Company", "ApplicantCompany")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApplicantCompany");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.LoanCaseApplication", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.LoanCase", "Case")
+                        .WithOne("Application")
+                        .HasForeignKey("Core.Domain.Entities.LoanCaseApplication", "CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Case");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.LoanCaseComment", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.LoanCase", "Case")
+                        .WithMany("Comments")
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Case");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.LoanCaseDocument", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.LoanCase", "Case")
+                        .WithMany("Documents")
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Case");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.LoanCaseWorkflowHistory", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.LoanCase", "Case")
+                        .WithMany("WorkflowHistory")
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Case");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.LoanInstallment", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.LoanCase", "Case")
                         .WithMany("Installments")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2377,9 +2310,20 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Case");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanPayment", b =>
+            modelBuilder.Entity("Core.Domain.Entities.LoanPayment", b =>
                 {
-                    b.HasOne("Core.Domain.Entities.Loan.LoanCase", "Case")
+                    b.HasOne("Core.Domain.Entities.LoanCase", "Case")
+                        .WithMany("Payments")
+                        .HasForeignKey("CaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Case");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.PaymentRecord", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.InvestmentCase", "Case")
                         .WithMany("Payments")
                         .HasForeignKey("CaseId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2408,7 +2352,19 @@ namespace Core.Persistence.Migrations
                     b.Navigation("Company");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Guarantee.GuaranteeCase", b =>
+            modelBuilder.Entity("Core.Domain.Entities.CaseComment", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Replies");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.CaseEvaluation", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.GuaranteeCase", b =>
                 {
                     b.Navigation("Application");
 
@@ -2421,13 +2377,13 @@ namespace Core.Persistence.Migrations
                     b.Navigation("WorkflowHistory");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCase", b =>
+            modelBuilder.Entity("Core.Domain.Entities.InvestmentCase", b =>
                 {
-                    b.Navigation("ApplicantProfile");
-
-                    b.Navigation("AttractionBasis");
-
                     b.Navigation("Comments");
+
+                    b.Navigation("DataEntry1");
+
+                    b.Navigation("DataEntry2");
 
                     b.Navigation("Documents");
 
@@ -2444,19 +2400,7 @@ namespace Core.Persistence.Migrations
                     b.Navigation("WorkflowHistory");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseComment", b =>
-                {
-                    b.Navigation("Attachments");
-
-                    b.Navigation("Replies");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Investment.InvestmentCaseEvaluation", b =>
-                {
-                    b.Navigation("Items");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Loan.LoanCase", b =>
+            modelBuilder.Entity("Core.Domain.Entities.LoanCase", b =>
                 {
                     b.Navigation("Application");
 

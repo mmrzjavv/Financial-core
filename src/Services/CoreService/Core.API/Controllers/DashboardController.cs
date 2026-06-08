@@ -6,16 +6,51 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Core.API.Controllers;
 
-/// <summary>Executive dashboards for fund leadership (CEO and board).</summary>
+/// <summary>Role-based analytics dashboards backed by pre-aggregated cache snapshots.</summary>
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/dashboard")]
-public sealed class DashboardController(IExecutiveDashboardService dashboardService) : ApiControllerBase
+public sealed class DashboardController(
+    IExecutiveDashboardService executiveDashboardService,
+    IDashboardAnalyticsService analyticsService,
+    IDashboardAggregationService aggregationService) : ApiControllerBase
 {
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<IActionResult> GetMyDashboard(CancellationToken ct)
+    {
+        var result = await analyticsService.GetMyDashboardAsync(ct);
+        return Respond(result, "Dashboard loaded.");
+    }
+
+    [HttpGet("executive")]
+    [Authorize(Policy = "Dashboard.Executive")]
+    public async Task<IActionResult> GetExecutiveDashboard(CancellationToken ct)
+    {
+        var result = await analyticsService.GetMyDashboardAsync(ct);
+        return Respond(result, "Executive dashboard loaded.");
+    }
+
+    [HttpGet("department")]
+    [Authorize(Policy = "Dashboard.Department")]
+    public async Task<IActionResult> GetDepartmentDashboard(CancellationToken ct)
+    {
+        var result = await analyticsService.GetDepartmentDashboardAsync(ct);
+        return Respond(result, "Department dashboard loaded.");
+    }
+
+    [HttpGet("applicant")]
+    [Authorize(Policy = "Dashboard.Applicant")]
+    public async Task<IActionResult> GetApplicantDashboard(CancellationToken ct)
+    {
+        var result = await analyticsService.GetApplicantDashboardAsync(ct);
+        return Respond(result, "Applicant dashboard loaded.");
+    }
+
     [HttpGet("ceo")]
     [Authorize(Policy = "Dashboard.Ceo")]
     public async Task<IActionResult> GetCeoDashboard(CancellationToken ct)
     {
-        var result = await dashboardService.GetCeoDashboardAsync(ct);
+        var result = await executiveDashboardService.GetCeoDashboardAsync(ct);
         return Respond(result, "CEO dashboard loaded.");
     }
 
@@ -23,7 +58,15 @@ public sealed class DashboardController(IExecutiveDashboardService dashboardServ
     [Authorize(Policy = "Dashboard.Board")]
     public async Task<IActionResult> GetBoardDashboard(CancellationToken ct)
     {
-        var result = await dashboardService.GetBoardDashboardAsync(ct);
+        var result = await executiveDashboardService.GetBoardDashboardAsync(ct);
         return Respond(result, "Board dashboard loaded.");
+    }
+
+    [HttpPost("refresh")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> RefreshDashboardCache(CancellationToken ct)
+    {
+        await aggregationService.AggregateAllAsync(ct);
+        return Respond(BuildingBlocks.Application.Results.Result.Ok(), "Dashboard cache refreshed.");
     }
 }
