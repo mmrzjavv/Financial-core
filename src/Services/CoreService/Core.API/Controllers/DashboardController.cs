@@ -32,9 +32,9 @@ public sealed class DashboardController(
 
     [HttpGet("department")]
     [Authorize(Policy = "Dashboard.Department")]
-    public async Task<IActionResult> GetDepartmentDashboard(CancellationToken ct)
+    public async Task<IActionResult> GetDepartmentDashboard([FromQuery] string? departmentKey, CancellationToken ct)
     {
-        var result = await analyticsService.GetDepartmentDashboardAsync(ct);
+        var result = await analyticsService.GetDepartmentDashboardAsync(departmentKey, ct);
         return Respond(result, "Department dashboard loaded.");
     }
 
@@ -60,6 +60,14 @@ public sealed class DashboardController(
     {
         var result = await executiveDashboardService.GetBoardDashboardAsync(ct);
         return Respond(result, "Board dashboard loaded.");
+    }
+
+    [HttpGet("admin-overview")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> GetAdminOverview(CancellationToken ct)
+    {
+        var result = await analyticsService.GetAdminOverviewAsync(ct);
+        return Respond(result, "Admin dashboard overview loaded.");
     }
 
     [HttpPost("refresh")]

@@ -12,10 +12,9 @@ namespace Core.Application.Dashboard;
 public sealed class DashboardAggregationService(
     ICoreDbContext dbContext,
     IDashboardStatsRepository statsRepository,
+    DashboardModuleAggregators moduleAggregators,
     ILogger<DashboardAggregationService> logger) : IDashboardAggregationService
 {
-    private sealed record CaseStatusProjection(int Status);
-
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private static readonly int[] InvestmentTerminal =
@@ -52,158 +51,108 @@ public sealed class DashboardAggregationService(
     private async Task UpsertExecutiveAsync(DateTimeOffset computedAt, CancellationToken ct)
     {
         var monthStart = new DateTimeOffset(computedAt.Year, computedAt.Month, 1, 0, 0, 0, TimeSpan.Zero);
-        var sixMonthsAgo = computedAt.AddMonths(-6);
-        var onlineThreshold = computedAt.AddMinutes(-30);
-        var dayStart = computedAt.UtcDateTime.Date;
+        var modules = await moduleAggregators.AggregateAllModulesAsync(computedAt, queueDepartmentKey: null, ct);
+        var systemHealth = await moduleAggregators.AggregateSystemHealthAsync(computedAt, ct);
+        var bottlenecks = await BuildDepartmentBottlenecksAsync(ct);
 
-        // #region agent log
-        try
-        {
-            var logLine = JsonSerializer.Serialize(new
-            {
-                sessionId = "757b3c",
-                runId = "pre-fix",
-                hypothesisId = "A",
-                location = "DashboardAggregationService.cs:UpsertExecutiveAsync",
-                message = "UserSessions query DateTime parameter kinds",
-                data = new
-                {
-                    dayStartKind = dayStart.Kind.ToString(),
-                    onlineThresholdKind = onlineThreshold.UtcDateTime.Kind.ToString(),
-                    computedAtDateKind = computedAt.Date.Kind.ToString()
-                },
-                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            }) + "\n";
-            await File.AppendAllTextAsync(@"D:\work\Maskan\Panel\Financial-Core\debug-757b3c.log", logLine, ct);
-        }
-        catch { /* ignore debug log failures */ }
-        // #endregion
+        var investment = modules.First(m => m.Module == "Investment");
+        var guarantee = modules.First(m => m.Module == "Guarantee");
+        var loan = modules.First(m => m.Module == "Loan");
 
-        var investmentCases = await dbContext.InvestmentCases.AsNoTracking()
-            .Where(c => !c.IsDeleted)
-            .Select(c => new InvestmentCaseProjection(
-                c.Id, c.CaseNumber, (int)c.CurrentStatus, (int)c.CurrentPhase, c.CreatedAt, c.UpdatedAt))
-            .ToListAsync(ct);
-
-        var guaranteeCases = await dbContext.GuaranteeCases.AsNoTracking()
-            .Where(c => !c.IsDeleted)
-            .Select(c => new CaseStatusProjection((int)c.CurrentStatus))
-            .ToListAsync(ct);
-
-        var loanCases = await dbContext.LoanCases.AsNoTracking()
-            .Where(c => !c.IsDeleted)
-            .Select(c => new CaseStatusProjection((int)c.CurrentStatus))
-            .ToListAsync(ct);
-
-        var activeInvestmentVolume = await dbContext.InvestmentCaseApplicantProfiles.AsNoTracking()
-            .Where(d => !d.Case.IsDeleted && !InvestmentTerminal.Contains((int)d.Case.CurrentStatus))
-            .SumAsync(d => (decimal?)d.RequestedAmount, ct) ?? 0m;
-
-        var activeGuaranteeVolume = await dbContext.GuaranteeCaseApplications.AsNoTracking()
-            .Where(a => !a.Case.IsDeleted && !GuaranteeTerminal.Contains((int)a.Case.CurrentStatus))
-            .SumAsync(a => (decimal?)a.RequestedGuaranteeAmount, ct) ?? 0m;
-
-        var activeLoanVolume = await dbContext.LoanCaseApplications.AsNoTracking()
-            .Where(a => !a.Case.IsDeleted && !LoanTerminal.Contains((int)a.Case.CurrentStatus))
-            .SumAsync(a => (decimal?)a.RequestedAmount, ct) ?? 0m;
-
-        var totalRequested = await dbContext.InvestmentCaseApplicantProfiles.AsNoTracking()
-            .Where(d => !d.Case.IsDeleted)
-            .SumAsync(d => (decimal?)d.RequestedAmount, ct) ?? 0m;
-
-        var approvedPayments = await dbContext.PaymentRecords.AsNoTracking()
-            .Where(p => p.Status == PaymentStatus.Completed && !p.Case.IsDeleted)
-            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
-
-        var loanPayments = await dbContext.LoanPayments.AsNoTracking()
-            .Where(p => !p.Case.IsDeleted)
-            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
-
-        var pendingCount = CountPendingCases(investmentCases, guaranteeCases, loanCases);
-        var completedCount = CountCompletedCases(investmentCases, guaranteeCases, loanCases);
-        var canceledCount = CountCanceledCases(investmentCases, guaranteeCases, loanCases);
-        var totalCases = investmentCases.Count + guaranteeCases.Count + loanCases.Count;
-        var activeCount = pendingCount;
+        var pendingCount = investment.ActiveCases + guarantee.ActiveCases + loan.ActiveCases;
+        var completedCount = investment.CompletedCases + guarantee.CompletedCases + loan.CompletedCases;
+        var rejectedCount = investment.RejectedCount + guarantee.RejectedCount + loan.RejectedCount;
+        var cancelledCount = investment.CancelledCount + guarantee.CancelledCount + loan.CancelledCount;
+        var archivedCount = investment.ArchivedCount + guarantee.ArchivedCount + loan.ArchivedCount;
+        var totalCases = investment.TotalCases + guarantee.TotalCases + loan.TotalCases;
         var completionRate = totalCases == 0 ? 0 : Math.Round(completedCount * 100.0 / totalCases, 1);
 
         var statusDistribution = new List<StatusBucketDto>
         {
-            new("Pending", "در جریان", pendingCount),
+            new("InProgress", "در جریان", pendingCount),
             new("Completed", "تکمیل‌شده", completedCount),
-            new("Canceled", "لغو/رد", canceledCount)
+            new("Rejected", "رد شده", rejectedCount),
+            new("Cancelled", "لغو شده", cancelledCount),
+            new("Archived", "بایگانی", archivedCount)
         };
 
-        var monthlyFinancial = await BuildMonthlyFinancialOutputAsync(sixMonthsAgo, ct);
-
-        var onlineUsers = await dbContext.UserSessions.AsNoTracking()
-            .CountAsync(s => s.RevokedAt == null && s.LastActivityAt >= onlineThreshold.UtcDateTime, ct);
-
-        var dailyActiveUsers = await dbContext.UserSessions.AsNoTracking()
-            .Where(s => s.LastActivityAt >= dayStart)
-            .Select(s => s.UserId)
-            .Distinct()
-            .CountAsync(ct);
-
-        var bottlenecks = await BuildDepartmentBottlenecksAsync(ct);
-
-        var pipelineByStatus = investmentCases
-            .GroupBy(c => c.Status)
-            .Select(g => new StatusCountDto(g.Key, CaseKanbanRules.GetStatusTitle((CaseStatus)g.Key), g.Count()))
-            .OrderByDescending(x => x.Count)
-            .ToList();
-
-        var countsByPhase = investmentCases
-            .GroupBy(c => c.Phase)
-            .Select(g => new StatusCountDto(g.Key, CaseKanbanRules.GetPhaseTitle((CasePhase)g.Key), g.Count()))
-            .OrderByDescending(x => x.Count)
-            .ToList();
-
-        var monthlyTrend = investmentCases
-            .Where(c => c.CreatedAt >= sixMonthsAgo)
-            .GroupBy(c => new { Year = c.CreatedAt.Year, Month = c.CreatedAt.Month })
-            .Select(g => new MonthlyCountDto(g.Key.Year, g.Key.Month, g.Count()))
+        var monthlyFinancial = modules
+            .SelectMany(m => m.MonthlyFinancialOutput)
+            .GroupBy(x => new { x.Year, x.Month })
+            .Select(g => new MonthlyFinancialOutputDto(
+                g.Key.Year, g.Key.Month, g.Sum(x => x.Amount), g.Sum(x => x.CaseCount)))
             .OrderBy(x => x.Year).ThenBy(x => x.Month)
             .ToList();
 
-        var recentActivity = await dbContext.CaseWorkflowHistories.AsNoTracking()
-            .OrderByDescending(h => h.CreatedAt)
+        var pipelineByStatus = modules
+            .SelectMany(m => m.PipelineByStatus)
+            .GroupBy(x => x.Status)
+            .Select(g => new StatusCountDto(g.Key, g.First().StatusTitle, g.Sum(x => x.Count)))
+            .OrderByDescending(x => x.Count)
+            .ToList();
+
+        var countsByPhase = await moduleAggregators.AggregateCrossModulePhaseCountsAsync(ct);
+
+        var monthlyTrend = modules
+            .SelectMany(m => m.MonthlyTrend)
+            .GroupBy(x => new { x.Year, x.Month })
+            .Select(g => new MonthlyCountDto(g.Key.Year, g.Key.Month, g.Sum(x => x.Count)))
+            .OrderBy(x => x.Year).ThenBy(x => x.Month)
+            .ToList();
+
+        var recentActivity = modules
+            .SelectMany(m => m.RecentActivity)
+            .OrderByDescending(a => a.CreatedAt)
             .Take(15)
-            .Select(h => new RecentActivityDto(
-                h.CaseId, h.Case.CaseNumber, (int)h.FromStatus, (int)h.ToStatus, h.Action, h.CreatedAt))
-            .ToListAsync(ct);
+            .ToList();
 
-        var pendingCeo = investmentCases.Count(c => c.Status == (int)CaseStatus.WaitingCeoApproval)
-            + guaranteeCases.Count(c => c.Status is (int)GuaranteeCaseStatus.CeoApprovalInitial or (int)GuaranteeCaseStatus.CeoApprovalFinal)
-            + loanCases.Count(c => c.Status is (int)LoanCaseStatus.PendingCeoInitialApproval or (int)LoanCaseStatus.PendingCeoFinalApproval);
+        var pendingCeo = investment.PendingCeoApprovals + guarantee.PendingCeoApprovals + loan.PendingCeoApprovals;
+        var waitingPayment = investment.PipelineByStatus
+            .FirstOrDefault(x => x.Status == (int)CaseStatus.WaitingPayment)?.Count ?? 0;
 
-        var waitingPayment = investmentCases.Count(c => c.Status == (int)CaseStatus.WaitingPayment);
-        var rejectedCount = investmentCases.Count(c => c.Status == (int)CaseStatus.Rejected)
-            + guaranteeCases.Count(c => c.Status == (int)GuaranteeCaseStatus.Rejected)
-            + loanCases.Count(c => c.Status == (int)LoanCaseStatus.CanceledByCeo);
+        var casesThisMonth = await dbContext.InvestmentCases.AsNoTracking()
+            .CountAsync(c => !c.IsDeleted && c.CreatedAt >= monthStart, ct);
+        casesThisMonth += await dbContext.GuaranteeCases.AsNoTracking()
+            .CountAsync(c => !c.IsDeleted && c.CreatedAt >= monthStart, ct);
+        casesThisMonth += await dbContext.LoanCases.AsNoTracking()
+            .CountAsync(c => !c.IsDeleted && c.CreatedAt >= monthStart, ct);
 
-        var casesThisMonth = investmentCases.Count(c => c.CreatedAt >= monthStart);
-
-        var avgReviewDays = await ComputeAverageReviewDaysAsync(ct);
-
-        var activePipelineRequested = await dbContext.InvestmentCaseApplicantProfiles.AsNoTracking()
-            .Where(d => !d.Case.IsDeleted && !InvestmentTerminal.Contains((int)d.Case.CurrentStatus))
+        var totalRequested = await dbContext.InvestmentCaseApplicantProfiles.AsNoTracking()
+            .Where(d => !d.Case.IsDeleted)
             .SumAsync(d => (decimal?)d.RequestedAmount, ct) ?? 0m;
+        totalRequested += await dbContext.GuaranteeCaseApplications.AsNoTracking()
+            .Where(a => !a.Case.IsDeleted)
+            .SumAsync(a => (decimal?)a.RequestedGuaranteeAmount, ct) ?? 0m;
+        totalRequested += await dbContext.LoanCaseApplications.AsNoTracking()
+            .Where(a => !a.Case.IsDeleted)
+            .SumAsync(a => (decimal?)a.RequestedAmount, ct) ?? 0m;
+
+        var approvedPayments = await dbContext.PaymentRecords.AsNoTracking()
+            .Where(p => p.Status == PaymentStatus.Completed && !p.Case.IsDeleted)
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+        var loanPayments = await dbContext.LoanPayments.AsNoTracking()
+            .Where(p => !p.Case.IsDeleted)
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+
+        var activePipelineRequested = investment.ActiveVolume + guarantee.ActiveVolume + loan.ActiveVolume;
 
         var payload = new ExecutiveStatsCachePayload
         {
             Data = new ExecutiveDashboardViewDto
             {
-                ActiveGuaranteesVolume = activeGuaranteeVolume,
-                ActiveInvestmentsVolume = activeInvestmentVolume,
-                ActiveLoansVolume = activeLoanVolume,
+                Modules = modules,
+                SystemHealth = systemHealth,
+                ActiveGuaranteesVolume = guarantee.ActiveVolume,
+                ActiveInvestmentsVolume = investment.ActiveVolume,
+                ActiveLoansVolume = loan.ActiveVolume,
                 StatusDistribution = statusDistribution,
                 MonthlyFinancialOutput = monthlyFinancial,
-                OnlineUsersCount = onlineUsers,
-                DailyActiveUsers = dailyActiveUsers,
+                OnlineUsersCount = systemHealth.OnlineUsersCount,
+                DailyActiveUsers = systemHealth.DailyActiveUsers,
                 DepartmentBottlenecks = bottlenecks,
                 PipelineByStatus = pipelineByStatus,
                 RecentActivity = recentActivity,
-                TotalActiveCases = activeCount,
+                TotalActiveCases = pendingCount,
                 CompletedCases = completedCount,
                 PendingCeoApprovals = pendingCeo,
                 WaitingPaymentCount = waitingPayment,
@@ -212,7 +161,7 @@ public sealed class DashboardAggregationService(
                 TotalRequestedAmount = totalRequested,
                 ApprovedPaymentsSum = approvedPayments + loanPayments,
                 CasesThisMonth = casesThisMonth,
-                AverageDaysInReview = avgReviewDays,
+                AverageDaysInReview = investment.AverageDaysInReview,
                 ActivePipelineRequestedAmount = activePipelineRequested,
                 CountsByPhase = countsByPhase,
                 MonthlyTrend = monthlyTrend,
@@ -232,34 +181,14 @@ public sealed class DashboardAggregationService(
 
     private async Task UpsertDepartmentAsync(string departmentKey, DateTimeOffset computedAt, CancellationToken ct)
     {
-        var repRole = DashboardRoleResolver.GetDepartmentRepresentativeRole(departmentKey);
         var title = DashboardRoleResolver.GetDepartmentTitle(departmentKey);
+        var modules = await moduleAggregators.AggregateAllModulesAsync(computedAt, departmentKey, ct);
+        var specificMetrics = await moduleAggregators.AggregateDepartmentSpecificMetricsAsync(departmentKey, computedAt, ct);
 
-        var investmentQueue = await dbContext.InvestmentCases.AsNoTracking()
-            .Where(c => !c.IsDeleted)
-            .Select(c => new { c.CurrentStatus })
-            .ToListAsync(ct);
-
-        var guaranteeQueue = await dbContext.GuaranteeCases.AsNoTracking()
-            .Where(c => !c.IsDeleted)
-            .Select(c => new { c.CurrentStatus })
-            .ToListAsync(ct);
-
-        var loanQueue = await dbContext.LoanCases.AsNoTracking()
-            .Where(c => !c.IsDeleted)
-            .Select(c => new { c.CurrentStatus })
-            .ToListAsync(ct);
-
-        var renewalQueue = await dbContext.GuaranteeRenewalCases.AsNoTracking()
-            .Where(c => !c.IsDeleted)
-            .Select(c => new { c.CurrentStatus })
-            .ToListAsync(ct);
-
-        var investmentCount = investmentQueue.Count(c => CaseKanbanRules.IsActionRequired(c.CurrentStatus, repRole));
-        var guaranteeCount = guaranteeQueue.Count(c => GuaranteeKanbanRules.IsActionRequired(c.CurrentStatus, repRole));
-        var loanCount = loanQueue.Count(c => LoanKanbanRules.IsActionRequired(c.CurrentStatus, repRole));
-        var renewalCount = renewalQueue.Count(c =>
-            c.CurrentStatus == GuaranteeRenewalStatus.CeoReview && repRole == UserRoleClaims.Ceo);
+        var investmentCount = await moduleAggregators.CountDepartmentQueueAsync(departmentKey, "Investment", ct);
+        var guaranteeCount = await moduleAggregators.CountDepartmentQueueAsync(departmentKey, "Guarantee", ct);
+        var loanCount = await moduleAggregators.CountDepartmentQueueAsync(departmentKey, "Loan", ct);
+        var renewalCount = await moduleAggregators.CountDepartmentQueueAsync(departmentKey, "GuaranteeRenewal", ct);
 
         var queueByModule = new List<ModuleQueueCountDto>
         {
@@ -278,6 +207,8 @@ public sealed class DashboardAggregationService(
             DepartmentTitle = title,
             TotalQueueCount = totalQueue,
             QueueByModule = queueByModule,
+            Modules = modules,
+            SpecificMetrics = specificMetrics,
             RevisionRatePercent = revisionRate
         };
 
@@ -310,8 +241,9 @@ public sealed class DashboardAggregationService(
 
     private async Task UpsertApplicantAsync(string applicantUserId, DateTimeOffset computedAt, CancellationToken ct)
     {
-        var userId = applicantUserId;
         var activeCases = new List<ApplicantCaseProgressDto>();
+        var pendingActions = 0;
+        const string applicantRole = UserRoleClaims.Applicant;
 
         var investments = await dbContext.InvestmentCases.AsNoTracking()
             .Where(c => !c.IsDeleted && c.ApplicantUserId == applicantUserId && !InvestmentTerminal.Contains((int)c.CurrentStatus))
@@ -320,6 +252,9 @@ public sealed class DashboardAggregationService(
 
         foreach (var c in investments)
         {
+            if (CaseKanbanRules.IsActionRequired(c.CurrentStatus, applicantRole))
+                pendingActions++;
+
             activeCases.Add(new ApplicantCaseProgressDto(
                 c.Id, c.CaseNumber, "Investment", "سرمایه‌گذاری",
                 (int)c.CurrentStatus, CaseKanbanRules.GetStatusTitle(c.CurrentStatus),
@@ -335,6 +270,9 @@ public sealed class DashboardAggregationService(
 
         foreach (var c in guarantees)
         {
+            if (GuaranteeKanbanRules.IsActionRequired(c.CurrentStatus, applicantRole))
+                pendingActions++;
+
             activeCases.Add(new ApplicantCaseProgressDto(
                 c.Id, c.CaseNumber, "Guarantee", "ضمانت‌نامه",
                 (int)c.CurrentStatus, GuaranteeKanbanRules.GetStatusTitle(c.CurrentStatus),
@@ -350,6 +288,9 @@ public sealed class DashboardAggregationService(
 
         foreach (var c in loans)
         {
+            if (LoanKanbanRules.IsActionRequired(c.CurrentStatus, applicantRole))
+                pendingActions++;
+
             activeCases.Add(new ApplicantCaseProgressDto(
                 c.Id, c.CaseNumber, "Loan", "تسهیلات",
                 (int)c.CurrentStatus, LoanKanbanRules.GetStatusTitle(c.CurrentStatus),
@@ -399,8 +340,9 @@ public sealed class DashboardAggregationService(
 
         var payload = new ApplicantStatsCachePayload
         {
-            UserId = userId,
+            UserId = applicantUserId,
             ActiveCases = activeCases.OrderByDescending(c => c.UpdatedAt).ToList(),
+            PendingActionsCount = pendingActions,
             TotalRemainingDebt = unpaidInstallments.Sum(i => i.TotalAmount),
             UnpaidInstallmentsCount = unpaidInstallments.Count,
             RecentComments = recentComments
@@ -409,37 +351,11 @@ public sealed class DashboardAggregationService(
         await statsRepository.UpsertAsync(new DashboardStatsSnapshot
         {
             Id = Guid.NewGuid(),
-            SnapshotKey = DashboardRoleResolver.ApplicantSnapshotKey(userId),
+            SnapshotKey = DashboardRoleResolver.ApplicantSnapshotKey(applicantUserId),
             SnapshotType = DashboardSnapshotType.Applicant,
             PayloadJson = JsonSerializer.Serialize(payload, JsonOptions),
             ComputedAtUtc = computedAt
         }, ct);
-    }
-
-    private async Task<IReadOnlyList<MonthlyFinancialOutputDto>> BuildMonthlyFinancialOutputAsync(
-        DateTimeOffset since,
-        CancellationToken ct)
-    {
-        var investmentPayments = await dbContext.PaymentRecords.AsNoTracking()
-            .Where(p => p.Status == PaymentStatus.Completed && !p.Case.IsDeleted && p.CreatedAt >= since)
-            .Select(p => new { p.CreatedAt, p.Amount })
-            .ToListAsync(ct);
-
-        var loanPayments = await dbContext.LoanPayments.AsNoTracking()
-            .Where(p => !p.Case.IsDeleted && p.CreatedAt >= since)
-            .Select(p => new { p.CreatedAt, p.Amount })
-            .ToListAsync(ct);
-
-        var grouped = investmentPayments
-            .Select(p => new { p.CreatedAt.Year, p.CreatedAt.Month, p.Amount })
-            .Concat(loanPayments.Select(p => new { p.CreatedAt.Year, p.CreatedAt.Month, p.Amount }))
-            .GroupBy(x => new { x.Year, x.Month })
-            .Select(g => new MonthlyFinancialOutputDto(
-                g.Key.Year, g.Key.Month, g.Sum(x => x.Amount), g.Count()))
-            .OrderBy(x => x.Year).ThenBy(x => x.Month)
-            .ToList();
-
-        return grouped;
     }
 
     private async Task<IReadOnlyList<DepartmentBottleneckDto>> BuildDepartmentBottlenecksAsync(CancellationToken ct)
@@ -518,24 +434,6 @@ public sealed class DashboardAggregationService(
         return result;
     }
 
-    private async Task<double> ComputeAverageReviewDaysAsync(CancellationToken ct)
-    {
-        var reviewStatuses = new[]
-        {
-            (int)CaseStatus.ReviewDataEntry1, (int)CaseStatus.ReviewDataEntry2,
-            (int)CaseStatus.InitialValuation, (int)CaseStatus.SecondaryValuation,
-            (int)CaseStatus.FinancialWorksheetReview, (int)CaseStatus.WaitingCeoApproval
-        };
-
-        var samples = await dbContext.InvestmentCases.AsNoTracking()
-            .Where(c => !c.IsDeleted && reviewStatuses.Contains((int)c.CurrentStatus) && c.UpdatedAt != null)
-            .Select(c => (c.UpdatedAt!.Value - c.CreatedAt).TotalDays)
-            .Take(500)
-            .ToListAsync(ct);
-
-        return samples.Count == 0 ? 0 : Math.Round(samples.Average(), 1);
-    }
-
     private async Task<double> ComputeRevisionRateAsync(string departmentKey, int queueCount, CancellationToken ct)
     {
         var since = DateTimeOffset.UtcNow.AddMonths(-6);
@@ -574,45 +472,6 @@ public sealed class DashboardAggregationService(
 
         var denominator = Math.Max(queueCount, 1);
         return Math.Round(revisionCount * 100.0 / denominator, 1);
-    }
-
-    private sealed record InvestmentCaseProjection(
-        Guid Id,
-        string CaseNumber,
-        int Status,
-        int Phase,
-        DateTimeOffset CreatedAt,
-        DateTimeOffset? UpdatedAt);
-
-    private static int CountPendingCases(
-        IReadOnlyList<InvestmentCaseProjection> investments,
-        IReadOnlyList<CaseStatusProjection> guarantees,
-        IReadOnlyList<CaseStatusProjection> loans)
-    {
-        var count = investments.Count(c => !InvestmentTerminal.Contains(c.Status) && c.Status != (int)CaseStatus.Completed);
-        count += guarantees.Count(c => !GuaranteeTerminal.Contains(c.Status) && c.Status != (int)GuaranteeCaseStatus.Completed);
-        count += loans.Count(c => !LoanTerminal.Contains(c.Status) && c.Status != (int)LoanCaseStatus.Completed);
-        return count;
-    }
-
-    private static int CountCompletedCases(
-        IReadOnlyList<InvestmentCaseProjection> investments,
-        IReadOnlyList<CaseStatusProjection> guarantees,
-        IReadOnlyList<CaseStatusProjection> loans)
-    {
-        return investments.Count(c => c.Status == (int)CaseStatus.Completed)
-            + guarantees.Count(c => c.Status == (int)GuaranteeCaseStatus.Completed)
-            + loans.Count(c => c.Status == (int)LoanCaseStatus.Completed);
-    }
-
-    private static int CountCanceledCases(
-        IReadOnlyList<InvestmentCaseProjection> investments,
-        IReadOnlyList<CaseStatusProjection> guarantees,
-        IReadOnlyList<CaseStatusProjection> loans)
-    {
-        return investments.Count(c => c.Status is (int)CaseStatus.Rejected or (int)CaseStatus.Cancelled)
-            + guarantees.Count(c => c.Status is (int)GuaranteeCaseStatus.Rejected or (int)GuaranteeCaseStatus.Cancelled)
-            + loans.Count(c => c.Status == (int)LoanCaseStatus.CanceledByCeo);
     }
 
     private static int ComputeProgressPercent(int status, int[] terminalStatuses, int completedStatus)

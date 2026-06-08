@@ -36,9 +36,17 @@ public static class DashboardRoleResolver
         var normalized = roles.Select(UserRoleClaims.Normalize).ToArray();
 
         if (normalized.Any(r =>
-                r.Equals(UserRoleClaims.Ceo, StringComparison.OrdinalIgnoreCase) ||
                 r.Equals(UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase) ||
+                r.Equals(UserRoleClaims.TechnicalExpert, StringComparison.OrdinalIgnoreCase) ||
+                r.Equals(UserRoleClaims.TechnicalManager, StringComparison.OrdinalIgnoreCase)))
+            return DashboardViewKind.Executive;
+
+        if (normalized.Any(r =>
+                r.Equals(UserRoleClaims.Ceo, StringComparison.OrdinalIgnoreCase) ||
                 r.Equals("CEO", StringComparison.OrdinalIgnoreCase)))
+            return DashboardViewKind.Executive;
+
+        if (normalized.Any(r => r.Equals("BoardMember", StringComparison.OrdinalIgnoreCase)))
             return DashboardViewKind.Executive;
 
         if (normalized.Any(r =>
@@ -54,6 +62,25 @@ public static class DashboardRoleResolver
             return DashboardViewKind.Department;
 
         return DashboardViewKind.Applicant;
+    }
+
+    public static bool IsAdmin(IReadOnlyCollection<string> roles)
+        => roles.Select(UserRoleClaims.Normalize).Any(r =>
+            r.Equals(UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase));
+
+    public static bool IsBoardMember(IReadOnlyCollection<string> roles)
+        => roles.Select(UserRoleClaims.Normalize).Any(r =>
+            r.Equals("BoardMember", StringComparison.OrdinalIgnoreCase));
+
+    public static bool CanViewEmployeeKpi(IReadOnlyCollection<string> roles)
+    {
+        var normalized = roles.Select(UserRoleClaims.Normalize).ToArray();
+        return normalized.Any(r =>
+            r.Equals(UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase) ||
+            r.Equals(UserRoleClaims.Ceo, StringComparison.OrdinalIgnoreCase) ||
+            r.Equals("CEO", StringComparison.OrdinalIgnoreCase) ||
+            r.Equals("BoardMember", StringComparison.OrdinalIgnoreCase) ||
+            r.Equals(UserRoleClaims.TechnicalExpert, StringComparison.OrdinalIgnoreCase));
     }
 
     public static string? ResolveDepartmentKey(IReadOnlyCollection<string> roles)
@@ -84,6 +111,41 @@ public static class DashboardRoleResolver
 
     public static string GetDepartmentRepresentativeRole(string departmentKey)
         => DepartmentMap.TryGetValue(departmentKey, out var meta) ? meta.RepresentativeRole : UserRoleClaims.Admin;
+
+    public static string ResolveDepartmentKeyFromActorRole(string? actorRole)
+    {
+        if (string.IsNullOrWhiteSpace(actorRole))
+            return "Other";
+
+        actorRole = UserRoleClaims.Normalize(actorRole);
+
+        if (actorRole.Equals(UserRoleClaims.Ceo, StringComparison.OrdinalIgnoreCase) ||
+            actorRole.Equals("CEO", StringComparison.OrdinalIgnoreCase) ||
+            actorRole.Equals(UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase))
+            return "Management";
+
+        return ResolveDepartmentKeyFromRole(actorRole) ?? "Other";
+    }
+
+    public static string GetDepartmentTitleFromActorRole(string? actorRole)
+    {
+        var key = ResolveDepartmentKeyFromActorRole(actorRole);
+        return key switch
+        {
+            "Management" => "مدیریت",
+            "Other" => "سایر",
+            _ => GetDepartmentTitle(key)
+        };
+    }
+
+    public static bool IsInternalActorRole(string? actorRole)
+    {
+        if (string.IsNullOrWhiteSpace(actorRole))
+            return false;
+
+        actorRole = UserRoleClaims.Normalize(actorRole);
+        return !actorRole.Equals(UserRoleClaims.Applicant, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string? ResolveDepartmentKeyFromRole(string role)
     {

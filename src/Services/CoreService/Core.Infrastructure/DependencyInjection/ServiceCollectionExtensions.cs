@@ -71,12 +71,18 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<LoanInstallmentReminderBackgroundService>();
 
         services.AddScoped<IDashboardStatsRepository, DashboardStatsRepository>();
+        services.AddScoped<DashboardModuleAggregators>();
         services.AddScoped<IDashboardAggregationService, DashboardAggregationService>();
         services.AddScoped<IDashboardAnalyticsService, DashboardAnalyticsService>();
         services.AddScoped<IExecutiveDashboardService, ExecutiveDashboardService>();
+        services.AddScoped<IEmployeeKpiAggregationService, EmployeeKpiAggregationService>();
+        services.AddScoped<IEmployeeKpiAnalyticsService, EmployeeKpiAnalyticsService>();
 
         if (configuration.GetValue("Dashboard:AggregationEnabled", true))
             services.AddHostedService<DashboardAggregationBackgroundService>();
+
+        if (configuration.GetValue("Dashboard:EmployeeKpiAggregationEnabled", true))
+            services.AddHostedService<EmployeeKpiAggregationBackgroundService>();
 
         return services;
     }
