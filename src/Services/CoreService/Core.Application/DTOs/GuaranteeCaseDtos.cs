@@ -1,8 +1,11 @@
+using System.Text.Json.Serialization;
 using Core.Application.Requests;
 using Core.Domain.Enums;
 
 namespace Core.Application.DTOs;
 
+[JsonDerivedType(typeof(GuaranteeCaseApplicantDto), typeDiscriminator: "applicant")]
+[JsonDerivedType(typeof(GuaranteeCaseInternalDto), typeDiscriminator: "internal")]
 public abstract record GuaranteeCaseDto(
     Guid Id,
     string CaseNumber,

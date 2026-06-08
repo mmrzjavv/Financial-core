@@ -131,7 +131,11 @@
 
   function getStep(status) {
     const value = Number(status);
-    return STEPS.find((step) => step.status === value) || null;
+    if (!Number.isNaN(value)) {
+      const byNumber = STEPS.find((step) => step.status === value);
+      if (byNumber) return byNumber;
+    }
+    return STEPS.find((step) => step.key === String(status)) || null;
   }
 
   function getUnit(unitId) {

@@ -98,9 +98,12 @@
   }
 
   function guaranteeStatusLabel(status) {
-    const n = Number(status);
     if (GuaranteeWorkflowModel && typeof GuaranteeWorkflowModel.stepForStatus === "function") {
-      const step = GuaranteeWorkflowModel.stepForStatus(n);
+      const step = GuaranteeWorkflowModel.stepForStatus(status);
+      const n =
+        typeof GuaranteeWorkflowModel.coerceStatus === "function"
+          ? GuaranteeWorkflowModel.coerceStatus(status)
+          : Number(status);
       return (step.title || "—") + " (" + n + ")";
     }
     return String(status);

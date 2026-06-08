@@ -22,18 +22,26 @@
     }
   }
 
+  const APPLICANT_TYPE_BY_KEY = { Individual: 1, Company: 2 };
+
+  function coerceApplicantType(value) {
+    if (value == null || value === "") return 0;
+    const n = Number(value);
+    if (!Number.isNaN(n)) return n;
+    return APPLICANT_TYPE_BY_KEY[String(value)] ?? 0;
+  }
+
   function statusTitle(module, status) {
-    const n = Number(status);
     if (module === "guarantee" && window.GuaranteeWorkflowModel) {
-      const step = GuaranteeWorkflowModel.stepForStatus(n);
+      const step = GuaranteeWorkflowModel.stepForStatus(status);
       return step ? step.title : String(status);
     }
     if (module === "loan" && window.LoanWorkflowModel) {
-      const step = LoanWorkflowModel.stepForStatus(n);
+      const step = LoanWorkflowModel.stepForStatus(status);
       return step ? step.title : String(status);
     }
-    if (window.WorkflowModel && WorkflowModel.STEPS) {
-      const step = WorkflowModel.STEPS.find((s) => s.status === n);
+    if (window.WorkflowModel && typeof WorkflowModel.getStep === "function") {
+      const step = WorkflowModel.getStep(status);
       if (step) return step.title;
     }
     return String(status);
@@ -45,7 +53,7 @@
   }
 
   function applicantTypeOf(obj) {
-    return Number(pick(obj, "applicantType", "ApplicantType")) || 0;
+    return coerceApplicantType(pick(obj, "applicantType", "ApplicantType"));
   }
 
   function companySummary(obj) {
@@ -62,6 +70,8 @@
     if (company && applicantTypeOf(obj) === 2) {
       return pick(company, "name", "Name") || "شرکت";
     }
+    const applicantFullName = pick(obj, "applicantFullName", "ApplicantFullName");
+    if (applicantFullName) return applicantFullName;
     const applicant = obj && (obj.applicant || obj.Applicant);
     if (applicant) return pick(applicant, "fullName", "FullName") || "متقاضی";
     return applicantTypeOf(obj) === 2 ? "حقوقی" : "حقیقی";

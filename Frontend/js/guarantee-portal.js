@@ -22,7 +22,8 @@
   }
 
   function pickStatus(obj) {
-    return Number(pick(obj, "currentStatus", "CurrentStatus") ?? 0);
+    const raw = pick(obj, "currentStatus", "CurrentStatus") ?? 0;
+    return model && typeof model.coerceStatus === "function" ? model.coerceStatus(raw) : Number(raw) || 0;
   }
 
   function pickCompany(obj) {

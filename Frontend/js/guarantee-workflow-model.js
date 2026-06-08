@@ -2,6 +2,31 @@
 (function () {
   const MODULE = { Investment: 1, Guarantee: 2, GuaranteeRenewal: 3 };
 
+  const STATUS_BY_KEY = {
+    Draft: 1,
+    DataEntry: 2,
+    CreditReview: 3,
+    ApprovalFormEntry: 4,
+    CeoApprovalInitial: 5,
+    WaitingDraftContract: 6,
+    WaitingSignedContractAndAttachments: 7,
+    FinancialAttachmentReview: 8,
+    WaitingFinalContract: 9,
+    CeoApprovalFinal: 10,
+    WaitingIssuanceDocuments: 11,
+    Completed: 12,
+    Rejected: 13,
+    Cancelled: 14,
+    Archived: 15,
+  };
+
+  function coerceStatus(status) {
+    if (status == null || status === "") return 0;
+    const n = Number(status);
+    if (!Number.isNaN(n)) return n;
+    return STATUS_BY_KEY[String(status)] ?? 0;
+  }
+
   const STEPS = {
     1: { id: 1, title: "پیش‌نویس", unit: "applicant", phase: 1 },
     2: { id: 2, title: "ورود اطلاعات", unit: "applicant", phase: 1 },
@@ -15,6 +40,9 @@
     10: { id: 10, title: "تأیید مدیرعامل (نهایی)", unit: "ceo", phase: 4 },
     11: { id: 11, title: "صدور", unit: "financial", phase: 4 },
     12: { id: 12, title: "تکمیل", unit: "all", phase: 5 },
+    13: { id: 13, title: "رد شده", unit: "all", phase: 5 },
+    14: { id: 14, title: "لغو شده", unit: "all", phase: 5 },
+    15: { id: 15, title: "بایگانی", unit: "all", phase: 5 },
   };
 
   /** مدارک ورود اطلاعات — مطابق mockup ضمانت‌نامه */
@@ -317,12 +345,14 @@
       return Object.values(STEPS).sort((a, b) => a.id - b.id);
     },
     getStepOrderIndex(status) {
-      const value = Number(status);
+      const value = coerceStatus(status);
       const steps = Object.values(STEPS).sort((a, b) => a.id - b.id);
       return steps.findIndex((step) => step.id === value);
     },
+    coerceStatus,
     stepForStatus(status) {
-      return STEPS[status] || { id: status, title: "نامشخص", unit: "all", phase: 0 };
+      const value = coerceStatus(status);
+      return STEPS[value] || { id: value, title: "نامشخص", unit: "all", phase: 0 };
     },
   };
 })();
