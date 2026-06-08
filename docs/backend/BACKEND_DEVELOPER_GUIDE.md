@@ -2,9 +2,9 @@
 
 **مخاطب:** برنامه‌نویس بک‌اند تازه‌وارد که قرار است این ریپو را نگه‌داری و توسعه دهد.  
 **هدف:** جایگزین «گشتن در کل پروژه» — مسیرها، قراردادها، و چک‌لیست‌های عملی برای تغییرات روزمره.  
-**آخرین هم‌راستاسازی با کد:** بهار ۱۴۰۵ (نسخه API v1، مسیرهای `investmentcases` و `identity`).
+**آخرین هم‌راستاسازی با کد:** خرداد ۱۴۰۵ (نسخه API v1 — ماژول‌های سرمایه‌گذاری، ضمانت، تسهیلات، داشبورد، KPI پرسنل، سقف اعتبار صندوق).
 
-> برای قرارداد HTTP و فلو پرونده سرمایه‌گذاری از نگاه فرانت، ببینید: [`docs/frontend/INVESTMENT_CASE_API_GUIDE.md`](../frontend/INVESTMENT_CASE_API_GUIDE.md).
+> راهنمای HTTP فرانت: [`INVESTMENT_CASE_API_GUIDE`](../frontend/INVESTMENT_CASE_API_GUIDE.md) · [`GUARANTEE_CASE_API_GUIDE`](../frontend/GUARANTEE_CASE_API_GUIDE.md) · [`LOAN_CASE_API_GUIDE`](../frontend/LOAN_CASE_API_GUIDE.md)
 
 > **تغییر دسترسی نقش (Permission / Role):** مرجع کامل در [**بخش ۹ تا ۱۳**](#9-مجوزدهی--سه-لایه-و-نقشه-فایل‌ها) — نقشه فایل‌ها، چک‌لیست اضافه/حذف، فهرست همه permissionها، Policyها، کش و JWT.
 
@@ -20,7 +20,7 @@
 6. [جریان یک درخواست HTTP](#6-جریان-یک-درخواست-http)
 7. [مسیرهای API (Route)](#7-مسیرهای-api-route)
 8. [احراز هویت، JWT و Claimها](#8-احراز-هویت-jwt-و-claimها)
-9. [مجوزدهی — دو لایه جدا](#9-مجوزدهی--دو-لایه-جدا)
+9. [مجوزدهی — چهار لایه](#9-مجوزدهی--چهار-لایه-و-نقشه-فایل‌ها)
 10. [نقش (Role) — اضافه، تغییر، حذف دسترسی](#10-نقش-role--اضافه-تغییر-حذف-دسترسی)
 11. [سیاست‌های ASP.NET در Program.cs](#11-سیاست‌های-aspnet-در-programcs)
 12. [کش Permission و نکته مهم بعد از تغییر نقش](#12-کش-permission-و-نکته-مهم-بعد-از-تغییر-نقش)
@@ -40,7 +40,18 @@
 
 ## 1. نگاه کلی محصول و معماری
 
-**Financial-Core** بک‌اند پلتفرم عملیات صندوق است: ماژول اصلی فعلی **پرونده سرمایه‌گذاری (Investment Case)** است — ورود داده، گردش کار، ارزیابی، قرارداد، کاربرگ مالی، تأیید مدیرعامل، پرداخت، سند، کامنت و کانبان.
+**Financial-Core** بک‌اند پلتفرم عملیات صندوق است. ماژول‌های فعال:
+
+| ماژول | خلاصه |
+|-------|--------|
+| **سرمایه‌گذاری** | پرونده، ارزیابی، قرارداد، کاربرگ مالی، تأیید CEO، پرداخت، سند |
+| **ضمانت‌نامه** | درخواست، فرم تصویب، صدور، تمدید، سقف اعتبار متقاضی |
+| **تسهیلات (Loan)** | درخواست، اعتبارسنجی، اقساط، پرداخت، بازپرداخت |
+| **داشبورد / Analytics** | snapshotهای از پیش‌محاسبه‌شده برای نقش‌ها + KPI SLA پرسنل |
+| **سقف اعتبار صندوق** | بازه‌های غیرهمپوشان برای ظرفیت ضمانت/تسهیلات |
+| **Identity** | OTP، JWT، نشست، شرکت متقاضی، کاربران |
+
+کانبان یکپارچه (`/kanban`) کارت‌های action-required/watching را از هر سه ماژول پرونده برمی‌گرداند.
 
 الگوی کلی: **Clean Architecture سبک** با جداسازی:
 
@@ -59,7 +70,7 @@
 
 ## 2. ساختار Solution و پوشه‌ها
 
-Solution اصلی: `InvestmentCaseManagement.sln` (ریشه ریپو).
+Solution اصلی: `Maskan.Panel.sln` (ریشه ریپو).
 
 ```
 Financial-Core/
@@ -83,10 +94,10 @@ Financial-Core/
 ├── docs/
 │   ├── backend/                    # همین سند
 │   └── frontend/                   # راهنمای API برای فرانت
-└── InvestmentCaseManagement.sln
+└── Maskan.Panel.sln
 ```
 
-**نکته:** نام Solution تاریخی است (`InvestmentCaseManagement`)؛ نام محصول/سرویس در لاگ‌ها `Financial.Core` است.
+**نکته:** نام محصول/سرویس در لاگ‌ها `Financial.Core` / `core-service` است.
 
 ---
 
@@ -141,16 +152,20 @@ Core.Workflow  →  Application, Domain
 
 ### Core.API
 - `Program.cs`: DI، JWT، CORS، Versioning، Authorization policies، Pipeline
-- Controllers: `InvestmentCasesController`, `UserController`, `CompaniesController`, `DashboardController`
+- Controllers: `InvestmentCasesController`, `GuaranteeCasesController`, `GuaranteeRenewalsController`, `LoanCasesController`, `KanbanController`, `UserController`, `CompaniesController`, `DashboardController`, `EmployeeKpiAnalyticsController`, `FundCreditLimitsController`
 - `PermissionAuthorizationHandler`: بررسی permission روی JWT role + fallback به `IIdentityClient`
+- `SessionActivityMiddleware`: به‌روزرسانی `LastActivityAt` نشست برای online-user
 - Swagger در `Core.API/Swagger/`
 
 ### Core.Application
-- **Use cases:** `InvestmentCaseAppService`, `KanbanAppService`, `CompanyAppService`, `UserService`, …
-- **Authorization پرونده:** `CaseAuthorizationService` + `CasePermissions` (رشته‌های `cases:*`)
+- **Use cases:** `InvestmentCaseAppService`, `GuaranteeCaseAppService`, `LoanCaseAppService`, `KanbanAppService`, `CompanyAppService`, `FundCreditLimitAppService`, `UserService`, …
+- **Dashboard:** `DashboardAnalyticsService`, `DashboardAggregationService`, `ExecutiveDashboardService`, `EmployeeKpiAnalyticsService`, `EmployeeKpiAggregationService`
+- **Authorization پرونده سرمایه‌گذاری:** `CaseAuthorizationService` + `CasePermissions` (رشته‌های `cases:*`)
+- **Authorization پرونده ضمانت:** `GuaranteeAuthorizationService` + `GuaranteePermissions`
+- **Authorization پرونده تسهیلات:** `LoanAuthorizationService` + `LoanPermissions` (رشته‌های `loan_cases:*`)
 - **Authorization API/نقش:** `Permissions` + `RolePermissions` (رشته‌های `users:*`, `investment_cases:*`, …)
-- **State machine:** `CaseStateManager` — انتقال وضعیت پرونده
-- Abstractions: `IInvestmentCaseRepository`, `ICoreUnitOfWork`, `ICoreDbContext`, …
+- **State machine:** `CaseStateManager`, `GuaranteeCaseStateManager`, `LoanCaseStateManager`
+- Abstractions: `IInvestmentCaseRepository`, `ILoanCaseRepository`, `ICoreUnitOfWork`, `ICoreDbContext`, …
 
 ### Core.Domain
 - `Entities/`: `InvestmentCase`, `CaseDocument`, `PaymentRecord`, …
@@ -166,12 +181,12 @@ Core.Workflow  →  Application, Domain
 ### Core.Persistence
 - `CoreDbContext` + `Configurations/*`
 - Migrations در `Migrations/`
-- `DbSchemas`: `Identity`, `Cases`
+- `DbSchemas`: `Identity`, `Investment`, `Guarantee`, `Loan`, `Fund`, `Analytics`
 - Interceptor اختصاصی: `InvestmentCaseUpdateSuppressorInterceptor` (جلوگیری از concurrency ناخواست روی parent هنگام ذخیره سند)
 
 ### Core.Workflow
-- Elsa workflow: `InvestmentCaseWorkflow`
-- `ElsaCaseWorkflowOrchestrator` — شروع/ادامه instance و اتصال به `InvestmentCase.WorkflowInstanceId`
+- Elsa workflow: `InvestmentCaseWorkflow`, `LoanCaseWorkflow`
+- `ElsaCaseWorkflowOrchestrator` / `ElsaLoanWorkflowOrchestrator` — شروع/ادامه instance
 
 ---
 
@@ -181,10 +196,11 @@ Core.Workflow  →  Application, Domain
 Client
   → JWT Bearer (رمزگذاری‌شده)
   → Authentication (JwtBearer)
+  → SessionActivityMiddleware (touch LastActivityAt — throttled)
   → Authorization ([Authorize], Policy)
   → Controller
   → AppService
-       → CaseAuthorizationService / PermissionService (در صورت نیاز)
+       → CaseAuthorizationService / GuaranteeAuthorizationService / LoanAuthorizationService / PermissionService
        → Repository / UnitOfWork
        → SaveChangesAsync
        → Workflow orchestrator (برای transition)
@@ -200,17 +216,28 @@ Client
 
 پیشوند نسخه: `api/v{version}` (پیش‌فرض `1.0`).
 
-| حوزه | Route پایه | Controller |
-|------|------------|------------|
-| پرونده سرمایه‌گذاری | `/api/v1/investmentcases` | `InvestmentCasesController` |
-| کاربر / OTP | `/api/v1/identity/users` | `UserController` |
-| شرکت متقاضی | `/api/v1/identity/companies` | `CompaniesController` |
-| داشبورد | `/api/v1/dashboard` | `DashboardController` |
+| حوزه | Route پایه | Controller | Policy / Auth نمونه |
+|------|------------|------------|------------------------|
+| پرونده سرمایه‌گذاری | `/api/v1/investmentcases` | `InvestmentCasesController` | `[Authorize]` + policyهای `InvestmentCases.*` |
+| پرونده ضمانت | `/api/v1/guaranteecases` | `GuaranteeCasesController` | `[Authorize]` + `GuaranteeCases.*` |
+| تمدید ضمانت | `/api/v1/guarantee-renewals` | `GuaranteeRenewalsController` | `[Authorize]` |
+| پرونده تسهیلات | `/api/v1/loancases` | `LoanCasesController` | `ApplicantOnly` / `InternalOnly` / `LoanCases.CeoApprove` |
+| کانبان یکپارچه | `/api/v1/kanban` | `KanbanController` | `[Authorize]` — `action-required`, `watching` |
+| کاربر / OTP | `/api/v1/identity/users` | `UserController` | OTP: `[AllowAnonymous]`؛ sessions: policyهای `Sessions.*` |
+| شرکت متقاضی | `/api/v1/identity/companies` | `CompaniesController` | `Companies.Manage` / `Companies.Delete` برای admin |
+| داشبورد | `/api/v1/dashboard` | `DashboardController` | `Dashboard.*`, `AdminOnly` برای refresh |
+| KPI پرسنل | `/api/v1/analytics` | `EmployeeKpiAnalyticsController` | `Analytics.EmployeeKpi` |
+| سقف اعتبار صندوق | `/api/v1/fund-credit-limits` | `FundCreditLimitsController` | `FundCreditLimits.Manage` |
 
-زیرمسیرهای پرونده (نمونه):  
-`GET /investmentcases/{id}`, `PUT .../data-entry1`, `POST .../data-entry1/submit`, `GET .../kanban/action-required`, `POST .../documents/presign`, …
+زیرمسیرهای نمونه:
+- سرمایه‌گذاری: `PUT .../data-entry1`, `POST .../data-entry1/submit`, `POST .../documents/presign`
+- ضمانت: `PUT .../application`, `POST .../credit/approve`
+- تسهیلات: `PUT .../application`, `POST .../credit/approve`, `POST .../installments/{id}/mark-paid`
+- داشبورد: `GET /dashboard/me`, `GET /dashboard/department?departmentKey=Legal`, `POST /dashboard/refresh` (Admin)
+- Analytics: `GET /analytics/employee-kpis?period=Last30Days`, `POST /analytics/employee-kpis/run-job`
 
-**Swagger:** بعد از `dotnet run` روی Core.API → `/swagger`.
+**Swagger:** بعد از `dotnet run` روی Core.API → `/swagger`.  
+**Health:** `GET /health`
 
 ---
 
@@ -271,20 +298,20 @@ public sealed class HttpCurrentUserAccessor(IHttpContextAccessor accessor) : ICu
 
 ---
 
-## 9. مجوزدهی — سه لایه و نقشه فایل‌ها
+## 9. مجوزدهی — چهار لایه و نقشه فایل‌ها
 
-> **یادآوری روز نیاز:** دسترسی نقش‌ها در **کد** است، نه جدول دیتابیس. برای یک تغییر معمولاً **تا سه فایل** را ویرایش می‌کنید (بخش ۱۰). فقط `Permissions.cs` برای همه چیز کافی **نیست**.
+> **یادآوری روز نیاز:** دسترسی نقش‌ها در **کد** است، نه جدول دیتابیس. برای یک تغییر معمولاً **تا چهار فایل** را ویرایش می‌کنید (بخش ۱۰). فقط `Permissions.cs` برای همه چیز کافی **نیست**.
 
 ### اصل مهم
 
 | اشتباه رایج | واقعیت |
 |-------------|--------|
 | «فقط `Permissions.cs` را عوض کنم» | فقط **لایه API** عوض می‌شود |
-| `investment_cases:review` = `cases:manage_valuations` | **سه فضای نام جدا** — رشته‌ها متفاوتند |
-| Admin Panel برای tick کردن permission | **وجود ندارد** — آرایه C# در سه فایل |
+| `investment_cases:review` = `cases:manage_valuations` | **چهار فضای نام جدا** — رشته‌ها متفاوتند |
+| Admin Panel برای tick کردن permission | **وجود ندارد** — آرایه C# در چند فایل |
 | بعد از deploy فوراً اثر می‌کند | کش Redis ۳۰ دقیقه + JWT قدیمی (بخش ۱۳) |
 
-### سه لایه — یک نگاه
+### چهار لایه — یک نگاه
 
 ```
 درخواست HTTP
@@ -293,16 +320,20 @@ public sealed class HttpCurrentUserAccessor(IHttpContextAccessor accessor) : ICu
     │
     └─► AppService
             ├─► [لایه ۲] سرمایه‌گذاری ──► CaseAuthorizationService.cs
-            └─► [لایه ۳] ضمانت‌نامه ──► GuaranteeAuthorizationService.cs
+            ├─► [لایه ۳] ضمانت‌نامه ──► GuaranteeAuthorizationService.cs
+            └─► [لایه ۴] تسهیلات ──► LoanAuthorizationService.cs
 ```
 
 | لایه | فایل(ها) | فرمت رشته | چه چیزی را کنترل می‌کند |
 |------|----------|-----------|-------------------------|
 | **۱ — API** | `Identity/Authorization/Permissions.cs` | `users:read`, `guarantee_cases:credit_review` | `[Authorize(Policy)]` روی Controller |
-| **۲ — پرونده سرمایه‌گذاری** | `Authorization/CasePermissions.cs` + `CaseAuthorizationService.cs` | `cases:manage_payments` | منطق داخل `InvestmentCaseAppService`, `PaymentService`, `ReviewService`, … |
-| **۳ — پرونده ضمانت** | `Authorization/GuaranteePermissions.cs` + `GuaranteeAuthorizationService.cs` | `guarantee_cases:manage_approval_form` | منطق داخل `GuaranteeCaseAppService`, … |
+| **۲ — سرمایه‌گذاری** | `Authorization/CasePermissions.cs` + `CaseAuthorizationService.cs` | `cases:manage_payments` | `InvestmentCaseAppService`, `PaymentService`, … |
+| **۳ — ضمانت** | `Authorization/GuaranteePermissions.cs` + `GuaranteeAuthorizationService.cs` | `guarantee_cases:manage_approval_form` | `GuaranteeCaseAppService`, … |
+| **۴ — تسهیلات** | `Authorization/LoanPermissions.cs` + `LoanAuthorizationService.cs` | `loan_cases:manage_installments` | `LoanCaseAppService`, `KanbanAppService` (loan cards) |
 
-**Admin:** در هر سه لایه تقریباً همیشه bypass دارد (`UserRole.Admin` / `UserRoleClaims.Admin` → `true`).
+**Admin:** در هر چهار لایه تقریباً همیشه bypass دارد (`UserRole.Admin` / `UserRoleClaims.Admin` → `true`).
+
+**استثنا — سقف اعتبار صندوق:** endpointهای `FundCreditLimitsController` از Policy نقش-based `FundCreditLimits.Manage` استفاده می‌کنند (CEO / TechnicalExpert / Admin) — بدون permission string در `Permissions.cs`.
 
 ### نقشه فایل‌ها (کپی برای روز کاری)
 
@@ -314,6 +345,9 @@ public sealed class HttpCurrentUserAccessor(IHttpContextAccessor accessor) : ICu
 | نقش → permission سرمایه‌گذاری | `Core.Application/Authorization/CaseAuthorizationService.cs` |
 | Permission ضمانت | `Core.Application/Authorization/GuaranteePermissions.cs` |
 | نقش → permission ضمانت | `Core.Application/Authorization/GuaranteeAuthorizationService.cs` |
+| Permission تسهیلات | `Core.Application/Authorization/LoanPermissions.cs` |
+| نقش → permission تسهیلات | `Core.Application/Authorization/LoanAuthorizationService.cs` |
+| سقف اعتبار صندوق (نقش) | `FundCreditLimitAuthorization.cs` + Policy `FundCreditLimits.Manage` |
 | ثبت Policyهای HTTP | `Core.API/DependencyInjection/AuthorizationServiceCollectionExtensions.cs` |
 | Handler بررسی permission در Policy | `Core.API/Authorization/PermissionAuthorizationHandler.cs` |
 | کش permission کاربر | `Core.Infrastructure/.../DistributedPermissionCacheService.cs` |
@@ -326,6 +360,7 @@ public sealed class HttpCurrentUserAccessor(IHttpContextAccessor accessor) : ICu
 | Endpoint جدید 403 می‌دهد | `Permissions.cs` + `AuthorizationServiceCollectionExtensions.cs` + Controller |
 | داخل سرویس `HasPermission` برای **سرمایه‌گذاری** false است | `CaseAuthorizationService.cs` (+ شاید `CasePermissions.cs`) |
 | داخل `GuaranteeCaseAppService` مثلاً credit limit | `GuaranteeAuthorizationService.cs` (+ شاید `GuaranteePermissions.cs`) |
+| داخل `LoanCaseAppService` مثلاً installments | `LoanAuthorizationService.cs` (+ شاید `LoanPermissions.cs`) |
 | فقط «متقاضی / داخلی» روی route | `AuthorizationServiceCollectionExtensions.cs` (`ApplicantOnly` / `InternalOnly`) — **بدون** permission string |
 | تأیید CEO روی route | اغلب **نقش** (`Ceo`/`CEO`/`Admin`) نه فقط permission — بخش ۱۲ |
 
@@ -333,7 +368,7 @@ public sealed class HttpCurrentUserAccessor(IHttpContextAccessor accessor) : ICu
 
 در `Permissions.cs`: `LegalUnitPermissions`, `FinancialUnitPermissions`, `TechnicalUnitPermissions` — چند نقش به یک آرایه اشاره می‌کنند.
 
-در `CaseAuthorizationService.cs` / `GuaranteeAuthorizationService.cs`: همین الگو (`InvestmentExpertPermissions`, `CreditUnitPermissions`, …).
+در `CaseAuthorizationService.cs` / `GuaranteeAuthorizationService.cs` / `LoanAuthorizationService.cs`: همین الگو (`InvestmentExpertPermissions`, `CreditUnitPermissions`, …).
 
 برای **دادن همه دسترسی‌ها به یک نقش** (فقط dev/test):
 
@@ -346,6 +381,9 @@ public sealed class HttpCurrentUserAccessor(IHttpContextAccessor accessor) : ICu
 
 // لایه ۳ — از AllGuaranteePermissions در GuaranteeAuthorizationService
 [UserRoleClaims.TechnicalExpert] = AllGuaranteePermissions,
+
+// لایه ۴ — از AllLoanPermissions در LoanAuthorizationService
+[UserRoleClaims.TechnicalExpert] = AllLoanPermissions,
 ```
 
 > در کد فعلی ممکن است نمونه `TechnicalExpert` با دسترسی کامل برای تست باشد؛ قبل از production به آرایه‌های واحد تخصصی (`TechnicalUnitPermissions`) برگردانید.
@@ -386,6 +424,8 @@ GuaranteePermissions.SetApplicantCreditLimit,
 
 **گام ۳ — لایه سرمایه‌گذاری:** اگر این feature مربوط سرمایه‌گذاری نیست، **نیازی نیست**.
 
+**گام ۳b — لایه تسهیلات:** اگر feature مربوط `LoanCaseAppService` است، `LoanAuthorizationService.cs` را هم ویرایش کنید.
+
 **گام ۴:** Build، Deploy، کاربر **re-login**، پاک کردن کش (بخش ۱۳).
 
 ---
@@ -398,12 +438,12 @@ GuaranteePermissions.SetApplicantCreditLimit,
 
 ### C) تعریف permission **کاملاً جدید** (end-to-end)
 
-| مرحله | لایه API | لایه سرمایه‌گذاری | لایه ضمانت |
-|-------|----------|-------------------|------------|
-| ۱. ثابت | `Permissions.MyFeature = "module:action"` | `CasePermissions.MyFeature = "cases:..."` | `GuaranteePermissions.MyFeature = "guarantee_cases:..."` |
-| ۲. Admin / همه | `AllPermissions` += ثابت | `AllCasePermissions` (در صورت وجود) | `AllGuaranteePermissions` |
-| ۳. نقش‌ها | `RolePermissionMappings[نقش]` | `RolePermissions[نقش]` در CaseAuthorizationService | همان در GuaranteeAuthorizationService |
-| ۴. استفاده | `[Authorize(Policy = "...")]` + Policy در `AuthorizationServiceCollectionExtensions.cs` | `caseAuth.HasPermission(CasePermissions.MyFeature)` | `guaranteeAuth.HasPermission(...)` |
+| مرحله | لایه API | لایه سرمایه‌گذاری | لایه ضمانت | لایه تسهیلات |
+|-------|----------|-------------------|------------|--------------|
+| ۱. ثابت | `Permissions.MyFeature = "module:action"` | `CasePermissions.MyFeature = "cases:..."` | `GuaranteePermissions.MyFeature = "guarantee_cases:..."` | `LoanPermissions.MyFeature = "loan_cases:..."` |
+| ۲. Admin / همه | `AllPermissions` += ثابت | `AllCasePermissions` (در صورت وجود) | `AllGuaranteePermissions` | `AllLoanPermissions` |
+| ۳. نقش‌ها | `RolePermissionMappings[نقش]` | `RolePermissions[نقش]` در CaseAuthorizationService | همان در GuaranteeAuthorizationService | همان در LoanAuthorizationService |
+| ۴. استفاده | `[Authorize(Policy = "...")]` + Policy در `AuthorizationServiceCollectionExtensions.cs` | `caseAuth.HasPermission(CasePermissions.MyFeature)` | `guaranteeAuth.HasPermission(...)` | `loanAuth.HasPermission(...)` |
 
 ---
 
@@ -413,16 +453,17 @@ GuaranteePermissions.SetApplicantCreditLimit,
 2. `Permissions.cs` — ورودی در `RolePermissionMappings`
 3. `CaseAuthorizationService.cs` — در صورت نیاز به سرمایه‌گذاری
 4. `GuaranteeAuthorizationService.cs` — در صورت نیاز به ضمانت
-5. `AuthorizationServiceCollectionExtensions.cs` — اگر internal است → `InternalOnly`
-6. `CaseAuthorizationService.IsInternalUser` — اگر داخلی است → نام نقش را اضافه کنید
-7. `Frontend/config.js` / `workflow-model.js` — persona تست (اختیاری)
-8. **Migration لازم نیست** (فقط enum)
+5. `LoanAuthorizationService.cs` — در صورت نیاز به تسهیلات
+6. `AuthorizationServiceCollectionExtensions.cs` — اگر internal است → `InternalOnly`
+7. `CaseAuthorizationService.IsInternalUser` — اگر داخلی است → نام نقش را اضافه کنید
+8. `Frontend/config.js` / `workflow-model.js` — persona تست (اختیاری)
+9. **Migration لازم نیست** (فقط enum)
 
 ---
 
 ### E) چک‌لیست یک‌صفحه‌ای بعد از هر تغییر دسترسی
 
-- [ ] هر سه لایه مرتبط ویرایش شد؟
+- [ ] هر لایه مرتبط (۱–۴) ویرایش شد؟
 - [ ] `dotnet build` روی `Core.API`
 - [ ] کاربر تست همان `Role` در DB دارد؟
 - [ ] Logout / Login مجدد (JWT)
@@ -443,6 +484,7 @@ GuaranteePermissions.SetApplicantCreditLimit,
 | `Users_Read` | `users:read` |
 | `Users_Write` | `users:write` |
 | `Users_Delete` | `users:delete` |
+| `Users_ViewOnline` | `users:view_online` |
 | `Users_ManageRoles` | `users:manage_roles` |
 | `Companies_Read` | `companies:read` |
 | `Companies_Write` | `companies:write` |
@@ -521,6 +563,30 @@ GuaranteePermissions.SetApplicantCreditLimit,
 
 ---
 
+### لایه ۴ — تسهیلات (`LoanPermissions.cs`)
+
+| ثابت | رشته |
+|------|------|
+| `Create` | `loan_cases:create` |
+| `ReadOwn` | `loan_cases:read_own` |
+| `ReadAll` | `loan_cases:read_all` |
+| `ViewInternalComments` | `loan_cases:view_internal_comments` |
+| `CreateInternalComment` | `loan_cases:create_internal_comment` |
+| `ManageApprovalDetail` | `loan_cases:manage_approval_detail` |
+| `ManageContracts` | `loan_cases:manage_contracts` |
+| `ManageInstallments` | `loan_cases:manage_installments` |
+| `ManagePayments` | `loan_cases:manage_payments` |
+| `RepayInstallments` | `loan_cases:repay_installments` |
+| `CeoApprove` | `loan_cases:ceo_approve` |
+| `UploadDocuments` | `loan_cases:upload_documents` |
+| `DownloadDocuments` | `loan_cases:download_documents` |
+
+**نقش‌های دارای ورودی:** `Applicant`, `CreditExpert`, `CreditManager`, `LegalExpert`, `LegalManager`, `FinancialExpert`, `FinancialManager`, `Ceo`, `Admin`.
+
+**نکته:** permissionهای `loan_cases:*` در `Permissions.cs` (لایه API) **تعریف نشده‌اند** — کنترل endpointهای loan عمدتاً از Policyهای نقش-based (`ApplicantOnly`, `InternalOnly`, `LoanCases.CeoApprove`) و `LoanAuthorizationService` داخل AppService انجام می‌شود.
+
+---
+
 ### نقش‌های سیستم (`UserRole`)
 
 | Enum | Claim / JWT | یادداشت |
@@ -546,15 +612,27 @@ GuaranteePermissions.SetApplicantCreditLimit,
 | `AdminOnly` | نقش | فقط `Admin` |
 | `ApplicantOnly` | نقش | `Applicant` یا `Admin` |
 | `InternalOnly` | نقش | لیست نقش‌های داخلی + `CEO` |
+| `Users.Delete` | permission | `users:delete` |
+| `Users.ViewOnline` | permission | `users:view_online` |
+| `Sessions.Read` | permission | `sessions:read` |
+| `Sessions.Revoke` | permission | `sessions:revoke` |
+| `Companies.Delete` | نقش | `Ceo`, `Admin`, `TechnicalExpert`, `CEO` |
+| `Companies.Manage` | نقش | همان + لیست admin شرکت‌ها |
+| `FundCreditLimits.Manage` | نقش | `Ceo`, `TechnicalExpert`, `Admin`, `CEO` |
 | `GuaranteeCases.CreditReview` | permission | `guarantee_cases:credit_review` |
 | `GuaranteeCases.CeoApprove` | نقش | `Ceo`, `Admin`, `CEO` |
 | `GuaranteeCases.CeoOnly` | نقش | `Ceo`, `CEO` |
+| `LoanCases.CeoApprove` | نقش | `Ceo`, `Admin`, `CEO` |
 | `InvestmentCases.Review` | permission | `investment_cases:review` |
 | `InvestmentCases.FinanceReview` | permission | `investment_cases:finance_review` |
 | `InvestmentCases.LegalReview` | permission | `investment_cases:legal_review` |
 | `InvestmentCases.CeoApprove` | نقش | `Ceo`, `Admin`, `CEO` |
 | `Dashboard.Ceo` | نقش | داشبورد CEO |
 | `Dashboard.Board` | نقش | هیئت / مدیر سرمایه‌گذاری |
+| `Dashboard.Executive` | نقش | CEO، مدیران، Technical، BoardMember |
+| `Dashboard.Department` | نقش | واحدهای تخصصی (Legal، Financial، Credit، …) |
+| `Dashboard.Applicant` | نقش | متقاضی |
+| `Analytics.EmployeeKpi` | نقش | CEO، TechnicalExpert، Admin، BoardMember |
 
 `PermissionAuthorizationHandler`:
 
@@ -654,7 +732,11 @@ public interface ICoreUnitOfWork
 | Schema | جداول نمونه |
 |--------|-------------|
 | `Identity` | `User`, `Company`, `RefreshToken`, `UserSession` |
-| `Cases` | `investment_cases`, `case_documents`, `payment_records`, … |
+| `Investment` | `investment_cases`, `case_documents`, `payment_records`, … |
+| `Guarantee` | `guarantee_cases`, `guarantee_case_applications`, … |
+| `Loan` | `loan_cases`, `loan_installments`, `loan_payments`, … |
+| `Fund` | `fund_credit_limits` |
+| `Analytics` | `dashboard_stats_snapshots` (Executive / Department / Applicant / EmployeeKpi) |
 
 Configuration: `Core.Persistence/Configurations/**/*.cs` با `builder.ToTable(..., DbSchemas.X)`.
 
@@ -754,14 +836,15 @@ dotnet ef database update `
 
 ---
 
-## 18. Workflow (Elsa) و پرونده سرمایه‌گذاری
+## 18. Workflow (Elsa) و پرونده‌ها
 
-- تعریف workflow: `Core.Workflow/Workflows/InvestmentCaseWorkflow.cs`
-- Orchestrator: `ElsaCaseWorkflowOrchestrator` — `ICaseWorkflowOrchestrator`
+- تعریف workflow: `Core.Workflow/Workflows/InvestmentCaseWorkflow.cs`, `LoanCaseWorkflow.cs`
+- Orchestrator: `ElsaCaseWorkflowOrchestrator`, `ElsaLoanWorkflowOrchestrator`
 - در Development ممکن است persistence Elsa in-memory باشد؛ در Production از همان Postgres استفاده می‌کند (`AddCoreWorkflow`)
-- `InvestmentCase.WorkflowInstanceId` لینک به instance Elsa
+- `InvestmentCase.WorkflowInstanceId` / `LoanCase.WorkflowInstanceId` لینک به instance Elsa
+- **ضمانت‌نامه** عمدتاً از `GuaranteeCaseStateManager` (state machine در Application) استفاده می‌کند
 
-تغییر مراحل workflow = ویرایش workflow + `CaseStateManager` + احتمالاً enum `CaseStatus` / `CasePhase` + داک فرانت.
+تغییر مراحل workflow = ویرایش workflow + StateManager مربوطه + enum وضعیت/فاز + داک فرانت.
 
 ---
 
@@ -769,7 +852,7 @@ dotnet ef database update `
 
 | موضوع | محل |
 |-------|-----|
-| Use case اصلی پرونده | `InvestmentCaseAppService.cs` (بزرگ — قبل از refactor بخش مربوطه را پیدا کنید) |
+| Use case اصلی پرونده | `InvestmentCaseAppService.cs`, `GuaranteeCaseAppService.cs`, `LoanCaseAppService.cs` |
 | Validator درخواست | `Core.Application/Validation/*.cs` |
 | DTO پرونده | `Core.Application/DTOs/` |
 | DTO کاربر | `Core.Application/Identity/DTOs/` |
@@ -799,9 +882,14 @@ Versioning: attribute `[ApiVersion(1.0)]` + URL segment `v{version}`.
 | `ConnectionStrings:Redis` | OTP، Session، Permission cache — اگر خالی باشد MemoryCache |
 | `JwtKey` / `ENCKey` | امضا و رمزنگاری JWT |
 | `Otp:*` | TTL، DevBypass، rate limit |
-| `Session:*` | انقضای نشست |
+| `Session:*` | انقضای نشست، `OnlineActivityWindowMinutes`, `ActivityTouchIntervalMinutes`, `MaxActiveSessions` |
 | `Sms:*` | کاوه‌نگار، صف، Mongo audit |
 | `LiaraStorage:*` | S3-compatible برای اسناد |
+| `LoanSettings:*` | `InstallmentReminderDays`, `ReminderPollIntervalMinutes` |
+| `Dashboard:AggregationEnabled` | فعال/غیرفعال job داشبورد (پیش‌فرض `true`) |
+| `Dashboard:AggregationIntervalHours` | فاصله aggregation داشبورد (پیش‌فرض `4`) |
+| `Dashboard:EmployeeKpiAggregationEnabled` | job KPI پرسنل (پیش‌فرض `true` — در appsettings ممکن است نباشد) |
+| `Dashboard:EmployeeKpiAggregationIntervalHours` | فاصله KPI (پیش‌فرض `4`) |
 | `RefreshTokenPepper` | هش refresh token |
 | `Serilog` | Console / Seq |
 
@@ -825,14 +913,18 @@ Versioning: attribute `[ApiVersion(1.0)]` + URL segment `v{version}`.
 
 | کار | کجا |
 |-----|-----|
-| Endpoint جدید پرونده | `InvestmentCasesController` + `InvestmentCaseAppService` + Validator |
+| Endpoint جدید پرونده | Controller مربوطه + `*AppService` + Validator |
 | محدودیت نقش روی endpoint | `AuthorizationServiceCollectionExtensions.cs` + `Permissions.cs` — **بخش ۹–۱۳** |
 | منع عملیات سرمایه‌گذاری | `CaseAuthorizationService` + `CasePermissions` |
 | منع عملیات ضمانت | `GuaranteeAuthorizationService` + `GuaranteePermissions` |
+| منع عملیات تسهیلات | `LoanAuthorizationService` + `LoanPermissions` |
+| داشبورد / KPI | `DashboardAnalyticsService`, `EmployeeKpiAggregationService` + snapshot در `Analytics` schema |
+| سقف اعتبار صندوق | `FundCreditLimitAppService` + `FundCreditLimitsController` |
 | نقش جدید | `UserRole` + سه فایل mapping + Policy + `IsInternalUser` — **بخش ۱۰-D** |
 | Permission API جدید | `Permissions.cs` + `AllPermissions` + Policy |
 | Permission پرونده جدید | `CasePermissions` + `CaseAuthorizationService` |
 | Permission ضمانت جدید | `GuaranteePermissions` + `GuaranteeAuthorizationService` |
+| Permission تسهیلات جدید | `LoanPermissions` + `LoanAuthorizationService` |
 | **فقط** یک permission به نقش | **بخش ۱۰-A** — معمولاً ۲–۳ فایل |
 | جدول DB جدید | Entity + Configuration + DbContext + Migration |
 | Query سنگین | `InvestmentCaseRepository` متد جدید با `AsSplitQuery` |
@@ -866,13 +958,20 @@ dotnet run --project src/Services/CoreService/Core.API/Core.API.csproj
 | DbContext | `Core.Persistence/CoreDbContext.cs` |
 | JWT | `Core.Infrastructure/Identity/Identity/TokenHandler/TokenHelper.cs` |
 | کش permission | `Core.Infrastructure/Identity/Services/Authorization/DistributedPermissionCacheService.cs` |
-| State machine پرونده | `Core.Application/Services/CaseStateManager.cs` |
-| Repository پرونده | `Core.Infrastructure/Persistence/InvestmentCaseRepository.cs` |
+| State machine پرونده | `CaseStateManager.cs`, `GuaranteeCaseStateManager.cs`, `LoanCaseStateManager.cs` |
+| Repository پرونده | `InvestmentCaseRepository.cs`, `GuaranteeCaseRepository.cs`, `LoanCaseRepository.cs` |
+| داشبورد aggregation | `DashboardAggregationService.cs`, `DashboardAggregationBackgroundService.cs` |
+| KPI پرسنل | `EmployeeKpiAnalyticsService.cs`, `EmployeeKpiAggregationBackgroundService.cs` |
+| Session activity | `SessionActivityMiddleware.cs`, `AuthSessionOptions.cs` |
+| سقف اعتبار صندوق | `FundCreditLimitAppService.cs`, `FundCreditLimitCapacityCalculator.cs` |
 | راهنمای فرانت API | `docs/frontend/INVESTMENT_CASE_API_GUIDE.md` |
 | راهنمای ضمانت‌نامه | `docs/frontend/GUARANTEE_CASE_API_GUIDE.md` |
 | تمدید ضمانت‌نامه | `docs/frontend/GUARANTEE_RENEWAL_API_GUIDE.md` |
 | State machine ضمانت‌نامه | `Core.Application/Services/GuaranteeCaseStateManager.cs` |
 | کنترلر ضمانت‌نامه | `Core.API/Controllers/GuaranteeCasesController.cs` |
+| راهنمای تسهیلات | `docs/frontend/LOAN_CASE_API_GUIDE.md` |
+| کنترلر تسهیلات | `Core.API/Controllers/LoanCasesController.cs` |
+| Permission تسهیلات | `LoanPermissions.cs`, `LoanAuthorizationService.cs` |
 | کارتابل یکپارچه | `Core.API/Controllers/KanbanController.cs` |
 
 ---
@@ -880,11 +979,78 @@ dotnet run --project src/Services/CoreService/Core.API/Core.API.csproj
 ## ماژول ضمانت‌نامه (Guarantee)
 
 - Aggregate: `GuaranteeCase` + `GuaranteeCaseApplication`, `GuaranteeApprovalForm`, `GuaranteeCaseDocument`, `GuaranteeRenewalCase`
-- جداول در schema `Cases` با پیشوند `guarantee_*`
-- نقش‌های جدید: `CreditExpert` (50), `CreditManager` (51)
-- Migration: `AddGuaranteeModule`
+- جداول در schema `Guarantee` با پیشوند `guarantee_*`
+- نقش‌های اختصاصی: `CreditExpert` (50), `CreditManager` (51)
 - API: `/api/v1/guaranteecases`, `/api/v1/guarantee-renewals`, `/api/v1/kanban`
 - الگوی transition/comment/document مشابه سرمایه‌گذاری؛ بدون duplicate داده Company/User روی application
+- سقف اعتبار متقاضی: `GuaranteeApplicantCreditSnapshotCalculator` + `GuaranteeFundCreditGuard` — ظرفیت از `Fund.fund_credit_limits` (ModuleType = Guarantee)
+
+---
+
+## ماژول تسهیلات (Loan)
+
+- Aggregate: `LoanCase` + `LoanCaseApplication`, `LoanApprovalDetail`, `LoanInstallment`, `LoanPayment`, `LoanCaseDocument`
+- جداول در schema `Loan`
+- State machine: `LoanCaseStateManager` — transitionها در `LoanWorkflowAction` + نقش
+- Workflow Elsa: `LoanCaseWorkflow` + `ElsaLoanWorkflowOrchestrator`
+- Authorization: لایه ۴ — `LoanAuthorizationService` / `LoanPermissions`
+- API: `/api/v1/loancases` — راهنمای HTTP: [`LOAN_CASE_API_GUIDE`](../frontend/LOAN_CASE_API_GUIDE.md)
+- Background: `LoanInstallmentReminderBackgroundService` — یادآوری سررسید اقساط (`LoanSettings`)
+
+---
+
+## داشبورد و Analytics
+
+### معماری
+
+```
+Background job (هر N ساعت)
+  → DashboardAggregationService / EmployeeKpiAggregationService
+  → dashboard_stats_snapshots (schema Analytics)
+  → DashboardAnalyticsService / EmployeeKpiAnalyticsService (read)
+  → DashboardController / EmployeeKpiAnalyticsController
+```
+
+- **Snapshot types:** `DashboardSnapshotType` — Executive, Department, Applicant, EmployeeKpi
+- **Role routing:** `DashboardRoleResolver` — `GET /dashboard/me` بر اساس JWT نقش را resolve می‌کند
+- **Department keys:** `Legal`, `Financial`, `Credit`, `Investment`, `Technical`
+- **KPI periods:** `Last30Days`, `Last90Days`, `ThisQuarter`, `AllTime` (`EmployeeKpiPeriodResolver`)
+- **Refresh دستی:** `POST /dashboard/refresh` (Admin) — `AggregateAllAsync`
+- **Refresh KPI:** `POST /analytics/employee-kpis/run-job` — `AggregateAsync`
+
+فایل‌های کلیدی: `DashboardModuleAggregators.cs`, `DashboardKanbanStatusFilters.cs`, `DashboardStatsRepository.cs`
+
+---
+
+## سقف اعتبار صندوق (Fund Credit Limits)
+
+- Entity: `FundCreditLimit` — schema `Fund`, table `fund_credit_limits`
+- `FundModuleType`: `Guarantee` (1), `Loan` (2) — بازه‌های غیرهمپوشان per module
+- API CRUD: `FundCreditLimitsController` — Policy `FundCreditLimits.Manage`
+- محاسبه ظرفیت فعال: `FundCreditLimitCapacityCalculator.ComputeActiveAsync`
+- استفاده در ضمانت: `GuaranteeFundCreditGuard` قبل از صدور/تأیید
+- Migration یکپارچه‌سازی: `UnifyFundCreditLimits` (جایگزین `guarantee_fund_credit_limit` قدیمی)
+
+---
+
+## Background Processes
+
+| سرویس | فایل | فعال‌سازی | کار |
+|-------|------|-----------|-----|
+| SMS queue | `SmsQueueBackgroundService` | `Sms:QueueEnabled` (پیش‌فرض true) | ارسال async SMS |
+| Loan installment reminder | `LoanInstallmentReminderBackgroundService` | همیشه | یادآوری اقساط نزدیک سررسید |
+| Dashboard aggregation | `DashboardAggregationBackgroundService` | `Dashboard:AggregationEnabled` | snapshot داشبورد |
+| Employee KPI aggregation | `EmployeeKpiAggregationBackgroundService` | `Dashboard:EmployeeKpiAggregationEnabled` | snapshot KPI SLA |
+
+ثبت DI: `Core.Infrastructure/DependencyInjection/ServiceCollectionExtensions.cs`
+
+---
+
+## کانبان یکپارچه
+
+- Controller: `KanbanController` — `/api/v1/kanban/action-required`, `/watching`
+- Service: `KanbanAppService` — کارت‌ها از investment + guarantee + loan با ruleهای `CaseKanbanRules`, `GuaranteeKanbanRules`, `LoanKanbanRules`
+- Authorization per module داخل AppService (هر سه لایه case auth)
 
 ---
 
@@ -892,8 +1058,7 @@ dotnet run --project src/Services/CoreService/Core.API/Core.API.csproj
 
 1. Solution را از `Core.API` اجرا کنید و Swagger را باز کنید.  
 2. یک بار OTP/Dev login را در `Frontend` یا Swagger امتحان کنید تا JWT بگیرید.  
-3. برای هر تغییر دسترسی، **بخش ۹–۱۳** را باز کنید — معمولاً `Permissions.cs` + `CaseAuthorizationService` + `GuaranteeAuthorizationService` (نه فقط یک فایل).  
+3. برای هر تغییر دسترسی، **بخش ۹–۱۳** را باز کنید — معمولاً `Permissions.cs` + `CaseAuthorizationService` + `GuaranteeAuthorizationService` + `LoanAuthorizationService` (نه فقط یک فایل).  
 4. Entity جدید = Domain → Configuration → DbContext → Migration → Repository → AppService → Controller.  
-5. Claim نقش فقط از `ClaimTypes.Role` در JWT می‌آید — `IUserContext.Roles` همان را می‌خواند.
-
-اگر بخشی از سیستم (مثلاً Dashboard یا SMS) را عمیق‌تر مستند کنیم، همان ماژول را به‌صورت فصل جدا در همین پوشه `docs/backend/` اضافه کنید.
+5. Claim نقش فقط از `ClaimTypes.Role` در JWT می‌آید — `IUserContext.Roles` همان را می‌خواند.  
+6. داشبورد و KPI از snapshot خوانده می‌شوند — بعد از تغییر query، job aggregation را refresh کنید.

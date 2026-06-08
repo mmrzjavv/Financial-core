@@ -1,97 +1,150 @@
-# Backend Workflow Test Panel (Vanilla)
+# پنل پرونده‌های مالی (Vanilla JS)
 
-This folder contains a **simple, non-production** frontend used to validate the **full end-to-end business workflow** of the Maskan .NET microservice platform **through the API Gateway**.
+**Non-production** frontend for exercising the Maskan financial platform end-to-end through the API gateway. RTL Persian UI covering investment, guarantee, and loan cases, kanban inbox, role dashboards, and admin screens.
 
-## Files
+## Stack
 
-- `index.html` – UI layout
-- `app.js` – logic (fetch + localStorage + debug inspector)
-- `styles.css` – minimal styling
-- `config.js` – base URL + version config (editable in UI)
+| Layer | Choice |
+|-------|--------|
+| Framework | Vanilla JS (IIFE modules, no bundler) |
+| Entry | `index.html` → script tags in fixed order |
+| Styling | `styles.css` (custom, no component library) |
+| Charts | [Chart.js 4.4.1](https://cdn.jsdelivr.net/npm/chart.js@4.4.1) (dashboard tabs only) |
+| API | `fetch` via `window.TestPanel.apiRequest` |
+| State | `localStorage` (sessions, config, active case) |
+| API base | `config.js` → `TESTPANEL_CONFIG.baseUrl` (default `http://localhost:5081`) |
 
 ## Run
 
-You should serve this folder over HTTP (not `file://`) to avoid browser CORS/security issues.
-
-Example (PowerShell):
+Serve over HTTP (not `file://`):
 
 ```powershell
-cd d:\work\Maskan\Panel\Core
+cd D:\work\Maskan\Panel\Financial-Core\Frontend
 python -m http.server 5500
 ```
 
-Then open:
+Open `http://localhost:5500/index.html`.
 
-```text
-http://localhost:5500/index.html
+Top bar → **تنظیمات** to change base URL, cases API version (`casesVersion`, default `1`), and dev OTP.
+
+## Project structure
+
+```
+Frontend/
+  index.html          # Layout, tabs, script load order
+  app.js              # Core: auth, apiRequest, TestPanel facade, tab wiring
+  config.js           # TESTPANEL_CONFIG + localStorage persistence
+  styles.css
+  workflow-runner.js  # Headless E2E runner (not loaded by index.html)
+  js/
+    workflow-model.js           # Investment workflow steps, roles, units
+    guarantee-workflow-model.js # Guarantee workflow
+    loan-workflow-model.js      # Loan workflow
+    ui-components.js            # Shared DOM helpers, tables, comments
+    cases-hub.js                # Cases list + detail shell (3 modules)
+    portal.js                   # Investment case workflow UI
+    guarantee-portal.js         # Guarantee case workflow UI
+    loan-portal.js              # Loan case workflow UI
+    kanban.js                   # Inbox (action-required / watch)
+    fund-credit-capacity-ui.js  # Per-case fund capacity widget
+    fund-credit-limits.js       # CEO periodic credit limits (tabDashboard)
+    home-dashboard.js           # Role-based home cockpit
+    employee-kpi-dashboard.js   # Employee KPI sub-tab
+    dashboard-ui.js             # Shared dashboard render helpers
+    admin-dashboard.js          # Admin multi-role overview + charts
+    admin-users.js              # User/session management
+    admin-companies.js          # Company CRUD
+    cases-registry.js           # CEO/Admin registry (not wired in index.html)
+    dashboard-analytics.js      # Standalone analytics helper (not wired)
+    guarantee-ceo-credit.js     # Legacy CEO credit UI (superseded by fund-credit-limits)
 ```
 
-If you don’t have Python, use any static file server you already have (IIS, nginx, etc.).
+## Navigation (tabs)
 
-## Configure
+Sidebar `data-tab` values in `index.html`:
 
-Top bar → **Edit**:
+| Tab ID | Label | Module |
+|--------|-------|--------|
+| `tabCases` | پرونده‌ها | `cases-hub.js` + per-module portals |
+| `tabInbox` | کارتابل | `kanban.js` |
+| `tabAccount` | حساب کاربری | OTP login, saved sessions (`app.js`) |
+| `tabDashboard` | صفحه اصلی | `home-dashboard.js`, `employee-kpi-dashboard.js`, `fund-credit-limits.js` |
+| `tabAdminDashboard` | داشبورد مدیریت | `admin-dashboard.js` |
+| `tabAdminUsers` | کاربران | `admin-users.js` |
+| `tabAdminCompanies` | شرکت‌ها | `admin-companies.js` |
 
-- **Core API Base URL**: default `http://localhost:5081` (matches `Core.API` `launchSettings.json`)
-- **Cases API version segment**: default `1` (routes are `/api/v{version}/investmentcases`)
+Role-gated nav buttons start with class `hidden`; modules call `updateAccessUi` / `updateDashboardNav` on `testpanel:session-changed`.
 
-Config is stored in `localStorage`.
+Cases tab uses nested module tabs (`data-module`: `investment` | `guarantee` | `loan`) and detail subtabs (`workflow` | `attachments` | `history`).
 
-## What’s Covered
+## Global API surface
 
-This panel wires to the existing gateway/service endpoints and supports:
+`app.js` exposes `window.TestPanel` after `DOMContentLoaded`. Feature modules receive it via `init*(panel)`:
 
-- **Auth**
-  - Send OTP: `POST /api/v1/identity/users/send-otp`
-  - Verify OTP: `POST /api/v1/identity/users/verify-otp`
-  - Refresh token: `POST /api/v1/identity/users/refresh-token`
-  - Logout + sessions + profile
-- **Users**
-  - Create user: `POST /api/v1/identity/users`
-  - Update user (role/active): `PUT /api/v1/identity/users/{id}`
-  - Get/list users
-- **Investment cases**
-  - Create / get / search / history: `/api/v{v}/investmentcases...`
-- **Guarantee cases (ضمانت‌نامه)**
-  - Tab «ضمانت‌نامه» + `js/guarantee-portal.js`, `js/guarantee-workflow-model.js`
-  - API: `/api/v{v}/guaranteecases`, renewal: `/api/v{v}/guarantee-renewals`
-  - Unified kanban: `/api/v{v}/kanban/action-required` (investment + guarantee + renewal)
-  - Personas: `CreditExpert` (50), `CreditManager` (51) in `config.js`
-  - Tab «مدیرعامل»: تعیین/تغییر سقف اعتبار (`js/guarantee-ceo-credit.js`) — فقط نقش CEO
-  - Docs: `docs/frontend/GUARANTEE_CASE_API_GUIDE.md`
-  - DataEntry1 / DataEntry2: update, submit, approve, revision-request
-  - Valuation: record + initial/secondary approvals
-  - Contracts: preliminary upload, applicant approve/revision, finalize draft, confirm signature, signed upload
-  - Finance: worksheet update/submit/approve/revision + payments record/confirm/cancel
-  - Negative actions: reject/cancel/archive
-- **Documents**
-  - Presign upload → PUT to URL → confirm upload
-  - List documents
-  - Presign download
-  - Generic presigned PUT + generic multipart POST utility
-- **Comments & Collaboration**
-  - Get comments (+ includeInternal)
-  - Add comment
-  - Attach comment file via `s3Key` + `fileName`
-- **Evaluations**
-  - Upsert evaluation
-  - Get evaluations
-- **Debug Tools**
-  - Manual request sender (any method/path)
-  - Request/response inspector (status, headers, timing)
-  - Request log
-  - Token viewer + clear localStorage
+```javascript
+window.TestPanel = {
+  apiRequest, unwrapEnvelope, makeUrl,
+  casesBasePath, guaranteeCasesBasePath, guaranteeRenewalsBasePath,
+  loanCasesBasePath, kanbanBasePath,
+  getActiveSession, saveSessionFromLogin, setActiveSessionId,
+  setCurrentCaseId, setGuaranteeCaseId, setLoanCaseId,
+  getInvestmentCaseId, getGuaranteeCaseId, getLoanCaseId,
+  getCaseModule, setCaseModule, clearInvestmentCaseId,
+};
+```
 
-## Role Switching
+Workflow metadata: `WorkflowModel`, `GuaranteeWorkflowModel`, `LoanWorkflowModel`. Shared UI: `UIComponents`, `DashboardUi`, `FundCreditCapacityUi`.
 
-The panel supports **testing multiple roles** by saving multiple OTP logins as **sessions** in `localStorage`.
+## API path conventions
 
-Auth → **Saved Sessions** → **Use** (switches which Bearer token is attached to requests).
+| Domain | Path pattern | Version source |
+|--------|--------------|----------------|
+| Identity | `/api/v1/identity/...` | Fixed `v1` |
+| Dashboard | `/api/v1/dashboard/...` | Fixed `v1` |
+| Analytics | `/api/v1/analytics/...` | Fixed `v1` |
+| Cases (investment/guarantee/loan/renewal/kanban/fund-credit) | `/api/v{casesVersion}/...` | `TESTPANEL_CONFIG.casesVersion` |
 
-Note: The Identity service token is **encrypted JWT (JWE)**, so the panel does not decode claims client-side; it displays role/user info from the login/profile responses.
+Per-domain endpoint catalogs (backend-oriented):
 
-## Notes / Gotchas
+- [Investment cases](../docs/frontend/INVESTMENT_CASE_API_GUIDE.md)
+- [Guarantee cases](../docs/frontend/GUARANTEE_CASE_API_GUIDE.md)
+- [Guarantee renewals](../docs/frontend/GUARANTEE_RENEWAL_API_GUIDE.md)
+- [Loan cases](../docs/frontend/LOAN_CASE_API_GUIDE.md)
 
-- Most workflow endpoints require the correct role/permissions. If a button returns `403`, switch to a different session/role.
-- Presigned uploads depend on your storage/CORS config (S3/MinIO). If browser PUT is blocked, you can still validate the presign/confirm flow by uploading via another tool and then confirming with this panel.
+Frontend integration patterns: [docs/frontend/API_INTEGRATION.md](../docs/frontend/API_INTEGRATION.md).
 
+Architecture and extension guides:
+
+- [docs/frontend/ARCHITECTURE.md](../docs/frontend/ARCHITECTURE.md)
+- [docs/frontend/DEVELOPER_WORKFLOWS.md](../docs/frontend/DEVELOPER_WORKFLOWS.md)
+
+## Auth & role switching
+
+OTP flow on **حساب کاربری**: `send-otp` → `verify-otp`. Each login is stored as a **saved session** in `localStorage`; **Use** swaps the active Bearer token.
+
+Identity tokens are **JWE** — roles come from login/profile responses, not client-side JWT decode.
+
+`config.js` includes `workflowPersonas` (test phones/roles) for `workflow-runner.js` automation.
+
+## localStorage keys
+
+| Key | Purpose |
+|-----|---------|
+| `workflow_test_panel.config.v2` | Base URL, cases version, dev OTP |
+| `workflow_test_panel.sessions.v1` | Saved OTP sessions |
+| `workflow_test_panel.active_session_id.v1` | Active session id |
+| `workflow_test_panel.state.v1` | `caseModule`, `investmentCaseId`, `guaranteeCaseId`, `loanCaseId` |
+
+## Custom events
+
+| Event | When | Typical listeners |
+|-------|------|-------------------|
+| `testpanel:session-changed` | Login, session switch | Kanban, dashboards, admin tabs, portals |
+| `testpanel:case-changed` | Case id/module change | `portal.js`, kanban |
+| `testpanel:open-comment-step` | UIComponents comment deep-link | `portal.js` |
+
+## Notes
+
+- Most workflow actions require the correct role; use saved sessions to switch personas.
+- `app.js` still contains handlers for legacy debug UI elements removed from `index.html`; active UX lives in `js/*` modules.
+- Presigned S3 uploads may fail in-browser if storage CORS is misconfigured; presign/confirm can still be validated separately.
