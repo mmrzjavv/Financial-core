@@ -63,6 +63,16 @@ public static class CaseKanbanRules
         return ActionStatusesByRole.TryGetValue(resolvedRole, out var statuses) && statuses.Contains(status);
     }
 
+    public static IReadOnlyList<int> GetActionRequiredStatusValues(string resolvedRole)
+    {
+        if (string.Equals(resolvedRole, UserRoleClaims.Admin, StringComparison.OrdinalIgnoreCase))
+            return StatusOwnerRole.Keys.Select(s => (int)s).ToList();
+
+        return ActionStatusesByRole.TryGetValue(resolvedRole, out var statuses)
+            ? statuses.Select(s => (int)s).ToList()
+            : [];
+    }
+
     public static bool IsWatching(CaseStatus status, string resolvedRole)
     {
         if (IsTerminal(status) || IsActionRequired(status, resolvedRole))
