@@ -1,6 +1,7 @@
 using BuildingBlocks.Observability.Correlation;
 using BuildingBlocks.Observability.DependencyInjection;
 using Core.API.Swagger;
+using Core.Infrastructure.Identity.Http;
 
 namespace Core.API.DependencyInjection;
 
@@ -32,6 +33,7 @@ public static class WebApplicationPipelineExtensions
 
         app.UseCors("CorsPolicy");
         app.UseAuthentication();
+        app.UseMiddleware<SessionActivityMiddleware>();
         app.UseAuthorization();
 
         app.MapControllers();

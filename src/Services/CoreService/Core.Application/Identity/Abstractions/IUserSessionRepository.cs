@@ -13,4 +13,5 @@ public interface IUserSessionRepository
     Task<UserSession> UpdateAsync(UserSession entity);
     Task<UserSession?> GetBySessionIdAsync(Guid sessionId, bool disableTracking = true);
     Task<List<UserSession>> GetActiveByUserAsync(Guid userId, bool disableTracking = true);
+    Task<int> TouchLastActivityAsync(Guid sessionId, DateTime staleBeforeUtc, CancellationToken cancellationToken = default);
 }

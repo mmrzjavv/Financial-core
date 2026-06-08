@@ -66,4 +66,16 @@ public sealed class UserSessionRepository(CoreDbContext context) : IUserSessionR
             .OrderByDescending(s => s.LastActivityAt)
             .ToListAsync();
     }
+
+    public async Task<int> TouchLastActivityAsync(Guid sessionId, DateTime staleBeforeUtc, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        return await context.UserSessions
+            .Where(s => s.SessionId == sessionId && s.RevokedAt == null && s.LastActivityAt < staleBeforeUtc)
+            .ExecuteUpdateAsync(
+                s => s
+                    .SetProperty(x => x.LastActivityAt, now)
+                    .SetProperty(x => x.UpdateDate, now),
+                cancellationToken);
+    }
 }

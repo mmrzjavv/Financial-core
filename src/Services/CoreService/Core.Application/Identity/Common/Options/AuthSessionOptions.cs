@@ -12,5 +12,8 @@ public class AuthSessionOptions
 
     /// <summary>Users with session activity within this window are considered online.</summary>
     public int OnlineActivityWindowMinutes { get; set; } = 30;
+
+    /// <summary>Minimum interval between DB writes when touching session activity on API requests.</summary>
+    public int ActivityTouchIntervalMinutes { get; set; } = 2;
 }
 
