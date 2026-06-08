@@ -468,29 +468,6 @@ public sealed class LoanCaseAppService(
         if (entity.Payments.Any(x => x.StageNumber == repaymentStageNumber))
             return Result.Fail(Error.Conflict("پرداخت این قساط قبلاً ثبت شده است."));
 
-        // #region agent log
-        try
-        {
-            var _dbg = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                sessionId = "53195f",
-                runId = "post-fix-3",
-                hypothesisId = "G",
-                location = "LoanCaseAppService.cs:MarkInstallmentPaidAsync",
-                message = "repayment payment stage",
-                data = new
-                {
-                    installmentRow = installment.RowNumber,
-                    repaymentStageNumber,
-                    existingStages = entity.Payments.Select(x => x.StageNumber).ToArray()
-                },
-                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            });
-            System.IO.File.AppendAllText(@"D:\work\Maskan\Panel\Financial-Core\debug-53195f.log", _dbg + Environment.NewLine);
-        }
-        catch { }
-        // #endregion
-
         var payment = entity.AddPayment(
             request.Amount,
             request.PaidDate ?? DateOnly.FromDateTime(paidAt.UtcDateTime),
@@ -508,26 +485,8 @@ public sealed class LoanCaseAppService(
         {
             await unitOfWork.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException ex)
+        catch (DbUpdateException)
         {
-            // #region agent log
-            try
-            {
-                var _dbg = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    sessionId = "53195f",
-                    runId = "post-fix-3",
-                    hypothesisId = "G",
-                    location = "LoanCaseAppService.cs:MarkInstallmentPaidAsync",
-                    message = "save failed",
-                    data = new { error = ex.InnerException?.Message ?? ex.Message },
-                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                });
-                System.IO.File.AppendAllText(@"D:\work\Maskan\Panel\Financial-Core\debug-53195f.log", _dbg + Environment.NewLine);
-            }
-            catch { }
-            // #endregion
-
             return Result.Fail(Error.Conflict("ثبت پرداخت قساط انجام نشد. لطفاً دوباره تلاش کنید."));
         }
 
