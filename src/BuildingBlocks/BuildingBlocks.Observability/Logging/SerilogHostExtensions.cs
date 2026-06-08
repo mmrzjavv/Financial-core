@@ -43,13 +43,21 @@ public static class SerilogHostExtensions
         app.UseSerilogRequestLogging(options =>
         {
             options.GetLevel = (httpContext, _, exception) =>
-                exception is not null
-                    ? LogEventLevel.Error
-                    : httpContext.Response.StatusCode >= 500
-                        ? LogEventLevel.Error
-                        : httpContext.Response.StatusCode >= 400
-                            ? LogEventLevel.Warning
-                            : LogEventLevel.Information;
+            {
+                if (exception is not null)
+                    return LogEventLevel.Error;
+
+                var statusCode = httpContext.Response.StatusCode;
+
+                if (statusCode >= 500)
+                    return LogEventLevel.Error;
+
+                if (statusCode >= 400)
+                    return LogEventLevel.Warning;
+
+                // Successful 2xx/3xx and OPTIONS preflights — below Information threshold.
+                return LogEventLevel.Verbose;
+            };
 
             options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
             {
