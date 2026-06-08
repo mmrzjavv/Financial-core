@@ -25,12 +25,12 @@ public sealed class CaseStateManager : ICaseStateManager
         (CasePhase.ManagerReview, CaseStatus.WaitingForReview, CasePhase.PrimaryValuation, CaseStatus.InProgress),
 
         (CasePhase.PrimaryValuation, CaseStatus.InProgress, CasePhase.SecondaryValuation, CaseStatus.InProgress),
-        (CasePhase.SecondaryValuation, CaseStatus.InProgress, CasePhase.FinancialWorksheet, CaseStatus.InProgress),
+        (CasePhase.SecondaryValuation, CaseStatus.InProgress, CasePhase.InvestmentCaseFinancialWorksheet, CaseStatus.InProgress),
 
-        (CasePhase.FinancialWorksheet, CaseStatus.InProgress, CasePhase.FinancialWorksheet, CaseStatus.Submitted),
-        (CasePhase.FinancialWorksheet, CaseStatus.RevisionRequested, CasePhase.FinancialWorksheet, CaseStatus.Submitted),
+        (CasePhase.InvestmentCaseFinancialWorksheet, CaseStatus.InProgress, CasePhase.InvestmentCaseFinancialWorksheet, CaseStatus.Submitted),
+        (CasePhase.InvestmentCaseFinancialWorksheet, CaseStatus.RevisionRequested, CasePhase.InvestmentCaseFinancialWorksheet, CaseStatus.Submitted),
 
-        (CasePhase.FinancialWorksheet, CaseStatus.Submitted, CasePhase.FinanceReview, CaseStatus.WaitingForReview),
+        (CasePhase.InvestmentCaseFinancialWorksheet, CaseStatus.Submitted, CasePhase.FinanceReview, CaseStatus.WaitingForReview),
         (CasePhase.FinanceReview, CaseStatus.WaitingForReview, CasePhase.CEOApproval, CaseStatus.WaitingForReview),
 
         (CasePhase.CEOApproval, CaseStatus.WaitingForReview, CasePhase.LegalPreContract, CaseStatus.InProgress),

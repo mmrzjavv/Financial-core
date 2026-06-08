@@ -4,14 +4,15 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Core.Persistence.Configurations;
 
-public sealed class FinancialWorksheetConfiguration : IEntityTypeConfiguration<FinancialWorksheet>
+public sealed class FinancialWorksheetConfiguration : IEntityTypeConfiguration<InvestmentCaseFinancialWorksheet>
 {
-    public void Configure(EntityTypeBuilder<FinancialWorksheet> builder)
+    public void Configure(EntityTypeBuilder<InvestmentCaseFinancialWorksheet> builder)
     {
         builder.ToTable("financial_worksheets", DbSchemas.Investment);
         builder.HasKey(x => x.Id);
 
         builder.HasIndex(x => x.CaseId).IsUnique();
+        builder.HasIndex(x => x.ApprovedAmount);
 
         builder.Property(x => x.BankName).HasMaxLength(256).IsRequired();
         builder.Property(x => x.Iban).HasMaxLength(64).IsRequired();

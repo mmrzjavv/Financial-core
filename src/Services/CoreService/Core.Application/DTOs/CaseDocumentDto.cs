@@ -33,5 +33,6 @@ public sealed record CaseDocumentInternalDto(
     int Version,
     DocumentType DocumentType,
     string UploadedByUserId,
+    string? UploadedByFullName,
     DateTimeOffset UploadedAt)
     : CaseDocumentDto(Id, CaseId, FileName, MimeType, FileSize, Version, DocumentType, UploadedAt);

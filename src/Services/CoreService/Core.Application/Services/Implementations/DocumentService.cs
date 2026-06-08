@@ -89,7 +89,7 @@ public sealed class DocumentService : IDocumentService
             return Result.Fail(Error.Conflict(ApiMessages.DocumentAlreadyRegistered));
 
         await _db.CaseDocuments.AddAsync(
-            new CaseDocument(
+            new InvestmentCaseDocument(
                 caseId,
                 request.S3Key,
                 request.FileName,

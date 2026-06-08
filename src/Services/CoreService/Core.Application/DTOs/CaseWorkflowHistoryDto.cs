@@ -29,6 +29,7 @@ public sealed record CaseWorkflowHistoryInternalDto(
     CaseStatus FromStatus,
     CaseStatus ToStatus,
     string ChangedByUserId,
+    string? ChangedByFullName,
     string ActorRole,
     string Action,
     Guid CorrelationId,

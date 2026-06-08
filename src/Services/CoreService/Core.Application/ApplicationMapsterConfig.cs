@@ -13,32 +13,32 @@ public sealed class ApplicationMapsterConfig : IRegister
     {
         config.NewConfig<Company, CompanyDto>();
 
-        config.NewConfig<CaseDocument, CaseDocumentApplicantDto>();
-        config.NewConfig<CaseDocument, CaseDocumentInternalDto>();
+        config.NewConfig<InvestmentCaseDocument, CaseDocumentApplicantDto>();
+        config.NewConfig<InvestmentCaseDocument, CaseDocumentInternalDto>();
 
-        config.NewConfig<InvestmentCaseDataEntry1, DataEntry1Dto>();
-        config.NewConfig<InvestmentCaseDataEntry2, DataEntry2Dto>();
+        config.NewConfig<InvestmentCaseApplicantProfile, DataEntry1Dto>();
+        config.NewConfig<InvestmentCaseAttractionBasis, DataEntry2Dto>();
 
         config.NewConfig<InvestmentCase, InvestmentCaseApplicantDto>()
             .Map(dest => dest.Company, src => src.ApplicantCompany)
-            .Map(dest => dest.DataEntry1, src => src.DataEntry1 != null ? src.DataEntry1.Adapt<DataEntry1Dto>() : null)
-            .Map(dest => dest.DataEntry2, src => src.DataEntry2 != null ? src.DataEntry2.Adapt<DataEntry2Dto>() : null);
+            .Map(dest => dest.ApplicantProfile, src => src.ApplicantProfile != null ? src.ApplicantProfile.Adapt<DataEntry1Dto>() : null)
+            .Map(dest => dest.AttractionBasis, src => src.AttractionBasis != null ? src.AttractionBasis.Adapt<DataEntry2Dto>() : null);
         config.NewConfig<InvestmentCase, InvestmentCaseInternalDto>()
             .Map(dest => dest.Company, src => src.ApplicantCompany);
 
-        config.NewConfig<CaseCommentAttachment, CaseCommentAttachmentApplicantDto>();
-        config.NewConfig<CaseCommentAttachment, CaseCommentAttachmentInternalDto>();
+        config.NewConfig<InvestmentCaseCommentAttachment, CaseCommentAttachmentApplicantDto>();
+        config.NewConfig<InvestmentCaseCommentAttachment, CaseCommentAttachmentInternalDto>();
 
-        config.NewConfig<CaseComment, CaseCommentApplicantDto>()
+        config.NewConfig<InvestmentCaseComment, CaseCommentApplicantDto>()
             .Ignore(dest => dest.Attachments);
-        config.NewConfig<CaseComment, CaseCommentInternalDto>()
+        config.NewConfig<InvestmentCaseComment, CaseCommentInternalDto>()
             .Ignore(dest => dest.Attachments);
 
-        config.NewConfig<CaseWorkflowHistory, CaseWorkflowHistoryApplicantDto>();
-        config.NewConfig<CaseWorkflowHistory, CaseWorkflowHistoryInternalDto>();
+        config.NewConfig<InvestmentCaseWorkflowHistory, CaseWorkflowHistoryApplicantDto>();
+        config.NewConfig<InvestmentCaseWorkflowHistory, CaseWorkflowHistoryInternalDto>();
 
-        config.NewConfig<CaseEvaluationItem, CaseEvaluationItemDto>();
-        config.NewConfig<CaseEvaluation, CaseEvaluationDto>()
+        config.NewConfig<InvestmentCaseEvaluationItem, CaseEvaluationItemDto>();
+        config.NewConfig<InvestmentCaseEvaluation, CaseEvaluationDto>()
             .Map(dest => dest.Items, src => src.Items);
 
         config.NewConfig<User, UserDto>()

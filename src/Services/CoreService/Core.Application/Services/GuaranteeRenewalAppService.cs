@@ -11,16 +11,19 @@ using Core.Domain.Constants;
 using Core.Domain.Entities;
 using Core.Domain.Enums;
 using Core.Domain.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Core.Application.Services;
 
 public sealed class GuaranteeRenewalAppService(
     ICoreUnitOfWork unitOfWork,
+    ICoreDbContext dbContext,
     IGuaranteeCaseNumberGenerator caseNumberGenerator,
     IGuaranteeWorkflowOrchestrator workflowOrchestrator,
     IGuaranteeAuthorizationService authorizationService,
     IGuaranteeCaseDtoMapper dtoMapper,
+    IUserDisplayLookup userDisplayLookup,
     ILogger<GuaranteeRenewalAppService> logger) : IGuaranteeRenewalAppService
 {
     public async Task<Result<GuaranteeRenewalDto>> CreateAsync(CreateGuaranteeRenewalRequest request, CancellationToken ct)
@@ -59,7 +62,7 @@ public sealed class GuaranteeRenewalAppService(
         await unitOfWork.SaveChangesAsync(ct);
 
         var loaded = await unitOfWork.GuaranteeRenewals.GetAsync(entity.Id, ct);
-        return Result<GuaranteeRenewalDto>.Ok(dtoMapper.MapRenewal(loaded!));
+        return Result<GuaranteeRenewalDto>.Ok(await MapRenewalAsync(loaded!, ct));
     }
 
     public async Task<Result<GuaranteeRenewalDto>> GetAsync(Guid id, CancellationToken ct)
@@ -73,7 +76,34 @@ public sealed class GuaranteeRenewalAppService(
         if (entity is null)
             return Result<GuaranteeRenewalDto>.Fail(Error.NotFound(ApiMessages.GuaranteeRenewalNotFound));
 
-        return Result<GuaranteeRenewalDto>.Ok(dtoMapper.MapRenewal(entity));
+        return Result<GuaranteeRenewalDto>.Ok(await MapRenewalAsync(entity, ct));
+    }
+
+    private async Task<GuaranteeRenewalDto> MapRenewalAsync(GuaranteeRenewalCase renewal, CancellationToken ct)
+    {
+        var rawContext = await dbContext.GuaranteeRenewalCases
+            .AsNoTracking()
+            .Where(x => x.Id == renewal.Id)
+            .Select(x => new
+            {
+                x.ApplicantUserId,
+                ParentBeneficiaryName = x.ParentGuaranteeCase.Application != null
+                    ? x.ParentGuaranteeCase.Application.BeneficiaryName
+                    : null,
+                ParentCompanyName = x.ParentGuaranteeCase.ApplicantCompany != null
+                    ? x.ParentGuaranteeCase.ApplicantCompany.Name
+                    : null
+            })
+            .FirstAsync(ct);
+
+        var applicantLookup = await userDisplayLookup.GetByIdsAsync([rawContext.ApplicantUserId], ct);
+        var context = new GuaranteeRenewalContextProjection(
+            rawContext.ApplicantUserId,
+            rawContext.ParentBeneficiaryName,
+            rawContext.ParentCompanyName,
+            userDisplayLookup.ResolveFullName(applicantLookup, rawContext.ApplicantUserId));
+
+        return dtoMapper.MapRenewal(renewal, context);
     }
 
     public async Task<Result> SubmitAsync(Guid id, CancellationToken ct)

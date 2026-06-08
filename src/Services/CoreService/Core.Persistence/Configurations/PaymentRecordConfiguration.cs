@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Core.Persistence.Configurations;
 
-public sealed class PaymentRecordConfiguration : IEntityTypeConfiguration<PaymentRecord>
+public sealed class PaymentRecordConfiguration : IEntityTypeConfiguration<InvestmentCasePayment>
 {
-    public void Configure(EntityTypeBuilder<PaymentRecord> builder)
+    public void Configure(EntityTypeBuilder<InvestmentCasePayment> builder)
     {
         builder.ToTable("payment_records", DbSchemas.Investment);
         builder.HasKey(x => x.Id);

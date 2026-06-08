@@ -22,6 +22,11 @@ public sealed class LoanCaseConfiguration : IEntityTypeConfiguration<LoanCase>
         builder.Property(x => x.CurrentStatus).HasConversion<int>().IsRequired();
         builder.HasIndex(x => x.CurrentStatus);
         builder.HasIndex(x => x.CreatedAt);
+        builder.HasIndex(x => new { x.CurrentStatus, x.CreatedAt });
+        builder.HasIndex(x => new { x.CurrentPhase, x.CreatedAt });
+        builder.HasIndex(x => new { x.ApplicantUserId, x.CreatedAt });
+        builder.HasIndex(x => new { x.CompanyId, x.CreatedAt });
+        builder.HasIndex(x => new { x.ApplicantType, x.CreatedAt });
 
         builder.Property(x => x.WorkflowInstanceId).HasMaxLength(128);
 

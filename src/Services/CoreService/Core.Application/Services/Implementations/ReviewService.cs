@@ -108,8 +108,8 @@ public sealed class ReviewService : IReviewService
             CasePhase.UserContractReview => (CasePhase.ContractDrafting, CaseStatus.InProgress),
             CasePhase.ContractDrafting => (CasePhase.WaitingForSignature, CaseStatus.InProgress),
             CasePhase.WaitingForSignature => (CasePhase.ContractUpload, CaseStatus.InProgress),
-            CasePhase.ContractUpload => (CasePhase.FinancialWorksheet, CaseStatus.Draft),
-            CasePhase.FinancialWorksheet => (CasePhase.FinanceReview, CaseStatus.WaitingForFinance),
+            CasePhase.ContractUpload => (CasePhase.InvestmentCaseFinancialWorksheet, CaseStatus.Draft),
+            CasePhase.InvestmentCaseFinancialWorksheet => (CasePhase.FinanceReview, CaseStatus.WaitingForFinance),
             CasePhase.FinanceReview => (CasePhase.Payments, CaseStatus.InProgress),
             CasePhase.Payments => (CasePhase.Completion, CaseStatus.Completed),
             _ => (phase, CaseStatus.InProgress)

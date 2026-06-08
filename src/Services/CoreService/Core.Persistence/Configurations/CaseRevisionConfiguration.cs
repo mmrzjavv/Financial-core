@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Core.Persistence.Configurations;
 
-public sealed class CaseRevisionConfiguration : IEntityTypeConfiguration<CaseRevision>
+public sealed class CaseRevisionConfiguration : IEntityTypeConfiguration<InvestmentCaseRevision>
 {
-    public void Configure(EntityTypeBuilder<CaseRevision> builder)
+    public void Configure(EntityTypeBuilder<InvestmentCaseRevision> builder)
     {
         builder.ToTable("case_revisions", DbSchemas.Investment);
         builder.HasKey(x => x.Id);

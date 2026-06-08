@@ -59,7 +59,7 @@ public sealed class CommentService : ICommentService
             return Result.Fail(Error.Forbidden());
 
         await _db.CaseComments.AddAsync(
-            new CaseComment(
+            new InvestmentCaseComment(
                 caseId,
                 request.Phase,
                 _currentUser.UserId,

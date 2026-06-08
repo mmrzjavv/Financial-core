@@ -45,7 +45,7 @@ public sealed class FinancialWorksheetService : IFinancialWorksheetService
         if (entity.ApplicantUserId != _currentUser.UserId)
             return Result.Fail(Error.Forbidden());
 
-        if (entity.CurrentPhase != CasePhase.FinancialWorksheet)
+        if (entity.CurrentPhase != CasePhase.InvestmentCaseFinancialWorksheet)
             return Result.Fail(Error.Conflict(ApiMessages.FinancialWorksheetNotCurrentPhase));
 
         var isNew = entity.FinancialWorksheet is null;

@@ -35,6 +35,7 @@ public sealed class GuaranteeCaseStateManager : IGuaranteeCaseStateManager
 
         { (GuaranteeCaseStatus.CeoApprovalInitial, GuaranteeWorkflowAction.Approve, UserRoleClaims.Ceo), GuaranteeCaseStatus.WaitingDraftContract },
         { (GuaranteeCaseStatus.CeoApprovalInitial, GuaranteeWorkflowAction.Reject, UserRoleClaims.Ceo), GuaranteeCaseStatus.Rejected },
+        { (GuaranteeCaseStatus.CeoApprovalInitial, GuaranteeWorkflowAction.Cancel, UserRoleClaims.Ceo), GuaranteeCaseStatus.Cancelled },
 
         { (GuaranteeCaseStatus.WaitingDraftContract, GuaranteeWorkflowAction.UploadDraftContract, UserRoleClaims.LegalExpert), GuaranteeCaseStatus.WaitingSignedContractAndAttachments },
         { (GuaranteeCaseStatus.WaitingDraftContract, GuaranteeWorkflowAction.Reject, UserRoleClaims.LegalExpert), GuaranteeCaseStatus.Rejected },

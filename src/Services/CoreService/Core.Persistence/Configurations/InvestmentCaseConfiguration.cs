@@ -22,6 +22,11 @@ public sealed class InvestmentCaseConfiguration : IEntityTypeConfiguration<Inves
         builder.Property(x => x.CurrentStatus).HasConversion<int>().IsRequired();
         builder.HasIndex(x => x.CurrentStatus);
         builder.HasIndex(x => x.CreatedAt);
+        builder.HasIndex(x => new { x.CurrentStatus, x.CreatedAt });
+        builder.HasIndex(x => new { x.CurrentPhase, x.CreatedAt });
+        builder.HasIndex(x => new { x.ApplicantUserId, x.CreatedAt });
+        builder.HasIndex(x => new { x.CompanyId, x.CreatedAt });
+        builder.HasIndex(x => new { x.ApplicantType, x.CreatedAt });
 
         builder.Property(x => x.WorkflowInstanceId).HasMaxLength(128);
 
@@ -40,17 +45,17 @@ public sealed class InvestmentCaseConfiguration : IEntityTypeConfiguration<Inves
         builder.Property(x => x.IsDeleted).HasDefaultValue(false);
         builder.Property(x => x.DeletedAt);
 
-        builder.HasOne(x => x.DataEntry1)
+        builder.HasOne(x => x.ApplicantProfile)
             .WithOne(x => x.Case)
-            .HasForeignKey<InvestmentCaseDataEntry1>(x => x.CaseId);
+            .HasForeignKey<InvestmentCaseApplicantProfile>(x => x.CaseId);
 
-        builder.HasOne(x => x.DataEntry2)
+        builder.HasOne(x => x.AttractionBasis)
             .WithOne(x => x.Case)
-            .HasForeignKey<InvestmentCaseDataEntry2>(x => x.CaseId);
+            .HasForeignKey<InvestmentCaseAttractionBasis>(x => x.CaseId);
 
         builder.HasOne(x => x.FinancialWorksheet)
             .WithOne(x => x.Case)
-            .HasForeignKey<FinancialWorksheet>(x => x.CaseId);
+            .HasForeignKey<InvestmentCaseFinancialWorksheet>(x => x.CaseId);
 
         builder.HasMany(x => x.Documents).WithOne(x => x.Case).HasForeignKey(x => x.CaseId);
         builder.HasMany(x => x.Comments).WithOne(x => x.Case).HasForeignKey(x => x.CaseId);

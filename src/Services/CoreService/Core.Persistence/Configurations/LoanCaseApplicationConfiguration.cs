@@ -11,6 +11,8 @@ public sealed class LoanCaseApplicationConfiguration : IEntityTypeConfiguration<
         builder.ToTable("loan_case_applications", DbSchemas.Loan);
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.CaseId).IsUnique();
+        builder.HasIndex(x => x.RequestedAmount);
+        builder.HasIndex(x => x.ApplicantCategory);
 
         builder.Property(x => x.RequestedAmount).HasPrecision(18, 2);
         builder.Property(x => x.RequestedAmountInWords).HasMaxLength(1024);

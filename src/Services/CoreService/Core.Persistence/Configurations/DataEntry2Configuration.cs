@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Core.Persistence.Configurations;
 
-public sealed class DataEntry2Configuration : IEntityTypeConfiguration<InvestmentCaseDataEntry2>
+public sealed class DataEntry2Configuration : IEntityTypeConfiguration<InvestmentCaseAttractionBasis>
 {
-    public void Configure(EntityTypeBuilder<InvestmentCaseDataEntry2> builder)
+    public void Configure(EntityTypeBuilder<InvestmentCaseAttractionBasis> builder)
     {
         builder.ToTable("case_data_entry_2", DbSchemas.Investment);
         builder.HasKey(x => x.Id);

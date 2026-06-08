@@ -190,15 +190,15 @@ public sealed class CaseStateManager : ICaseStateManager
         switch (action)
         {
             case WorkflowAction.Submit when caseEntity.CurrentStatus == CaseStatus.DataEntry1:
-                if (caseEntity.DataEntry1 is null)
+                if (caseEntity.ApplicantProfile is null)
                 {
                     errorMessage = ApiMessages.CannotSubmitDataEntry1BeforeSave;
                     return false;
                 }
-                if (string.IsNullOrWhiteSpace(caseEntity.DataEntry1.RepresentativeFullName) ||
-                    string.IsNullOrWhiteSpace(caseEntity.DataEntry1.ContactEmail) ||
-                    caseEntity.DataEntry1.RequestedAmount <= 0 ||
-                    caseEntity.DataEntry1.BusinessStage is not (BusinessStage.Idea or BusinessStage.HasPrototype))
+                if (string.IsNullOrWhiteSpace(caseEntity.ApplicantProfile.RepresentativeFullName) ||
+                    string.IsNullOrWhiteSpace(caseEntity.ApplicantProfile.ContactEmail) ||
+                    caseEntity.ApplicantProfile.RequestedAmount <= 0 ||
+                    caseEntity.ApplicantProfile.BusinessStage is not (BusinessStage.Idea or BusinessStage.HasPrototype))
                 {
                     errorMessage = ApiMessages.DataEntry1Incomplete;
                     return false;
@@ -213,12 +213,12 @@ public sealed class CaseStateManager : ICaseStateManager
                 break;
 
             case WorkflowAction.Submit when caseEntity.CurrentStatus == CaseStatus.DataEntry2:
-                if (caseEntity.DataEntry2 is null)
+                if (caseEntity.AttractionBasis is null)
                 {
                     errorMessage = ApiMessages.CannotSubmitDataEntry2BeforeSave;
                     return false;
                 }
-                if (string.IsNullOrWhiteSpace(caseEntity.DataEntry2.InvestmentAttractionBasis))
+                if (string.IsNullOrWhiteSpace(caseEntity.AttractionBasis.InvestmentAttractionBasis))
                 {
                     errorMessage = ApiMessages.DataEntry2Incomplete;
                     return false;

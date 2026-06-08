@@ -28,6 +28,7 @@ public sealed record CaseCommentInternalDto(
     Guid CaseId,
     CasePhase Phase,
     string SenderUserId,
+    string? SenderFullName,
     string? SenderRole,
     string Message,
     bool IsRevisionRequest,

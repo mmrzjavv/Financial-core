@@ -69,16 +69,16 @@ public sealed class DataEntryService : IDataEntryService
         if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(email))
             return Result.Fail(Error.Validation(ApiMessages.ApplicantProfileIncomplete));
 
-        var dataEntry = await _db.DataEntry1.FirstOrDefaultAsync(x => x.CaseId == caseId, ct);
+        var dataEntry = await _db.InvestmentCaseApplicantProfiles.FirstOrDefaultAsync(x => x.CaseId == caseId, ct);
         if (dataEntry is null)
         {
-            dataEntry = new InvestmentCaseDataEntry1(
+            dataEntry = new InvestmentCaseApplicantProfile(
                 caseId,
                 fullName,
                 request.BusinessStage,
                 email,
                 request.RequestedAmount);
-            await _db.DataEntry1.AddAsync(dataEntry, ct);
+            await _db.InvestmentCaseApplicantProfiles.AddAsync(dataEntry, ct);
         }
         else
         {
@@ -111,11 +111,11 @@ public sealed class DataEntryService : IDataEntryService
         if (caseMeta.CurrentPhase != CasePhase.Application)
             return Result.Fail(Error.Conflict(ApiMessages.DataEntry2NotCurrentPhase));
 
-        var dataEntry = await _db.DataEntry2.FirstOrDefaultAsync(x => x.CaseId == caseId, ct);
+        var dataEntry = await _db.InvestmentCaseAttractionBases.FirstOrDefaultAsync(x => x.CaseId == caseId, ct);
         if (dataEntry is null)
         {
-            await _db.DataEntry2.AddAsync(
-                new InvestmentCaseDataEntry2(caseId, request.InvestmentAttractionBasis),
+            await _db.InvestmentCaseAttractionBases.AddAsync(
+                new InvestmentCaseAttractionBasis(caseId, request.InvestmentAttractionBasis),
                 ct);
         }
         else

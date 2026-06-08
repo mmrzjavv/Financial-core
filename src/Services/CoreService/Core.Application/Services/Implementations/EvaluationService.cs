@@ -57,11 +57,11 @@ public sealed class EvaluationService : IEvaluationService
 
         if (evaluation is null)
         {
-            evaluation = new CaseEvaluation(caseId, request.Phase, _currentUser.UserId, _currentUser.Roles.FirstOrDefault() ?? "Unknown", request.Notes);
+            evaluation = new InvestmentCaseEvaluation(caseId, request.Phase, _currentUser.UserId, _currentUser.Roles.FirstOrDefault() ?? "Unknown", request.Notes);
             await _db.CaseEvaluations.AddAsync(evaluation, ct);
         }
 
-        var items = request.Items.Select(i => new CaseEvaluationItem(evaluation.Id, i.Title, i.IsApproved, i.Comment)).ToList();
+        var items = request.Items.Select(i => new InvestmentCaseEvaluationItem(evaluation.Id, i.Title, i.IsApproved, i.Comment)).ToList();
         evaluation.SetItems(items);
 
         await _db.SaveChangesAsync(ct);

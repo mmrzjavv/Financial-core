@@ -11,6 +11,10 @@ public sealed class LoanApprovalDetailConfiguration : IEntityTypeConfiguration<L
         builder.ToTable("loan_approval_details", DbSchemas.Loan);
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.CaseId).IsUnique();
+        builder.HasIndex(x => x.FacilityType);
+        builder.HasIndex(x => x.ApprovedAmount);
+        builder.HasIndex(x => x.RepaymentMonths);
+        builder.HasIndex(x => x.IsCreditLineActive);
 
         builder.Property(x => x.DebtToAssetRatio).HasPrecision(10, 4);
         builder.Property(x => x.CurrentRatio).HasPrecision(10, 4);

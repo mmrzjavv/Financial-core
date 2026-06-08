@@ -11,19 +11,6 @@ namespace Core.Application.Common;
 /// </summary>
 public static class GuaranteeApplicantCreditSnapshotCalculator
 {
-    private static readonly GuaranteeCaseStatus[] ActiveCommitmentStatuses =
-    [
-        GuaranteeCaseStatus.CreditReview,
-        GuaranteeCaseStatus.ApprovalFormEntry,
-        GuaranteeCaseStatus.CeoApprovalInitial,
-        GuaranteeCaseStatus.WaitingDraftContract,
-        GuaranteeCaseStatus.WaitingSignedContractAndAttachments,
-        GuaranteeCaseStatus.FinancialAttachmentReview,
-        GuaranteeCaseStatus.WaitingFinalContract,
-        GuaranteeCaseStatus.CeoApprovalFinal,
-        GuaranteeCaseStatus.WaitingIssuanceDocuments,
-    ];
-
     public static Task<GuaranteeApplicantCreditSnapshotDto> ComputeAsync(
         ICoreDbContext db,
         GuaranteeCase current,
@@ -35,14 +22,20 @@ public static class GuaranteeApplicantCreditSnapshotCalculator
         GuaranteeCase? currentCase,
         CancellationToken cancellationToken)
     {
-        var settings = await ResolveFundCreditLimitSettingsAsync(db, cancellationToken);
-        if (settings is null || settings.CreditLimitWithCheck <= 0)
-        {
-            return new GuaranteeApplicantCreditSnapshotDto(null, null, null, null, null, null);
-        }
+        var referenceDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var capacity = await FundCreditLimitCapacityCalculator.ComputeActiveAsync(
+            db,
+            FundModuleType.Guarantee,
+            referenceDate,
+            cancellationToken);
 
-        var periodStart = settings.PeriodStart;
-        var expiresAt = settings.ExpiresAt;
+        if (capacity.TotalPeriodAllocation is null or <= 0)
+            return new GuaranteeApplicantCreditSnapshotDto(null, null, null, null, null, null);
+
+        var periodStart = capacity.PeriodStart!.Value;
+        var expiresAt = capacity.ExpiresAt!.Value;
+        var totalUtilized = capacity.TotalUtilized ?? 0m;
+        var creditLimit = capacity.TotalPeriodAllocation.Value;
 
         var cases = await db.GuaranteeCases
             .AsNoTracking()
@@ -65,20 +58,13 @@ public static class GuaranteeApplicantCreditSnapshotCalculator
             .Where(c => IsReferenceDateInPeriod(GetIssuedReferenceDate(c), periodStart, expiresAt))
             .Sum(c => c.Amount!.Value);
 
-        var activeCommitments = cases
-            .Where(c => ActiveCommitmentStatuses.Contains(c.Status) && c.Amount is > 0)
-            .Where(c => IsCaseInActivePeriod(c, periodStart, expiresAt))
-            .Sum(c => c.Amount!.Value);
-
-        var creditLimit = settings.CreditLimitWithCheck;
-
-        decimal? remaining = creditLimit - fundIssued - activeCommitments;
+        var activeCommitments = totalUtilized - fundIssued;
 
         return new GuaranteeApplicantCreditSnapshotDto(
             creditLimit,
             fundIssued,
             activeCommitments,
-            remaining,
+            capacity.RemainingCapacity,
             periodStart,
             expiresAt);
     }
@@ -87,14 +73,20 @@ public static class GuaranteeApplicantCreditSnapshotCalculator
         ICoreDbContext db,
         CancellationToken cancellationToken)
     {
-        return await db.GuaranteeFundCreditLimits
-            .AsNoTracking()
-            .Where(x => x.Id == GuaranteeFundCreditLimit.SingletonId)
-            .Select(x => new FundCreditLimitSettings(
-                x.CreditLimitWithCheck,
-                x.PeriodStart,
-                x.ExpiresAt))
-            .FirstOrDefaultAsync(cancellationToken);
+        var referenceDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var pool = await FundCreditLimitCapacityCalculator.ResolveActivePoolAsync(
+            db,
+            FundModuleType.Guarantee,
+            referenceDate,
+            cancellationToken);
+
+        if (pool is null)
+            return null;
+
+        return new FundCreditLimitSettings(
+            pool.CreditLimitWithCheck,
+            pool.PeriodStart,
+            pool.ExpiresAt);
     }
 
     public static async Task<decimal> ResolveFundCreditLimitAsync(
@@ -114,12 +106,6 @@ public static class GuaranteeApplicantCreditSnapshotCalculator
 
     private static bool IsReferenceDateInPeriod(DateOnly? date, DateOnly periodStart, DateOnly expiresAt)
         => date is not null && date.Value >= periodStart && date.Value <= expiresAt;
-
-    private static bool IsCaseInActivePeriod(CaseCreditProjection c, DateOnly periodStart, DateOnly expiresAt)
-    {
-        var created = DateOnly.FromDateTime(c.CreatedAt.UtcDateTime);
-        return created >= periodStart && created <= expiresAt;
-    }
 
     private static DateOnly? GetIssuedReferenceDate(CaseCreditProjection c)
     {

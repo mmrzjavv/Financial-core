@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Core.Persistence.Configurations;
 
-public sealed class WorkflowHistoryConfiguration : IEntityTypeConfiguration<CaseWorkflowHistory>
+public sealed class WorkflowHistoryConfiguration : IEntityTypeConfiguration<InvestmentCaseWorkflowHistory>
 {
-    public void Configure(EntityTypeBuilder<CaseWorkflowHistory> builder)
+    public void Configure(EntityTypeBuilder<InvestmentCaseWorkflowHistory> builder)
     {
         builder.ToTable("case_workflow_history", DbSchemas.Investment);
         builder.HasKey(x => x.Id);

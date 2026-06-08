@@ -11,6 +11,7 @@ public sealed class LoanInstallmentConfiguration : IEntityTypeConfiguration<Loan
         builder.ToTable("loan_installments", DbSchemas.Loan);
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => new { x.CaseId, x.RowNumber }).IsUnique();
+        builder.HasIndex(x => new { x.CaseId, x.IsPaid });
         builder.HasIndex(x => new { x.InstallmentDate, x.IsPaid, x.IsGracePeriod });
 
         builder.Property(x => x.PrincipalAmount).HasPrecision(18, 2);

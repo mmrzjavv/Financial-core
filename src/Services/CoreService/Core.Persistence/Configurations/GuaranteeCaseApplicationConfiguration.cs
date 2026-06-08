@@ -11,6 +11,9 @@ public sealed class GuaranteeCaseApplicationConfiguration : IEntityTypeConfigura
         builder.ToTable("guarantee_case_applications", DbSchemas.Guarantee);
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.CaseId).IsUnique();
+        builder.HasIndex(x => x.BeneficiaryNationalId);
+        builder.HasIndex(x => x.GuaranteeType);
+        builder.HasIndex(x => x.RequestedGuaranteeAmount);
 
         builder.Property(x => x.ContractSubject).HasMaxLength(2000);
         builder.Property(x => x.BeneficiaryName).HasMaxLength(512);

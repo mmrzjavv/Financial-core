@@ -2,6 +2,7 @@ using BuildingBlocks.Persistence.Db;
 using BuildingBlocks.Persistence.Db.DomainEvents;
 using Core.Application.Abstractions;
 using Core.Domain.Entities;
+using Core.Domain.Entities.Fund;
 using Core.Domain.Identity.Entities;
 using Core.Persistence.Db;
 using Microsoft.EntityFrameworkCore;
@@ -18,18 +19,18 @@ public sealed class CoreDbContext : DbContextBase, ICoreDbContext
     }
 
     public DbSet<InvestmentCase> InvestmentCases => Set<InvestmentCase>();
-    public DbSet<InvestmentCaseDataEntry1> DataEntry1 => Set<InvestmentCaseDataEntry1>();
-    public DbSet<InvestmentCaseDataEntry2> DataEntry2 => Set<InvestmentCaseDataEntry2>();
-    public DbSet<FinancialWorksheet> FinancialWorksheets => Set<FinancialWorksheet>();
-    public DbSet<CaseDocument> CaseDocuments => Set<CaseDocument>();
-    public DbSet<CaseComment> CaseComments => Set<CaseComment>();
-    public DbSet<CaseCommentAttachment> CaseCommentAttachments => Set<CaseCommentAttachment>();
-    public DbSet<CaseRevision> CaseRevisions => Set<CaseRevision>();
-    public DbSet<CaseEvaluation> CaseEvaluations => Set<CaseEvaluation>();
-    public DbSet<CaseEvaluationItem> CaseEvaluationItems => Set<CaseEvaluationItem>();
-    public DbSet<CaseValuation> CaseValuations => Set<CaseValuation>();
-    public DbSet<PaymentRecord> PaymentRecords => Set<PaymentRecord>();
-    public DbSet<CaseWorkflowHistory> CaseWorkflowHistories => Set<CaseWorkflowHistory>();
+    public DbSet<InvestmentCaseApplicantProfile> InvestmentCaseApplicantProfiles => Set<InvestmentCaseApplicantProfile>();
+    public DbSet<InvestmentCaseAttractionBasis> InvestmentCaseAttractionBases => Set<InvestmentCaseAttractionBasis>();
+    public DbSet<InvestmentCaseFinancialWorksheet> FinancialWorksheets => Set<InvestmentCaseFinancialWorksheet>();
+    public DbSet<InvestmentCaseDocument> CaseDocuments => Set<InvestmentCaseDocument>();
+    public DbSet<InvestmentCaseComment> CaseComments => Set<InvestmentCaseComment>();
+    public DbSet<InvestmentCaseCommentAttachment> CaseCommentAttachments => Set<InvestmentCaseCommentAttachment>();
+    public DbSet<InvestmentCaseRevision> CaseRevisions => Set<InvestmentCaseRevision>();
+    public DbSet<InvestmentCaseEvaluation> CaseEvaluations => Set<InvestmentCaseEvaluation>();
+    public DbSet<InvestmentCaseEvaluationItem> CaseEvaluationItems => Set<InvestmentCaseEvaluationItem>();
+    public DbSet<InvestmentCaseValuation> CaseValuations => Set<InvestmentCaseValuation>();
+    public DbSet<InvestmentCasePayment> PaymentRecords => Set<InvestmentCasePayment>();
+    public DbSet<InvestmentCaseWorkflowHistory> CaseWorkflowHistories => Set<InvestmentCaseWorkflowHistory>();
     public DbSet<GuaranteeCase> GuaranteeCases => Set<GuaranteeCase>();
     public DbSet<GuaranteeCaseApplication> GuaranteeCaseApplications => Set<GuaranteeCaseApplication>();
     public DbSet<GuaranteeApprovalForm> GuaranteeApprovalForms => Set<GuaranteeApprovalForm>();
@@ -38,7 +39,7 @@ public sealed class CoreDbContext : DbContextBase, ICoreDbContext
     public DbSet<GuaranteeCaseWorkflowHistory> GuaranteeCaseWorkflowHistories => Set<GuaranteeCaseWorkflowHistory>();
     public DbSet<GuaranteeRenewalCase> GuaranteeRenewalCases => Set<GuaranteeRenewalCase>();
     public DbSet<GuaranteeApplicantCreditProfile> GuaranteeApplicantCreditProfiles => Set<GuaranteeApplicantCreditProfile>();
-    public DbSet<GuaranteeFundCreditLimit> GuaranteeFundCreditLimits => Set<GuaranteeFundCreditLimit>();
+    public DbSet<FundCreditLimit> FundCreditLimits => Set<FundCreditLimit>();
     public DbSet<LoanCase> LoanCases => Set<LoanCase>();
     public DbSet<LoanCaseApplication> LoanCaseApplications => Set<LoanCaseApplication>();
     public DbSet<LoanApprovalDetail> LoanApprovalDetails => Set<LoanApprovalDetail>();
@@ -51,6 +52,7 @@ public sealed class CoreDbContext : DbContextBase, ICoreDbContext
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<DashboardStatsSnapshot> DashboardStatsSnapshots => Set<DashboardStatsSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
