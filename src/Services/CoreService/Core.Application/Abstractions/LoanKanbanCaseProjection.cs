@@ -11,4 +11,5 @@ public sealed record LoanKanbanCaseProjection(
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
     decimal? RequestedAmount,
-    string? CompanyName);
+    string? CompanyName,
+    string? ApplicantFullName);

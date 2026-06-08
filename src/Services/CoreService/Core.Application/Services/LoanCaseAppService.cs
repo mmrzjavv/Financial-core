@@ -33,6 +33,7 @@ public sealed class LoanCaseAppService(
     IUserContext userContext,
     ILoanAuthorizationService authorizationService,
     ILoanCaseDtoMapper dtoMapper,
+    IUserDisplayLookup userDisplayLookup,
     IHttpContextAccessor httpContextAccessor,
     ILogger<LoanCaseAppService> logger) : ILoanCaseAppService
 {
@@ -84,42 +85,66 @@ public sealed class LoanCaseAppService(
         var auth = RequireUser();
         if (auth.IsFailure) return Result<LoanCaseDto>.Fail(auth.Error!);
 
-        var entity = await unitOfWork.LoanCases.GetScopedAsync(
+        var detail = await unitOfWork.LoanCases.GetDetailProjectionAsync(
             caseId, auth.Value!, authorizationService.IsInternalUser, ct);
 
-        if (entity is null)
+        if (detail is null)
             return Result<LoanCaseDto>.Fail(Error.NotFound(ApiMessages.LoanCaseNotFound));
 
-        var includeInstallments = entity.CurrentStatus is LoanCaseStatus.RepaymentPhase or LoanCaseStatus.Completed;
+        var includeRepaymentData = detail.CurrentStatus is LoanCaseStatus.RepaymentPhase or LoanCaseStatus.Completed;
+        var fundCreditCapacity = await ResolveFundCreditCapacityForCaseAsync(detail.CurrentStatus, ct);
+
+        IReadOnlyList<LoanInstallmentListProjection>? installments = null;
+        IReadOnlyList<LoanPaymentListProjection>? payments = null;
+        IReadOnlyDictionary<string, UserDisplayDto>? userLookup = null;
+
+        if (includeRepaymentData)
+        {
+            installments = await unitOfWork.LoanCases.GetInstallmentProjectionsAsync(
+                caseId, auth.Value!, authorizationService.IsInternalUser, ct);
+            payments = await unitOfWork.LoanCases.GetPaymentProjectionsAsync(
+                caseId, auth.Value!, authorizationService.IsInternalUser, ct);
+            userLookup = await userDisplayLookup.GetByIdsAsync(payments.Select(x => x.CreatedByUserId), ct);
+        }
+
+        if (authorizationService.IsInternalUser
+            && (string.IsNullOrWhiteSpace(detail.ApplicantFullName) || string.IsNullOrWhiteSpace(detail.ApplicantPhoneNumber)))
+        {
+            var applicantDisplay = await ResolveApplicantDisplayAsync(detail.ApplicantUserId, ct);
+            detail = detail with
+            {
+                ApplicantFullName = detail.ApplicantFullName ?? applicantDisplay?.FullName,
+                ApplicantPhoneNumber = detail.ApplicantPhoneNumber ?? applicantDisplay?.PhoneNumber
+            };
+        }
+
         return Result<LoanCaseDto>.Ok(
-            dtoMapper.MapCase(
-                entity,
+            dtoMapper.MapFromDetailProjection(
+                detail,
                 authorizationService.IsInternalUser,
-                entity.ApplicantCompany,
-                includeInstallments: includeInstallments,
-                includePayments: includeInstallments));
+                fundCreditCapacity,
+                installments,
+                payments,
+                userLookup));
     }
 
-    public async Task<Result<IEnumerable<LoanCaseDto>>> SearchAsync(LoanCaseSearchRequest request, CancellationToken ct)
+    public async Task<Result<PagedResult<LoanCaseDto>>> GetPagedAsync(GetLoanCasesRequest request, CancellationToken ct)
     {
         var auth = RequireUser();
-        if (auth.IsFailure) return Result<IEnumerable<LoanCaseDto>>.Fail(auth.Error!);
+        if (auth.IsFailure) return Result<PagedResult<LoanCaseDto>>.Fail(auth.Error!);
 
-        var list = await unitOfWork.LoanCases.SearchScopedAsync(
-            request.CaseNumber,
-            request.ApplicantUserId,
-            request.Phase,
-            request.Status,
-            request.FromDate,
-            request.ToDate,
-            request.Page,
-            request.PageSize,
+        var page = await unitOfWork.LoanCases.GetPagedAsync(
+            request,
             auth.Value!,
             authorizationService.IsInternalUser,
             ct);
 
-        var dtos = list.Select(x => dtoMapper.MapCase(x, authorizationService.IsInternalUser, x.ApplicantCompany));
-        return Result<IEnumerable<LoanCaseDto>>.Ok(dtos);
+        var items = page.Items
+            .Select(x => dtoMapper.MapFromListProjection(x, authorizationService.IsInternalUser))
+            .ToList();
+
+        return Result<PagedResult<LoanCaseDto>>.Ok(
+            new PagedResult<LoanCaseDto>(items, page.Page, page.PageSize, page.TotalCount));
     }
 
     public async Task<Result<IEnumerable<LoanWorkflowHistoryDto>>> GetHistoryAsync(Guid caseId, CancellationToken ct)
@@ -127,14 +152,23 @@ public sealed class LoanCaseAppService(
         var auth = RequireUser();
         if (auth.IsFailure) return Result<IEnumerable<LoanWorkflowHistoryDto>>.Fail(auth.Error!);
 
-        var entity = await unitOfWork.LoanCases.GetScopedAsync(
+        var history = await unitOfWork.LoanCases.GetWorkflowHistoryAsync(
             caseId, auth.Value!, authorizationService.IsInternalUser, ct);
 
-        if (entity is null)
-            return Result<IEnumerable<LoanWorkflowHistoryDto>>.Fail(Error.NotFound(ApiMessages.LoanCaseNotFound));
+        if (history.Count == 0)
+        {
+            var exists = await dbContext.LoanCases
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.Id == caseId
+                         && (authorizationService.IsInternalUser || x.ApplicantUserId == auth.Value),
+                    ct);
 
-        return Result<IEnumerable<LoanWorkflowHistoryDto>>.Ok(
-            entity.WorkflowHistory.OrderBy(x => x.CreatedAt).Select(dtoMapper.MapHistory));
+            if (!exists)
+                return Result<IEnumerable<LoanWorkflowHistoryDto>>.Fail(Error.NotFound(ApiMessages.LoanCaseNotFound));
+        }
+
+        return Result<IEnumerable<LoanWorkflowHistoryDto>>.Ok(history.Select(dtoMapper.MapHistory));
     }
 
     public async Task<Result> UpdateApplicationAsync(Guid caseId, UpdateLoanApplicationRequest request, CancellationToken ct)
@@ -353,8 +387,13 @@ public sealed class LoanCaseAppService(
         if (entity is null)
             return Result<IEnumerable<LoanPaymentDto>>.Fail(Error.NotFound(ApiMessages.LoanCaseNotFound));
 
+        var userLookup = await userDisplayLookup.GetByIdsAsync(entity.Payments.Select(x => x.CreatedByUserId), ct);
         return Result<IEnumerable<LoanPaymentDto>>.Ok(
-            entity.Payments.OrderBy(x => x.StageNumber).Select(dtoMapper.MapPayment));
+            entity.Payments
+                .OrderBy(x => x.StageNumber)
+                .Select(p => dtoMapper.MapPayment(
+                    p,
+                    userDisplayLookup.ResolveFullName(userLookup, p.CreatedByUserId))));
     }
 
     public async Task<Result<IEnumerable<LoanInstallmentDto>>> ListInstallmentsAsync(Guid caseId, CancellationToken ct)
@@ -586,8 +625,12 @@ public sealed class LoanCaseAppService(
         if (entity is null)
             return Result<IEnumerable<LoanCaseDocumentDto>>.Fail(Error.NotFound(ApiMessages.LoanCaseNotFound));
 
+        var documents = entity.Documents.Where(x => !x.IsDeleted).ToList();
+        var userLookup = await userDisplayLookup.GetByIdsAsync(documents.Select(x => x.UploadedByUserId), ct);
         return Result<IEnumerable<LoanCaseDocumentDto>>.Ok(
-            entity.Documents.Where(x => !x.IsDeleted).Select(dtoMapper.MapDocument));
+            documents.Select(d => dtoMapper.MapDocument(
+                d,
+                userDisplayLookup.ResolveFullName(userLookup, d.UploadedByUserId))));
     }
 
     public async Task<Result<DocumentDownloadFileResult>> DownloadDocumentFileAsync(
@@ -633,19 +676,37 @@ public sealed class LoanCaseAppService(
         var auth = RequireUser();
         if (auth.IsFailure) return Result<IEnumerable<LoanCaseCommentDto>>.Fail(auth.Error!);
 
-        var entity = await unitOfWork.LoanCases.GetScopedAsync(
+        var comments = await unitOfWork.LoanCases.GetCommentsAsync(
             caseId, auth.Value!, authorizationService.IsInternalUser, ct);
 
-        if (entity is null)
-            return Result<IEnumerable<LoanCaseCommentDto>>.Fail(Error.NotFound(ApiMessages.LoanCaseNotFound));
+        if (comments.Count == 0)
+        {
+            var exists = await dbContext.LoanCases
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.Id == caseId
+                         && (authorizationService.IsInternalUser || x.ApplicantUserId == auth.Value),
+                    ct);
+
+            if (!exists)
+                return Result<IEnumerable<LoanCaseCommentDto>>.Fail(Error.NotFound(ApiMessages.LoanCaseNotFound));
+        }
 
         var canViewInternal = authorizationService.HasPermission(LoanPermissions.ViewInternalComments);
-        var comments = entity.Comments
+        var filtered = comments
             .Where(x => (includeInternal && canViewInternal) || !x.IsInternal)
-            .OrderBy(x => x.CreatedAt)
             .Select(dtoMapper.MapComment);
 
-        return Result<IEnumerable<LoanCaseCommentDto>>.Ok(comments);
+        return Result<IEnumerable<LoanCaseCommentDto>>.Ok(filtered);
+    }
+
+    private async Task<UserDisplayDto?> ResolveApplicantDisplayAsync(string applicantUserId, CancellationToken ct)
+    {
+        if (!authorizationService.IsInternalUser)
+            return null;
+
+        var lookup = await userDisplayLookup.GetByIdsAsync([applicantUserId], ct);
+        return lookup.GetValueOrDefault(applicantUserId);
     }
 
     private async Task TryAutoAdvanceAfterDocumentAsync(Guid caseId, LoanDocumentType docType, CancellationToken ct)
@@ -811,6 +872,23 @@ public sealed class LoanCaseAppService(
     }
 
     private Result<string> RequireUser() => authorizationService.EnsureAuthenticated();
+
+    private async Task<FundCreditCapacitySnapshotDto?> ResolveFundCreditCapacityForCaseAsync(
+        LoanCaseStatus status,
+        CancellationToken ct)
+    {
+        if (status is not (LoanCaseStatus.PendingCeoInitialApproval or LoanCaseStatus.PendingCeoFinalApproval))
+            return null;
+
+        if (!FundCreditLimitAuthorization.CanAccessFundCreditLimits(userContext.Roles))
+            return null;
+
+        return await FundCreditLimitCapacityCalculator.ComputeActiveAsync(
+            dbContext,
+            FundModuleType.Loan,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            ct);
+    }
 
     private string ResolveActorRole()
     {

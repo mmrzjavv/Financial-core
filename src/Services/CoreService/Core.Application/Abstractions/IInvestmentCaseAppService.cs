@@ -61,7 +61,7 @@ public interface IInvestmentCaseAppService
     Task<Result> UpsertEvaluationAsync(Guid caseId, CaseEvaluationUpsertRequest request, CancellationToken cancellationToken);
     Task<Result<IEnumerable<CaseEvaluationDto>>> GetEvaluationsAsync(Guid caseId, CancellationToken cancellationToken);
 
-    Task<Result<IEnumerable<InvestmentCaseDto>>> SearchAsync(CaseSearchRequest request, CancellationToken cancellationToken);
+    Task<Result<PagedResult<InvestmentCaseDto>>> GetPagedAsync(GetInvestmentCasesRequest request, CancellationToken cancellationToken);
 
     Task<Result<PresignUploadResponse>> PresignDocumentUploadAsync(Guid caseId, PresignUploadRequest request, CancellationToken cancellationToken);
     Task<Result<CaseDocumentDto>> UploadDocumentAsync(Guid caseId, PresignUploadRequest request, Stream content, CancellationToken cancellationToken);

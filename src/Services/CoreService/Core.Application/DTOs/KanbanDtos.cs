@@ -14,6 +14,7 @@ public sealed record KanbanCaseCardDto(
     ApplicantType? ApplicantType,
     string? StartupTitle,
     string? CompanyName,
+    string? ApplicantFullName,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
     string PendingActionLabel,

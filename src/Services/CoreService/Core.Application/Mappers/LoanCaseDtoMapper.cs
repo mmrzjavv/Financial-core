@@ -1,3 +1,4 @@
+using Core.Application.Abstractions;
 using Core.Application.DTOs;
 using Core.Application.Requests;
 using Core.Domain.Entities;
@@ -5,33 +6,32 @@ using Core.Domain.Identity.Entities;
 
 namespace Core.Application.Mappers;
 
-public sealed class LoanCaseDtoMapper : ILoanCaseDtoMapper
+public sealed class LoanCaseDtoMapper(ICompanyDtoMapper companyDtoMapper) : ILoanCaseDtoMapper
 {
     public LoanCaseDto MapCase(
         LoanCase entity,
         bool isInternalUser,
         Company? company,
         bool includeInstallments = false,
-        bool includePayments = false)
+        bool includePayments = false,
+        FundCreditCapacitySnapshotDto? fundCreditCapacity = null,
+        string? applicantFullName = null,
+        string? applicantPhoneNumber = null,
+        IReadOnlyDictionary<string, UserDisplayDto>? userLookup = null)
     {
-        var companyDto = company is null ? null : new CompanyDto(
-            company.Id,
-            company.Name,
-            company.EconomicCode,
-            company.RegistrationNumber,
-            company.NationalId,
-            company.PhoneNumber,
-            company.Address,
-            company.City,
-            company.Province,
-            company.PostalCode);
+        var companyDto = companyDtoMapper.Map(company);
 
         IReadOnlyList<LoanInstallmentDto>? installments = includeInstallments
             ? entity.Installments.OrderBy(x => x.RowNumber).Select(MapInstallment).ToList()
             : null;
 
         IReadOnlyList<LoanPaymentDto>? payments = includePayments
-            ? entity.Payments.OrderBy(x => x.StageNumber).Select(MapPayment).ToList()
+            ? entity.Payments
+                .OrderBy(x => x.StageNumber)
+                .Select(p => MapPayment(
+                    p,
+                    userLookup is null ? null : userLookup.GetValueOrDefault(p.CreatedByUserId)?.FullName))
+                .ToList()
             : null;
 
         if (isInternalUser)
@@ -40,6 +40,8 @@ public sealed class LoanCaseDtoMapper : ILoanCaseDtoMapper
                 entity.Id,
                 entity.CaseNumber,
                 entity.ApplicantUserId,
+                applicantFullName,
+                applicantPhoneNumber,
                 entity.ApplicantType,
                 entity.CurrentPhase,
                 entity.CurrentStatus,
@@ -51,7 +53,8 @@ public sealed class LoanCaseDtoMapper : ILoanCaseDtoMapper
                 entity.Application is null ? null : MapApplication(entity.Application),
                 entity.ApprovalDetail is null ? null : MapApprovalDetail(entity.ApprovalDetail),
                 installments,
-                payments);
+                payments,
+                fundCreditCapacity);
         }
 
         return new LoanCaseApplicantDto(
@@ -67,7 +70,129 @@ public sealed class LoanCaseDtoMapper : ILoanCaseDtoMapper
             entity.Application is null ? null : MapApplication(entity.Application),
             entity.ApprovalDetail is null ? null : MapApprovalDetail(entity.ApprovalDetail),
             installments,
-            payments);
+            payments,
+            fundCreditCapacity);
+    }
+
+    public LoanCaseDto MapFromDetailProjection(
+        LoanCaseListProjection projection,
+        bool isInternalUser,
+        FundCreditCapacitySnapshotDto? fundCreditCapacity = null,
+        IReadOnlyList<LoanInstallmentListProjection>? installments = null,
+        IReadOnlyList<LoanPaymentListProjection>? payments = null,
+        IReadOnlyDictionary<string, UserDisplayDto>? userLookup = null)
+    {
+        var installmentDtos = installments?.Select(MapInstallment).ToList();
+        var paymentDtos = payments?
+            .Select(p => MapPayment(
+                p,
+                userLookup is null ? null : userLookup.GetValueOrDefault(p.CreatedByUserId)?.FullName))
+            .ToList();
+
+        if (isInternalUser)
+        {
+            var baseDto = (LoanCaseInternalDto)MapFromListProjection(projection, isInternalUser: true);
+            return baseDto with
+            {
+                Installments = installmentDtos,
+                Payments = paymentDtos,
+                FundCreditCapacity = fundCreditCapacity
+            };
+        }
+
+        var applicantDto = (LoanCaseApplicantDto)MapFromListProjection(projection, isInternalUser: false);
+        return applicantDto with
+        {
+            Installments = installmentDtos,
+            Payments = paymentDtos,
+            FundCreditCapacity = fundCreditCapacity
+        };
+    }
+
+    public LoanCaseDto MapFromListProjection(LoanCaseListProjection projection, bool isInternalUser)
+    {
+        var companyDto = companyDtoMapper.MapFlat(
+            projection.CompanyId,
+            projection.CompanyName,
+            projection.CompanyEconomicCode,
+            projection.CompanyRegistrationNumber,
+            projection.CompanyNationalId,
+            projection.CompanyPhoneNumber,
+            projection.CompanyAddress,
+            projection.CompanyCity,
+            projection.CompanyProvince,
+            projection.CompanyPostalCode);
+
+        var application = projection.RequestedAmount is null
+            && string.IsNullOrWhiteSpace(projection.FacilitySubject)
+            ? null
+            : new LoanApplicationDto(
+                projection.RequestedAmount,
+                projection.RequestedAmountInWords,
+                projection.FacilitySubject,
+                projection.OfferedGuarantees,
+                projection.ApplicantCategory,
+                projection.ApplicantCategoryOther,
+                projection.RepresentativePosition);
+
+        var approvalDetail = projection.ApprovedAmount is null
+            && projection.FacilityType is null
+            && projection.RepaymentMonths is null
+            ? null
+            : new LoanApprovalDetailDto(
+                projection.DebtToAssetRatio,
+                projection.CurrentRatio,
+                projection.ProfitabilityRatioPercent,
+                projection.CreditLimitWithCheck,
+                projection.IsCreditLineActive,
+                projection.RemainingCreditAfterGrant,
+                projection.FacilityType,
+                projection.ContractSubject,
+                projection.BrokerageAndRelatedContract,
+                projection.ApprovedAmount,
+                projection.ApprovedAmountInWords,
+                projection.RepaymentMonths,
+                projection.GracePeriodMonths,
+                projection.AnnualProfitRatePercent,
+                projection.DailyPenaltyRatePercent,
+                projection.CollateralDescription,
+                projection.GuarantorsDescription,
+                projection.OtherNotes,
+                projection.ExpectedTotalProfit,
+                projection.RepaymentCheckAmount);
+
+        if (isInternalUser)
+        {
+            return new LoanCaseInternalDto(
+                projection.Id,
+                projection.CaseNumber,
+                projection.ApplicantUserId,
+                projection.ApplicantFullName,
+                projection.ApplicantPhoneNumber,
+                projection.ApplicantType,
+                projection.CurrentPhase,
+                projection.CurrentStatus,
+                projection.WorkflowInstanceId,
+                projection.CreatedAt,
+                projection.UpdatedAt,
+                projection.CompletedAt,
+                companyDto,
+                application,
+                approvalDetail);
+        }
+
+        return new LoanCaseApplicantDto(
+            projection.Id,
+            projection.CaseNumber,
+            projection.ApplicantType,
+            projection.CurrentPhase,
+            projection.CurrentStatus,
+            projection.CreatedAt,
+            projection.UpdatedAt,
+            projection.CompletedAt,
+            companyDto,
+            application,
+            approvalDetail);
     }
 
     public LoanApplicationDto MapApplication(LoanCaseApplication application) =>
@@ -103,7 +228,7 @@ public sealed class LoanCaseDtoMapper : ILoanCaseDtoMapper
             detail.ExpectedTotalProfit,
             detail.RepaymentCheckAmount);
 
-    public LoanCaseDocumentDto MapDocument(LoanCaseDocument document) =>
+    public LoanCaseDocumentDto MapDocument(LoanCaseDocument document, string? uploadedByFullName = null) =>
         new(
             document.Id,
             document.DocumentType,
@@ -112,7 +237,23 @@ public sealed class LoanCaseDtoMapper : ILoanCaseDtoMapper
             document.FileSize,
             document.Version,
             document.UploadedByUserId,
+            uploadedByFullName,
             document.UploadedAt);
+
+    public LoanInstallmentDto MapInstallment(LoanInstallmentListProjection installment) =>
+        new(
+            installment.Id,
+            installment.RowNumber,
+            installment.InstallmentDate,
+            installment.PrincipalAmount,
+            installment.ProfitAmount,
+            installment.TotalAmount,
+            installment.FundShareOfPrincipal,
+            installment.FundShareOfProfit,
+            installment.FundShareOfTotal,
+            installment.IsGracePeriod,
+            installment.IsPaid,
+            installment.PaidAt);
 
     public LoanInstallmentDto MapInstallment(LoanInstallment installment) =>
         new(
@@ -129,7 +270,7 @@ public sealed class LoanCaseDtoMapper : ILoanCaseDtoMapper
             installment.IsPaid,
             installment.PaidAt);
 
-    public LoanPaymentDto MapPayment(LoanPayment payment) =>
+    public LoanPaymentDto MapPayment(LoanPaymentListProjection payment, string? createdByFullName = null) =>
         new(
             payment.Id,
             payment.Amount,
@@ -139,9 +280,23 @@ public sealed class LoanCaseDtoMapper : ILoanCaseDtoMapper
             payment.Notes,
             payment.StageNumber,
             payment.CreatedByUserId,
+            createdByFullName,
             payment.CreatedAt);
 
-    public LoanWorkflowHistoryDto MapHistory(LoanCaseWorkflowHistory history) =>
+    public LoanPaymentDto MapPayment(LoanPayment payment, string? createdByFullName = null) =>
+        new(
+            payment.Id,
+            payment.Amount,
+            payment.PaymentDate,
+            payment.TransactionNumber,
+            payment.ReceiptS3Key,
+            payment.Notes,
+            payment.StageNumber,
+            payment.CreatedByUserId,
+            createdByFullName,
+            payment.CreatedAt);
+
+    public LoanWorkflowHistoryDto MapHistory(LoanCaseWorkflowHistory history, string? changedByFullName = null) =>
         new(
             history.Id,
             history.FromPhase,
@@ -149,21 +304,51 @@ public sealed class LoanCaseDtoMapper : ILoanCaseDtoMapper
             history.FromStatus,
             history.ToStatus,
             history.ChangedByUserId,
+            changedByFullName,
             history.Action,
             history.ActorRole,
             history.CorrelationId,
             history.Comment,
             history.CreatedAt);
 
-    public LoanCaseCommentDto MapComment(LoanCaseComment comment) =>
+    public LoanWorkflowHistoryDto MapHistory(LoanWorkflowHistoryListProjection projection) =>
+        new(
+            projection.Id,
+            projection.FromPhase,
+            projection.ToPhase,
+            projection.FromStatus,
+            projection.ToStatus,
+            projection.ChangedByUserId,
+            projection.ChangedByFullName,
+            projection.Action,
+            projection.ActorRole,
+            projection.CorrelationId,
+            projection.Comment,
+            projection.CreatedAt);
+
+    public LoanCaseCommentDto MapComment(LoanCaseComment comment, string? senderFullName = null) =>
         new(
             comment.Id,
             comment.Phase,
             comment.SenderUserId,
+            senderFullName,
             comment.SenderRole,
             comment.Message,
             comment.IsRevisionRequest,
             comment.IsInternal,
             comment.ParentId,
             comment.CreatedAt);
+
+    public LoanCaseCommentDto MapComment(LoanCaseCommentListProjection projection) =>
+        new(
+            projection.Id,
+            projection.Phase,
+            projection.SenderUserId,
+            projection.SenderFullName,
+            projection.SenderRole,
+            projection.Message,
+            projection.IsRevisionRequest,
+            projection.IsInternal,
+            projection.ParentId,
+            projection.CreatedAt);
 }

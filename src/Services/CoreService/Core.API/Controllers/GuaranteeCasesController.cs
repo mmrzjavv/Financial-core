@@ -51,9 +51,9 @@ public sealed class GuaranteeCasesController(IGuaranteeCaseAppService service) :
 
     [HttpGet]
     [Authorize]
-    public async Task<IActionResult> Search([FromQuery] GuaranteeCaseSearchRequest request, CancellationToken ct)
+    public async Task<IActionResult> GetPaged([FromQuery] GetGuaranteeCasesRequest request, CancellationToken ct)
     {
-        var result = await service.SearchAsync(request, ct);
+        var result = await service.GetPagedAsync(request, ct);
         return Respond(result, GuaranteeSuccessMessages.GuaranteeCasesRetrieved);
     }
 
@@ -155,6 +155,22 @@ public sealed class GuaranteeCasesController(IGuaranteeCaseAppService service) :
     {
         var result = await service.CeoRejectInitialAsync(id, request.Message, ct);
         return Respond(result, GuaranteeSuccessMessages.CaseRejected, HttpStatusCode.Accepted);
+    }
+
+    [HttpPost("{id:guid}/ceo/initial/cancel")]
+    [Authorize(Policy = "GuaranteeCases.CeoApprove")]
+    public async Task<IActionResult> CeoCancelInitial(Guid id, [FromBody] SemanticRevisionRequest request, CancellationToken ct)
+    {
+        var result = await service.CeoCancelInitialAsync(id, request.Message, ct);
+        return Respond(result, GuaranteeSuccessMessages.CaseCancelled, HttpStatusCode.Accepted);
+    }
+
+    [HttpPost("{id:guid}/cancel")]
+    [Authorize(Policy = "ApplicantOnly")]
+    public async Task<IActionResult> Cancel(Guid id, [FromBody] SemanticCancelRequest request, CancellationToken ct)
+    {
+        var result = await service.CancelAsync(id, request.Reason, ct);
+        return Respond(result, GuaranteeSuccessMessages.CaseCancelled, HttpStatusCode.Accepted);
     }
 
     [HttpPost("{id:guid}/legal/draft-uploaded")]

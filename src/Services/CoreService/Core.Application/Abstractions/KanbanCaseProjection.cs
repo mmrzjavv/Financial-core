@@ -11,4 +11,5 @@ public sealed record KanbanCaseProjection(
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
     string? StartupTitle,
-    string? CompanyName);
+    string? CompanyName,
+    string? ApplicantFullName);

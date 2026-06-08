@@ -33,9 +33,9 @@ public sealed class LoanCasesController(ILoanCaseAppService service) : ApiContro
 
     [HttpGet]
     [Authorize]
-    public async Task<IActionResult> Search([FromQuery] LoanCaseSearchRequest request, CancellationToken ct)
+    public async Task<IActionResult> GetPaged([FromQuery] GetLoanCasesRequest request, CancellationToken ct)
     {
-        var result = await service.SearchAsync(request, ct);
+        var result = await service.GetPagedAsync(request, ct);
         return Respond(result, LoanSuccessMessages.LoanCasesRetrieved);
     }
 

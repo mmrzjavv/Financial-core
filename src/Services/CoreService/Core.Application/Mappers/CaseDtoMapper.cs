@@ -1,7 +1,9 @@
+using Core.Application.Abstractions;
 using Core.Application.Authorization;
 using Core.Application.DTOs;
 using Core.Application.Requests;
 using Core.Domain.Entities;
+using Core.Domain.Enums;
 using Core.Domain.Identity.Entities;
 using MapsterMapper;
 
@@ -10,41 +12,126 @@ namespace Core.Application.Mappers;
 public interface ICaseDtoMapper
 {
     CompanyDto? MapCompany(Company? company);
-    CaseDocumentDto MapDocument(CaseDocument document);
+    ApplicantContactDto? MapApplicantContact(User user);
+    CasePaymentsDto MapPayments(InvestmentCase entity);
+    CaseDocumentTypeVersionsDto MapDocumentTypeVersions(
+        DocumentType documentType,
+        IReadOnlyList<CaseDocumentDto> versions);
+    CaseDocumentDto MapDocument(InvestmentCaseDocument document, string? uploadedByFullName = null);
     InvestmentCaseDto MapCase(
         InvestmentCase entity,
         DateTimeOffset now,
         bool isInternalView,
         Company? companyOverride = null,
+        ApplicantContactDto? applicantContact = null,
+        string? applicantFullName = null,
+        string? applicantPhoneNumber = null);
+    InvestmentCaseDto MapFromListProjection(InvestmentCaseListProjection projection, DateTimeOffset now, bool isInternalView);
+    InvestmentCaseDto MapFromDetailProjection(
+        InvestmentCaseListProjection projection,
+        DateTimeOffset now,
+        bool isInternalView,
         ApplicantContactDto? applicantContact = null);
-    CaseCommentDto MapComment(CaseComment comment);
-    CaseWorkflowHistoryDto MapHistory(CaseWorkflowHistory history);
-    CaseEvaluationDto MapEvaluation(CaseEvaluation evaluation);
+    CaseCommentDto MapComment(InvestmentCaseComment comment, string? senderFullName = null);
+    CaseWorkflowHistoryDto MapHistory(InvestmentCaseWorkflowHistory history, string? changedByFullName = null);
+    CaseEvaluationDto MapEvaluation(InvestmentCaseEvaluation evaluation);
 }
 
-public sealed class CaseDtoMapper(IMapper mapper, ICaseAuthorizationService authorizationService) : ICaseDtoMapper
+public sealed class CaseDtoMapper(
+    IMapper mapper,
+    ICaseAuthorizationService authorizationService,
+    ICompanyDtoMapper companyDtoMapper) : ICaseDtoMapper
 {
     public CompanyDto? MapCompany(Company? company)
-        => company is null ? null : mapper.Map<CompanyDto>(company);
+        => companyDtoMapper.Map(company);
 
-    public CaseDocumentDto MapDocument(CaseDocument document)
-        => authorizationService.IsInternalUser
-            ? mapper.Map<CaseDocumentInternalDto>(document)
-            : mapper.Map<CaseDocumentApplicantDto>(document);
+    public ApplicantContactDto? MapApplicantContact(User user)
+        => new(
+            $"{user.FirstName} {user.LastName}".Trim(),
+            user.Email?.Trim() ?? "",
+            user.PhoneNumber);
+
+    public CasePaymentsDto MapPayments(InvestmentCase entity)
+    {
+        var approved = entity.FinancialWorksheet?.ApprovedAmount;
+        var payments = entity.Payments
+            .OrderBy(p => p.PaymentDate)
+            .ThenBy(p => p.CreatedAt)
+            .Select(p => new PaymentRecordDto(
+                p.Id,
+                p.Amount,
+                p.PaymentDate,
+                p.TransactionNumber,
+                p.ReceiptS3Key,
+                p.Notes,
+                p.Method,
+                p.Status,
+                p.CreatedAt,
+                p.CreatedByUserId))
+            .ToList();
+
+        var totalRecorded = payments
+            .Where(p => p.Status != PaymentStatus.Cancelled)
+            .Sum(p => p.Amount);
+
+        var totalConfirmed = payments
+            .Where(p => p.Status == PaymentStatus.Completed)
+            .Sum(p => p.Amount);
+
+        var remaining = approved is > 0
+            ? Math.Max(0m, approved.Value - totalConfirmed)
+            : 0m;
+
+        return new CasePaymentsDto(
+            payments,
+            new CasePaymentsSummaryDto(approved, totalRecorded, totalConfirmed, remaining));
+    }
+
+    public CaseDocumentTypeVersionsDto MapDocumentTypeVersions(
+        DocumentType documentType,
+        IReadOnlyList<CaseDocumentDto> versions)
+        => new(documentType, versions.FirstOrDefault(), versions);
+
+    public CaseDocumentDto MapDocument(InvestmentCaseDocument document, string? uploadedByFullName = null)
+    {
+        if (authorizationService.IsInternalUser)
+        {
+            var mapped = mapper.Map<CaseDocumentInternalDto>(document);
+            return mapped with { UploadedByFullName = uploadedByFullName };
+        }
+
+        return mapper.Map<CaseDocumentApplicantDto>(document);
+    }
 
     public InvestmentCaseDto MapCase(
         InvestmentCase entity,
         DateTimeOffset now,
         bool isInternalView,
         Company? companyOverride = null,
-        ApplicantContactDto? applicantContact = null)
+        ApplicantContactDto? applicantContact = null,
+        string? applicantFullName = null,
+        string? applicantPhoneNumber = null)
     {
         var company = MapCompany(companyOverride ?? entity.ApplicantCompany);
 
         if (isInternalView)
         {
-            var dto = mapper.Map<InvestmentCaseInternalDto>(entity);
-            return dto with { UpdatedAt = dto.UpdatedAt ?? now, Company = company };
+            return new InvestmentCaseInternalDto(
+                entity.Id,
+                entity.CaseNumber,
+                entity.ApplicantUserId,
+                applicantFullName,
+                applicantPhoneNumber,
+                entity.ApplicantType,
+                entity.CurrentPhase,
+                entity.CurrentStatus,
+                entity.WorkflowInstanceId,
+                entity.CreatedAt,
+                entity.UpdatedAt ?? now,
+                entity.CompletedAt,
+                company,
+                MapDataEntry1(entity.ApplicantProfile),
+                MapDataEntry2(entity.AttractionBasis));
         }
 
         var applicant = mapper.Map<InvestmentCaseApplicantDto>(entity);
@@ -53,12 +140,93 @@ public sealed class CaseDtoMapper(IMapper mapper, ICaseAuthorizationService auth
             UpdatedAt = applicant.UpdatedAt ?? now,
             Company = company,
             Applicant = applicantContact,
-            DataEntry1 = MapDataEntry1(entity.DataEntry1),
-            DataEntry2 = MapDataEntry2(entity.DataEntry2)
+            ApplicantProfile = MapDataEntry1(entity.ApplicantProfile),
+            AttractionBasis = MapDataEntry2(entity.AttractionBasis)
         };
     }
 
-    private static DataEntry1Dto? MapDataEntry1(InvestmentCaseDataEntry1? dataEntry)
+    public InvestmentCaseDto MapFromDetailProjection(
+        InvestmentCaseListProjection projection,
+        DateTimeOffset now,
+        bool isInternalView,
+        ApplicantContactDto? applicantContact = null)
+    {
+        if (!isInternalView)
+        {
+            var applicantDto = (InvestmentCaseApplicantDto)MapFromListProjection(projection, now, isInternalView: false);
+            return applicantDto with { Applicant = applicantContact };
+        }
+
+        return MapFromListProjection(projection, now, isInternalView: true);
+    }
+
+    public InvestmentCaseDto MapFromListProjection(
+        InvestmentCaseListProjection projection,
+        DateTimeOffset now,
+        bool isInternalView)
+    {
+        var company = companyDtoMapper.MapFlat(
+            projection.CompanyId,
+            projection.CompanyName,
+            projection.CompanyEconomicCode,
+            projection.CompanyRegistrationNumber,
+            projection.CompanyNationalId,
+            projection.CompanyPhoneNumber,
+            projection.CompanyAddress,
+            projection.CompanyCity,
+            projection.CompanyProvince,
+            projection.CompanyPostalCode);
+
+        var applicantProfile = string.IsNullOrWhiteSpace(projection.RepresentativeFullName)
+            || projection.BusinessStage is null
+            || string.IsNullOrWhiteSpace(projection.ContactEmail)
+            || projection.RequestedAmount is null
+            ? null
+            : new DataEntry1Dto(
+                projection.RepresentativeFullName,
+                projection.BusinessStage.Value,
+                projection.ContactEmail,
+                projection.RequestedAmount.Value);
+
+        var attractionBasis = string.IsNullOrWhiteSpace(projection.InvestmentAttractionBasis)
+            ? null
+            : new DataEntry2Dto(projection.InvestmentAttractionBasis);
+
+        if (isInternalView)
+        {
+            return new InvestmentCaseInternalDto(
+                projection.Id,
+                projection.CaseNumber,
+                projection.ApplicantUserId,
+                projection.ApplicantFullName,
+                projection.ApplicantPhoneNumber,
+                projection.ApplicantType,
+                projection.CurrentPhase,
+                projection.CurrentStatus,
+                projection.WorkflowInstanceId,
+                projection.CreatedAt,
+                projection.UpdatedAt ?? now,
+                projection.CompletedAt,
+                company,
+                applicantProfile,
+                attractionBasis);
+        }
+
+        return new InvestmentCaseApplicantDto(
+            projection.Id,
+            projection.CaseNumber,
+            projection.ApplicantType,
+            projection.CurrentPhase,
+            projection.CurrentStatus,
+            projection.CreatedAt,
+            projection.UpdatedAt ?? now,
+            projection.CompletedAt,
+            company,
+            ApplicantProfile: applicantProfile,
+            AttractionBasis: attractionBasis);
+    }
+
+    private static DataEntry1Dto? MapDataEntry1(InvestmentCaseApplicantProfile? dataEntry)
         => dataEntry is null
             ? null
             : new DataEntry1Dto(
@@ -67,12 +235,12 @@ public sealed class CaseDtoMapper(IMapper mapper, ICaseAuthorizationService auth
                 dataEntry.ContactEmail,
                 dataEntry.RequestedAmount);
 
-    private static DataEntry2Dto? MapDataEntry2(InvestmentCaseDataEntry2? dataEntry)
+    private static DataEntry2Dto? MapDataEntry2(InvestmentCaseAttractionBasis? dataEntry)
         => dataEntry is null
             ? null
             : new DataEntry2Dto(dataEntry.InvestmentAttractionBasis);
 
-    public CaseCommentDto MapComment(CaseComment comment)
+    public CaseCommentDto MapComment(InvestmentCaseComment comment, string? senderFullName = null)
     {
         var attachments = comment.Attachments.Select(MapCommentAttachment).ToArray();
 
@@ -83,6 +251,7 @@ public sealed class CaseDtoMapper(IMapper mapper, ICaseAuthorizationService auth
                 comment.CaseId,
                 comment.Phase,
                 comment.SenderUserId,
+                senderFullName,
                 comment.SenderRole,
                 comment.Message,
                 comment.IsRevisionRequest,
@@ -103,16 +272,22 @@ public sealed class CaseDtoMapper(IMapper mapper, ICaseAuthorizationService auth
             comment.CreatedAt);
     }
 
-    private CaseCommentAttachmentDto MapCommentAttachment(CaseCommentAttachment attachment)
+    private CaseCommentAttachmentDto MapCommentAttachment(InvestmentCaseCommentAttachment attachment)
         => authorizationService.IsInternalUser
             ? new CaseCommentAttachmentInternalDto(attachment.Id, attachment.S3Key, attachment.FileName)
             : new CaseCommentAttachmentApplicantDto(attachment.Id, attachment.FileName);
 
-    public CaseWorkflowHistoryDto MapHistory(CaseWorkflowHistory history)
-        => authorizationService.IsInternalUser
-            ? mapper.Map<CaseWorkflowHistoryInternalDto>(history)
-            : mapper.Map<CaseWorkflowHistoryApplicantDto>(history);
+    public CaseWorkflowHistoryDto MapHistory(InvestmentCaseWorkflowHistory history, string? changedByFullName = null)
+    {
+        if (authorizationService.IsInternalUser)
+        {
+            var mapped = mapper.Map<CaseWorkflowHistoryInternalDto>(history);
+            return mapped with { ChangedByFullName = changedByFullName };
+        }
 
-    public CaseEvaluationDto MapEvaluation(CaseEvaluation evaluation)
+        return mapper.Map<CaseWorkflowHistoryApplicantDto>(history);
+    }
+
+    public CaseEvaluationDto MapEvaluation(InvestmentCaseEvaluation evaluation)
         => mapper.Map<CaseEvaluationDto>(evaluation);
 }

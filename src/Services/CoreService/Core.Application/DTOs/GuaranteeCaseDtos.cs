@@ -25,13 +25,16 @@ public sealed record GuaranteeCaseApplicantDto(
     CompanyDto? Company,
     GuaranteeApplicationDto? Application = null,
     GuaranteeApprovalFormDto? ApprovalForm = null,
-    GuaranteeApplicantCreditSnapshotDto? ApplicantCreditSnapshot = null)
+    GuaranteeApplicantCreditSnapshotDto? ApplicantCreditSnapshot = null,
+    FundCreditCapacitySnapshotDto? FundCreditCapacity = null)
     : GuaranteeCaseDto(Id, CaseNumber, ApplicantType, CurrentPhase, CurrentStatus, CreatedAt, UpdatedAt, CompletedAt);
 
 public sealed record GuaranteeCaseInternalDto(
     Guid Id,
     string CaseNumber,
     string ApplicantUserId,
+    string? ApplicantFullName,
+    string? ApplicantPhoneNumber,
     ApplicantType ApplicantType,
     GuaranteeCasePhase CurrentPhase,
     GuaranteeCaseStatus CurrentStatus,
@@ -42,7 +45,8 @@ public sealed record GuaranteeCaseInternalDto(
     CompanyDto? Company,
     GuaranteeApplicationDto? Application = null,
     GuaranteeApprovalFormDto? ApprovalForm = null,
-    GuaranteeApplicantCreditSnapshotDto? ApplicantCreditSnapshot = null)
+    GuaranteeApplicantCreditSnapshotDto? ApplicantCreditSnapshot = null,
+    FundCreditCapacitySnapshotDto? FundCreditCapacity = null)
     : GuaranteeCaseDto(Id, CaseNumber, ApplicantType, CurrentPhase, CurrentStatus, CreatedAt, UpdatedAt, CompletedAt);
 
 /// <summary>جدول ۱ فرم تصویب — وضعیت اعتباری کل صندوق در بازه سقف فعال.</summary>
@@ -62,13 +66,17 @@ public sealed record GuaranteeFundCreditLimitDto(
     decimal ActiveCommitments,
     decimal? RemainingCredit,
     string? LastSetByUserId,
+    string? LastSetByFullName,
     DateTimeOffset? UpdatedAt);
 
 public sealed record GuaranteeApplicantCreditLimitDto(
     string ApplicantUserId,
+    string? ApplicantFullName,
     Guid? CompanyId,
+    string? CompanyName,
     decimal CreditLimitWithCheck,
     string? LastSetByUserId,
+    string? LastSetByFullName,
     DateTimeOffset? UpdatedAt);
 
 public sealed record GuaranteeApplicationDto(
@@ -127,6 +135,7 @@ public sealed record GuaranteeCaseCommentDto(
     Guid Id,
     GuaranteeCasePhase Phase,
     string SenderUserId,
+    string? SenderFullName,
     string? SenderRole,
     string Message,
     bool IsRevisionRequest,
@@ -140,6 +149,7 @@ public sealed record GuaranteeWorkflowHistoryDto(
     GuaranteeCaseStatus FromStatus,
     GuaranteeCaseStatus ToStatus,
     string ChangedByUserId,
+    string? ChangedByFullName,
     string Action,
     string ActorRole,
     string? Comment,
@@ -150,6 +160,9 @@ public sealed record GuaranteeRenewalDto(
     string CaseNumber,
     Guid ParentGuaranteeCaseId,
     string ParentCaseNumber,
+    string? ParentBeneficiaryName,
+    string? ParentCompanyName,
+    string? ApplicantFullName,
     RenewalKind RenewalKind,
     GuaranteeRenewalStatus CurrentStatus,
     DateOnly? RequestedExpiryDate,

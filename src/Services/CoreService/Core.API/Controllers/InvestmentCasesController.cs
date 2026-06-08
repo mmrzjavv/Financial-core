@@ -62,9 +62,9 @@ public sealed class InvestmentCasesController(
 
     [HttpGet]
     [Authorize]
-    public async Task<IActionResult> Search([FromQuery] CaseSearchRequest request, CancellationToken ct)
+    public async Task<IActionResult> GetPaged([FromQuery] GetInvestmentCasesRequest request, CancellationToken ct)
     {
-        var result = await service.SearchAsync(request, ct);
+        var result = await service.GetPagedAsync(request, ct);
         return Respond(result, CaseSuccessMessages.InvestmentCasesRetrieved);
     }
 

@@ -11,4 +11,5 @@ public sealed record GuaranteeKanbanCaseProjection(
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt,
     string? RepresentativeName,
-    string? CompanyName);
+    string? CompanyName,
+    string? ApplicantFullName);

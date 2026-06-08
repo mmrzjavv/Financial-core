@@ -1,4 +1,9 @@
+using BuildingBlocks.Application.Common;
+using BuildingBlocks.Application.Results;
+using BuildingBlocks.Persistence.Queries;
 using Core.Application.Abstractions;
+using Core.Application.Queries;
+using Core.Application.Requests;
 using Core.Domain.Entities;
 using Core.Domain.Enums;
 using Core.Persistence;
@@ -12,8 +17,8 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
         => dbContext.InvestmentCases
             .AsSplitQuery()
             .Include(x => x.ApplicantCompany)
-            .Include(x => x.DataEntry1)
-            .Include(x => x.DataEntry2)
+            .Include(x => x.ApplicantProfile)
+            .Include(x => x.AttractionBasis)
             .Include(x => x.FinancialWorksheet)
             .Include(x => x.Documents)
             .Include(x => x.Comments)
@@ -29,8 +34,8 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
                 dbContext.InvestmentCases
                     .AsSplitQuery()
                     .Include(x => x.ApplicantCompany)
-                    .Include(x => x.DataEntry1)
-                    .Include(x => x.DataEntry2)
+                    .Include(x => x.ApplicantProfile)
+                    .Include(x => x.AttractionBasis)
                     .Include(x => x.FinancialWorksheet)
                     .Include(x => x.Documents)
                     .Include(x => x.Comments)
@@ -51,8 +56,8 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
         => ApplyScopedFilter(
                 dbContext.InvestmentCases
                     .AsSplitQuery()
-                    .Include(x => x.DataEntry1)
-                    .Include(x => x.DataEntry2)
+                    .Include(x => x.ApplicantProfile)
+                    .Include(x => x.AttractionBasis)
                     .Include(x => x.FinancialWorksheet)
                     .Include(x => x.Documents)
                     .Include(x => x.Payments)
@@ -60,6 +65,49 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
                 userId,
                 isInternalUser)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+    public Task<InvestmentCaseListProjection?> GetDetailProjectionAsync(
+        Guid id,
+        string userId,
+        bool isInternalUser,
+        CancellationToken cancellationToken)
+        => ApplyScopedFilter(dbContext.InvestmentCases.AsNoTracking(), userId, isInternalUser)
+            .Where(x => x.Id == id)
+            .Select(x => new InvestmentCaseListProjection(
+                x.Id,
+                x.CaseNumber,
+                x.ApplicantUserId,
+                x.ApplicantType,
+                x.CurrentPhase,
+                x.CurrentStatus,
+                x.WorkflowInstanceId,
+                x.CreatedAt,
+                x.UpdatedAt,
+                x.CompletedAt,
+                x.ApplicantCompany != null ? x.ApplicantCompany.Id : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.Name : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.EconomicCode : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.RegistrationNumber : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.NationalId : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.PhoneNumber : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.Address : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.City : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.Province : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.PostalCode : null,
+                dbContext.Users
+                    .Where(u => u.Id.ToString() == x.ApplicantUserId)
+                    .Select(u => (u.FirstName + " " + u.LastName).Trim())
+                    .FirstOrDefault(),
+                dbContext.Users
+                    .Where(u => u.Id.ToString() == x.ApplicantUserId)
+                    .Select(u => u.PhoneNumber)
+                    .FirstOrDefault(),
+                x.ApplicantProfile != null ? x.ApplicantProfile.RepresentativeFullName : null,
+                x.ApplicantProfile != null ? x.ApplicantProfile.BusinessStage : null,
+                x.ApplicantProfile != null ? x.ApplicantProfile.ContactEmail : null,
+                x.ApplicantProfile != null ? x.ApplicantProfile.RequestedAmount : null,
+                x.AttractionBasis != null ? x.AttractionBasis.InvestmentAttractionBasis : null))
+            .FirstOrDefaultAsync(cancellationToken);
 
     public Task<string?> GetWorkflowInstanceIdAsync(Guid id, CancellationToken cancellationToken)
         => dbContext.InvestmentCases
@@ -96,91 +144,67 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
     public Task<bool> ExistsCaseNumberAsync(string caseNumber, CancellationToken cancellationToken)
         => dbContext.InvestmentCases.AnyAsync(x => x.CaseNumber == caseNumber, cancellationToken);
 
-    public async Task<IEnumerable<InvestmentCase>> SearchAsync(
-        string? caseNumber,
-        string? applicantUserId,
-        CasePhase? phase,
-        CaseStatus? status,
-        DateTimeOffset? fromDate,
-        DateTimeOffset? toDate,
-        int page,
-        int pageSize,
-        CancellationToken cancellationToken)
-    {
-        var query = dbContext.InvestmentCases
-            .AsNoTracking()
-            .Include(x => x.ApplicantCompany)
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(caseNumber))
-            query = query.Where(x => x.CaseNumber.Contains(caseNumber));
-
-        if (!string.IsNullOrWhiteSpace(applicantUserId))
-            query = query.Where(x => x.ApplicantUserId == applicantUserId);
-
-        if (phase.HasValue)
-            query = query.Where(x => x.CurrentPhase == phase.Value);
-
-        if (status.HasValue)
-            query = query.Where(x => x.CurrentStatus == status.Value);
-
-        if (fromDate.HasValue)
-            query = query.Where(x => x.CreatedAt >= fromDate.Value);
-
-        if (toDate.HasValue)
-            query = query.Where(x => x.CreatedAt <= toDate.Value);
-
-        return await query
-            .OrderByDescending(x => x.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task<IEnumerable<InvestmentCase>> SearchScopedAsync(
-        string? caseNumber,
-        string? applicantUserId,
-        CasePhase? phase,
-        CaseStatus? status,
-        DateTimeOffset? fromDate,
-        DateTimeOffset? toDate,
-        int page,
-        int pageSize,
+    public async Task<PagedResult<InvestmentCaseListProjection>> GetPagedAsync(
+        GetInvestmentCasesRequest request,
         string userId,
         bool isInternalUser,
         CancellationToken cancellationToken)
     {
-        var query = dbContext.InvestmentCases
-            .AsNoTracking()
-            .Include(x => x.ApplicantCompany)
-            .AsQueryable();
+        var createdAtFrom = PersianDateConverter.TryParseRangeStart(request.CreatedAtFrom);
+        var createdAtTo = PersianDateConverter.TryParseRangeEnd(request.CreatedAtTo);
 
-        if (!isInternalUser)
-            query = query.Where(x => x.ApplicantUserId == userId);
+        var query = dbContext.InvestmentCases.AsNoTracking().AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(caseNumber))
-            query = query.Where(x => x.CaseNumber.Contains(caseNumber));
+        query = ApplyScopedFilter(query, userId, isInternalUser);
 
-        if (isInternalUser && !string.IsNullOrWhiteSpace(applicantUserId))
-            query = query.Where(x => x.ApplicantUserId == applicantUserId);
+        if (isInternalUser)
+            query = query.WhereIf(
+                !string.IsNullOrWhiteSpace(request.ApplicantUserId),
+                x => x.ApplicantUserId == request.ApplicantUserId!.Trim());
 
-        if (phase.HasValue)
-            query = query.Where(x => x.CurrentPhase == phase.Value);
+        query = query
+            .ApplyFilters(request, createdAtFrom, createdAtTo)
+            .ApplySort(request.SortBy, request.SortDirection);
 
-        if (status.HasValue)
-            query = query.Where(x => x.CurrentStatus == status.Value);
+        var projected = query.Select(x => new InvestmentCaseListProjection(
+            x.Id,
+            x.CaseNumber,
+            x.ApplicantUserId,
+            x.ApplicantType,
+            x.CurrentPhase,
+            x.CurrentStatus,
+            x.WorkflowInstanceId,
+            x.CreatedAt,
+            x.UpdatedAt,
+            x.CompletedAt,
+            x.ApplicantCompany != null ? x.ApplicantCompany.Id : null,
+            x.ApplicantCompany != null ? x.ApplicantCompany.Name : null,
+            x.ApplicantCompany != null ? x.ApplicantCompany.EconomicCode : null,
+            x.ApplicantCompany != null ? x.ApplicantCompany.RegistrationNumber : null,
+            x.ApplicantCompany != null ? x.ApplicantCompany.NationalId : null,
+            x.ApplicantCompany != null ? x.ApplicantCompany.PhoneNumber : null,
+            x.ApplicantCompany != null ? x.ApplicantCompany.Address : null,
+            x.ApplicantCompany != null ? x.ApplicantCompany.City : null,
+            x.ApplicantCompany != null ? x.ApplicantCompany.Province : null,
+            x.ApplicantCompany != null ? x.ApplicantCompany.PostalCode : null,
+            dbContext.Users
+                .Where(u => u.Id.ToString() == x.ApplicantUserId)
+                .Select(u => (u.FirstName + " " + u.LastName).Trim())
+                .FirstOrDefault(),
+            dbContext.Users
+                .Where(u => u.Id.ToString() == x.ApplicantUserId)
+                .Select(u => u.PhoneNumber)
+                .FirstOrDefault(),
+            x.ApplicantProfile != null ? x.ApplicantProfile.RepresentativeFullName : null,
+            x.ApplicantProfile != null ? x.ApplicantProfile.BusinessStage : null,
+            x.ApplicantProfile != null ? x.ApplicantProfile.ContactEmail : null,
+            x.ApplicantProfile != null ? x.ApplicantProfile.RequestedAmount : null,
+            x.AttractionBasis != null ? x.AttractionBasis.InvestmentAttractionBasis : null));
 
-        if (fromDate.HasValue)
-            query = query.Where(x => x.CreatedAt >= fromDate.Value);
-
-        if (toDate.HasValue)
-            query = query.Where(x => x.CreatedAt <= toDate.Value);
-
-        return await query
-            .OrderByDescending(x => x.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        return await projected.ToPagedResultAsync(
+            request.NormalizedPageNumber,
+            request.NormalizedPageSize,
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<KanbanCaseProjection>> ListActiveKanbanProjectionsAsync(
@@ -213,8 +237,12 @@ public sealed class InvestmentCaseRepository(CoreDbContext dbContext) : IInvestm
                 x.CurrentStatus,
                 x.CreatedAt,
                 x.UpdatedAt,
-                x.DataEntry1 != null ? x.DataEntry1.RepresentativeFullName : null,
-                x.ApplicantCompany != null ? x.ApplicantCompany.Name : null))
+                x.ApplicantProfile != null ? x.ApplicantProfile.RepresentativeFullName : null,
+                x.ApplicantCompany != null ? x.ApplicantCompany.Name : null,
+                dbContext.Users
+                    .Where(u => u.Id.ToString() == x.ApplicantUserId)
+                    .Select(u => (u.FirstName + " " + u.LastName).Trim())
+                    .FirstOrDefault()))
             .ToListAsync(cancellationToken);
     }
 }

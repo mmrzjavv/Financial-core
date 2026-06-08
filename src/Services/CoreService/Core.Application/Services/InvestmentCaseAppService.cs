@@ -35,6 +35,7 @@ public sealed class InvestmentCaseAppService(
     IUserContext userContext,
     ICaseAuthorizationService authorizationService,
     ICaseDtoMapper caseDtoMapper,
+    IUserDisplayLookup userDisplayLookup,
     IHttpContextAccessor httpContextAccessor,
     ICaseWorkflowSmsNotifier workflowSmsNotifier,
     ILogger<InvestmentCaseAppService> logger) : IInvestmentCaseAppService
@@ -107,8 +108,9 @@ public sealed class InvestmentCaseAppService(
 
         ApplicationLog.Started(logger, "GetInvestmentCase", authResult.Value, caseId);
 
-        var entity = await unitOfWork.InvestmentCases.GetScopedAsync(caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
-        if (entity is null)
+        var detail = await unitOfWork.InvestmentCases.GetDetailProjectionAsync(
+            caseId, authResult.Value!, authorizationService.IsInternalUser, cancellationToken);
+        if (detail is null)
         {
             ApplicationLog.Blocked(logger, "GetInvestmentCase", "case not found or access denied", authResult.Value, caseId);
             return Result<InvestmentCaseDto>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
@@ -116,18 +118,32 @@ public sealed class InvestmentCaseAppService(
 
         ApplicationLog.Completed(logger,
             "User {UserId} loaded case {CaseId} ({CaseNumber}) — phase {Phase}, status {Status}",
-            authResult.Value, entity.Id, entity.CaseNumber, entity.CurrentPhase, entity.CurrentStatus);
+            authResult.Value, detail.Id, detail.CaseNumber, detail.CurrentPhase, detail.CurrentStatus);
 
         ApplicantContactDto? applicantContact = null;
         if (!authorizationService.IsInternalUser)
             applicantContact = await LoadApplicantContactAsync(authResult.Value!, cancellationToken);
 
+        if (authorizationService.IsInternalUser
+            && (string.IsNullOrWhiteSpace(detail.ApplicantFullName) || string.IsNullOrWhiteSpace(detail.ApplicantPhoneNumber)))
+        {
+            var lookup = await userDisplayLookup.GetByIdsAsync([detail.ApplicantUserId], cancellationToken);
+            if (lookup.TryGetValue(detail.ApplicantUserId, out var applicantDisplay))
+            {
+                detail = detail with
+                {
+                    ApplicantFullName = detail.ApplicantFullName ?? applicantDisplay.FullName,
+                    ApplicantPhoneNumber = detail.ApplicantPhoneNumber ?? applicantDisplay.PhoneNumber
+                };
+            }
+        }
+
         return Result<InvestmentCaseDto>.Ok(
-            caseDtoMapper.MapCase(
-                entity,
+            caseDtoMapper.MapFromDetailProjection(
+                detail,
                 clock.UtcNow,
                 authorizationService.IsInternalUser,
-                applicantContact: applicantContact));
+                applicantContact));
     }
 
     public async Task<Result> UpdateDataEntry1Async(Guid caseId, UpdateDataEntry1Request request, CancellationToken cancellationToken)
@@ -168,18 +184,18 @@ public sealed class InvestmentCaseAppService(
 
         var (fullName, email) = identity.Value;
 
-        var dataEntry = await dbContext.DataEntry1
+        var dataEntry = await dbContext.InvestmentCaseApplicantProfiles
             .FirstOrDefaultAsync(x => x.CaseId == caseId, cancellationToken);
 
         if (dataEntry is null)
         {
-            dataEntry = new InvestmentCaseDataEntry1(
+            dataEntry = new InvestmentCaseApplicantProfile(
                 caseId,
                 fullName,
                 request.BusinessStage,
                 email,
                 request.RequestedAmount);
-            await dbContext.DataEntry1.AddAsync(dataEntry, cancellationToken);
+            await dbContext.InvestmentCaseApplicantProfiles.AddAsync(dataEntry, cancellationToken);
         }
         else
         {
@@ -228,13 +244,13 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.Conflict(ApiMessages.DataEntry2NotEditable));
         }
 
-        var dataEntry = await dbContext.DataEntry2
+        var dataEntry = await dbContext.InvestmentCaseAttractionBases
             .FirstOrDefaultAsync(x => x.CaseId == caseId, cancellationToken);
 
         if (dataEntry is null)
         {
-            dataEntry = new InvestmentCaseDataEntry2(caseId, request.InvestmentAttractionBasis);
-            await dbContext.DataEntry2.AddAsync(dataEntry, cancellationToken);
+            dataEntry = new InvestmentCaseAttractionBasis(caseId, request.InvestmentAttractionBasis);
+            await dbContext.InvestmentCaseAttractionBases.AddAsync(dataEntry, cancellationToken);
         }
         else
         {
@@ -724,7 +740,7 @@ public sealed class InvestmentCaseAppService(
         }
 
         await dbContext.CaseValuations.AddAsync(
-            new CaseValuation(caseId, request.Type, request.Amount, request.Notes ?? string.Empty, authResult.Value!),
+            new InvestmentCaseValuation(caseId, request.Type, request.Amount, request.Notes ?? string.Empty, authResult.Value!),
             cancellationToken);
         await dbContext.InvestmentCases.TouchUpdatedAtAsync(caseId, clock.UtcNow, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -752,7 +768,7 @@ public sealed class InvestmentCaseAppService(
             return Result<CasePaymentsDto>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
         }
 
-        var dto = BuildCasePaymentsDto(entity);
+        var dto = caseDtoMapper.MapPayments(entity);
         ApplicationLog.Completed(logger,
             "User {UserId} loaded {Count} payment(s) for case {CaseId} ({CaseNumber})",
             authResult.Value, dto.Payments.Count, caseId, entity.CaseNumber);
@@ -789,7 +805,7 @@ public sealed class InvestmentCaseAppService(
             return Result.Fail(Error.Conflict(message));
         }
 
-        var payment = new PaymentRecord(
+        var payment = new InvestmentCasePayment(
             caseId,
             request.Amount,
             request.PaymentDate,
@@ -922,9 +938,18 @@ public sealed class InvestmentCaseAppService(
         var canViewInternal = includeInternal && authorizationService.HasPermission(CasePermissions.ViewInternalComments);
         var isInternalView = authorizationService.IsInternalUser;
 
-        var comments = entity.Comments
+        var visibleComments = entity.Comments
             .Where(x => (isInternalView && canViewInternal) || !x.IsInternal)
-            .Select(caseDtoMapper.MapComment)
+            .ToList();
+
+        var userLookup = isInternalView
+            ? await userDisplayLookup.GetByIdsAsync(visibleComments.Select(x => x.SenderUserId), cancellationToken)
+            : null;
+
+        var comments = visibleComments
+            .Select(c => caseDtoMapper.MapComment(
+                c,
+                userLookup is null ? null : userDisplayLookup.ResolveFullName(userLookup, c.SenderUserId)))
             .OrderBy(x => x.CreatedAt)
             .ToList();
 
@@ -969,7 +994,7 @@ public sealed class InvestmentCaseAppService(
         }
 
         await dbContext.CaseComments.AddAsync(
-            new CaseComment(
+            new InvestmentCaseComment(
                 caseId,
                 request.Phase,
                 authResult.Value!,
@@ -1029,7 +1054,7 @@ public sealed class InvestmentCaseAppService(
         }
 
         await dbContext.CaseCommentAttachments.AddAsync(
-            new CaseCommentAttachment(commentId, s3Key, fileName),
+            new InvestmentCaseCommentAttachment(commentId, s3Key, fileName),
             cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -1054,8 +1079,15 @@ public sealed class InvestmentCaseAppService(
             return Result<IEnumerable<CaseDocumentDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
         }
 
-        var docs = entity.Documents
-            .Select(caseDtoMapper.MapDocument)
+        var documents = entity.Documents.ToList();
+        var userLookup = authorizationService.IsInternalUser
+            ? await userDisplayLookup.GetByIdsAsync(documents.Select(x => x.UploadedByUserId), cancellationToken)
+            : null;
+
+        var docs = documents
+            .Select(d => caseDtoMapper.MapDocument(
+                d,
+                userLookup is null ? null : userDisplayLookup.ResolveFullName(userLookup, d.UploadedByUserId)))
             .OrderByDescending(x => x.UploadedAt)
             .ToList();
 
@@ -1080,8 +1112,15 @@ public sealed class InvestmentCaseAppService(
             return Result<IEnumerable<CaseDocumentDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
         }
 
-        var latest = SelectLatestDocuments(entity.Documents)
-            .Select(caseDtoMapper.MapDocument)
+        var latestDocuments = SelectLatestDocuments(entity.Documents).ToList();
+        var userLookup = authorizationService.IsInternalUser
+            ? await userDisplayLookup.GetByIdsAsync(latestDocuments.Select(x => x.UploadedByUserId), cancellationToken)
+            : null;
+
+        var latest = latestDocuments
+            .Select(d => caseDtoMapper.MapDocument(
+                d,
+                userLookup is null ? null : userDisplayLookup.ResolveFullName(userLookup, d.UploadedByUserId)))
             .OrderBy(x => (int)x.DocumentType)
             .ToList();
 
@@ -1109,7 +1148,16 @@ public sealed class InvestmentCaseAppService(
             return Result<CaseDocumentTypeVersionsDto>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
         }
 
-        var group = BuildDocumentTypeVersions(entity.Documents, documentType, caseDtoMapper.MapDocument);
+        var userLookup = authorizationService.IsInternalUser
+            ? await userDisplayLookup.GetByIdsAsync(entity.Documents.Select(x => x.UploadedByUserId), cancellationToken)
+            : null;
+
+        var group = BuildDocumentTypeVersions(
+            entity.Documents,
+            documentType,
+            d => caseDtoMapper.MapDocument(
+                d,
+                userLookup is null ? null : userDisplayLookup.ResolveFullName(userLookup, d.UploadedByUserId)));
 
         ApplicationLog.Completed(logger,
             "User {UserId} loaded {Count} version(s) of {DocumentType} for case {CaseId}",
@@ -1141,8 +1189,17 @@ public sealed class InvestmentCaseAppService(
             ? scopedTypes.Where(typesOnCase.Contains).ToList()
             : typesOnCase.OrderBy(t => (int)t).ToList();
 
+        var userLookup = authorizationService.IsInternalUser
+            ? await userDisplayLookup.GetByIdsAsync(entity.Documents.Select(x => x.UploadedByUserId), cancellationToken)
+            : null;
+
         var groups = types
-            .Select(t => BuildDocumentTypeVersions(entity.Documents, t, caseDtoMapper.MapDocument))
+            .Select(t => BuildDocumentTypeVersions(
+                entity.Documents,
+                t,
+                d => caseDtoMapper.MapDocument(
+                    d,
+                    userLookup is null ? null : userDisplayLookup.ResolveFullName(userLookup, d.UploadedByUserId))))
             .Where(g => g.Versions.Count > 0)
             .OrderBy(g => (int)g.DocumentType)
             .ToList();
@@ -1168,8 +1225,14 @@ public sealed class InvestmentCaseAppService(
             return Result<IEnumerable<CaseWorkflowHistoryDto>>.Fail(Error.NotFound(ApiMessages.CaseNotFound));
         }
 
+        var userLookup = await userDisplayLookup.GetByIdsAsync(
+            entity.WorkflowHistory.Select(x => x.ChangedByUserId),
+            cancellationToken);
+
         var history = entity.WorkflowHistory
-            .Select(caseDtoMapper.MapHistory)
+            .Select(h => caseDtoMapper.MapHistory(
+                h,
+                userDisplayLookup.ResolveFullName(userLookup, h.ChangedByUserId)))
             .OrderBy(x => x.CreatedAt)
             .ToList();
 
@@ -1203,7 +1266,7 @@ public sealed class InvestmentCaseAppService(
         var evaluation = entity.Evaluations.FirstOrDefault(x => x.Phase == request.Phase && x.ReviewerUserId == userContext.UserId);
         if (evaluation is null)
         {
-            evaluation = new CaseEvaluation(caseId, request.Phase, authResult.Value!, "Reviewer", request.Notes);
+            evaluation = new InvestmentCaseEvaluation(caseId, request.Phase, authResult.Value!, "Reviewer", request.Notes);
             entity.Evaluations.Add(evaluation);
         }
         else
@@ -1211,7 +1274,7 @@ public sealed class InvestmentCaseAppService(
             evaluation.UpdateNotes(request.Notes);
         }
 
-        var items = request.Items.Select(x => new CaseEvaluationItem(evaluation.Id, x.Title, x.IsApproved, x.Comment)).ToList();
+        var items = request.Items.Select(x => new InvestmentCaseEvaluationItem(evaluation.Id, x.Title, x.IsApproved, x.Comment)).ToList();
         evaluation.SetItems(items);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -1255,34 +1318,35 @@ public sealed class InvestmentCaseAppService(
         return Result<IEnumerable<CaseEvaluationDto>>.Ok(evaluations);
     }
 
-    public async Task<Result<IEnumerable<InvestmentCaseDto>>> SearchAsync(CaseSearchRequest request, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<InvestmentCaseDto>>> GetPagedAsync(
+        GetInvestmentCasesRequest request,
+        CancellationToken cancellationToken)
     {
         var authResult = RequireUserId();
-        if (authResult.IsFailure) return Result<IEnumerable<InvestmentCaseDto>>.Fail(authResult.Error!);
+        if (authResult.IsFailure) return Result<PagedResult<InvestmentCaseDto>>.Fail(authResult.Error!);
 
-        ApplicationLog.Started(logger, "SearchInvestmentCases", authResult.Value);
+        ApplicationLog.Started(logger, "GetInvestmentCasesPaged", authResult.Value);
 
-        var results = await unitOfWork.InvestmentCases.SearchScopedAsync(
-            request.CaseNumber,
-            request.ApplicantUserId,
-            request.Phase,
-            request.Status,
-            request.FromDate,
-            request.ToDate,
-            request.Page,
-            request.PageSize,
+        var page = await unitOfWork.InvestmentCases.GetPagedAsync(
+            request,
             authResult.Value!,
             authorizationService.IsInternalUser,
             cancellationToken);
 
-        var resultList = results.ToList();
-        var dtos = resultList.Select(x => caseDtoMapper.MapCase(x, clock.UtcNow, authorizationService.IsInternalUser));
+        var items = page.Items
+            .Select(x => caseDtoMapper.MapFromListProjection(x, clock.UtcNow, authorizationService.IsInternalUser))
+            .ToList();
 
         ApplicationLog.Completed(logger,
-            "User {UserId} searched investment cases — page {Page}, size {PageSize}, returned {Count} result(s)",
-            authResult.Value, request.Page, request.PageSize, resultList.Count);
+            "User {UserId} listed investment cases — page {PageNumber}, size {PageSize}, returned {Count} of {Total}",
+            authResult.Value,
+            page.PageNumber,
+            page.PageSize,
+            items.Count,
+            page.TotalCount);
 
-        return Result<IEnumerable<InvestmentCaseDto>>.Ok(dtos);
+        return Result<PagedResult<InvestmentCaseDto>>.Ok(
+            new PagedResult<InvestmentCaseDto>(items, page.Page, page.PageSize, page.TotalCount));
     }
 
     public async Task<Result<PresignUploadResponse>> PresignDocumentUploadAsync(Guid caseId, PresignUploadRequest request, CancellationToken cancellationToken)
@@ -1447,7 +1511,7 @@ public sealed class InvestmentCaseAppService(
     /// </summary>
     private async Task<Result<CaseDocumentDto>> CompleteDocumentConfirmAsync(
         Guid caseId,
-        CaseDocument document,
+        InvestmentCaseDocument document,
         CancellationToken cancellationToken)
     {
         var workflow = await TryAdvanceWorkflowAfterDocumentConfirmAsync(caseId, document.DocumentType, cancellationToken);
@@ -1620,42 +1684,6 @@ public sealed class InvestmentCaseAppService(
 
     private sealed record PaymentCaseContext(string CaseNumber, CaseStatus Status);
 
-    private static CasePaymentsDto BuildCasePaymentsDto(InvestmentCase entity)
-    {
-        var approved = entity.FinancialWorksheet?.ApprovedAmount;
-        var payments = entity.Payments
-            .OrderBy(p => p.PaymentDate)
-            .ThenBy(p => p.CreatedAt)
-            .Select(p => new PaymentRecordDto(
-                p.Id,
-                p.Amount,
-                p.PaymentDate,
-                p.TransactionNumber,
-                p.ReceiptS3Key,
-                p.Notes,
-                p.Method,
-                p.Status,
-                p.CreatedAt,
-                p.CreatedByUserId))
-            .ToList();
-
-        var totalRecorded = payments
-            .Where(p => p.Status != PaymentStatus.Cancelled)
-            .Sum(p => p.Amount);
-
-        var totalConfirmed = payments
-            .Where(p => p.Status == PaymentStatus.Completed)
-            .Sum(p => p.Amount);
-
-        var remaining = approved is > 0
-            ? Math.Max(0m, approved.Value - totalConfirmed)
-            : 0m;
-
-        return new CasePaymentsDto(
-            payments,
-            new CasePaymentsSummaryDto(approved, totalRecorded, totalConfirmed, remaining));
-    }
-
     private Task<PaymentCaseContext?> GetPaymentCaseContextAsync(Guid caseId, CancellationToken cancellationToken)
         => dbContext.InvestmentCases
             .AsNoTracking()
@@ -1764,7 +1792,7 @@ public sealed class InvestmentCaseAppService(
 
     /// <summary>
     /// Read-only load for document presign/confirm. Avoids tracking <see cref="InvestmentCase"/> so saving a new
-    /// <see cref="CaseDocument"/> does not UPDATE the parent row (legacy xmin concurrency on investment_cases).
+    /// <see cref="InvestmentCaseDocument"/> does not UPDATE the parent row (legacy xmin concurrency on investment_cases).
     /// </summary>
     private Task<InvestmentCase?> GetCaseWithDocumentsForDocumentWriteAsync(
         Guid caseId,
@@ -1783,7 +1811,7 @@ public sealed class InvestmentCaseAppService(
         return query.FirstOrDefaultAsync(cancellationToken);
     }
 
-    private async Task<CaseDocument> PersistCaseDocumentAsync(
+    private async Task<InvestmentCaseDocument> PersistCaseDocumentAsync(
         Guid caseId,
         string s3Key,
         string fileName,
@@ -1795,7 +1823,7 @@ public sealed class InvestmentCaseAppService(
         CancellationToken cancellationToken)
     {
         var uploadedAt = clock.UtcNow;
-        var document = new CaseDocument(
+        var document = new InvestmentCaseDocument(
             caseId,
             s3Key,
             fileName,
@@ -2022,15 +2050,15 @@ public sealed class InvestmentCaseAppService(
         return Result.Ok();
     }
 
-    private static IEnumerable<CaseDocument> SelectLatestDocuments(IEnumerable<CaseDocument> documents)
+    private static IEnumerable<InvestmentCaseDocument> SelectLatestDocuments(IEnumerable<InvestmentCaseDocument> documents)
         => documents
             .GroupBy(d => d.DocumentType)
             .Select(g => g.OrderByDescending(d => d.Version).ThenByDescending(d => d.UploadedAt).First());
 
-    private static CaseDocumentTypeVersionsDto BuildDocumentTypeVersions(
-        IEnumerable<CaseDocument> documents,
+    private CaseDocumentTypeVersionsDto BuildDocumentTypeVersions(
+        IEnumerable<InvestmentCaseDocument> documents,
         DocumentType documentType,
-        Func<CaseDocument, CaseDocumentDto> map)
+        Func<InvestmentCaseDocument, CaseDocumentDto> map)
     {
         var versions = documents
             .Where(d => d.DocumentType == documentType)
@@ -2039,8 +2067,7 @@ public sealed class InvestmentCaseAppService(
             .Select(map)
             .ToList();
 
-        var latest = versions.FirstOrDefault();
-        return new CaseDocumentTypeVersionsDto(documentType, latest, versions);
+        return caseDtoMapper.MapDocumentTypeVersions(documentType, versions);
     }
 
     private async Task<Result<(string FullName, string Email)>> ResolveApplicantIdentityAsync(
@@ -2076,11 +2103,6 @@ public sealed class InvestmentCaseAppService(
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
 
-        return user is null
-            ? null
-            : new ApplicantContactDto(
-                $"{user.FirstName} {user.LastName}".Trim(),
-                user.Email?.Trim() ?? "",
-                user.PhoneNumber);
+        return user is null ? null : caseDtoMapper.MapApplicantContact(user);
     }
 }

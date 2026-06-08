@@ -9,7 +9,7 @@ public interface ILoanCaseAppService
 {
     Task<Result<LoanCaseDto>> CreateAsync(CreateLoanCaseRequest request, CancellationToken ct);
     Task<Result<LoanCaseDto>> GetAsync(Guid caseId, CancellationToken ct);
-    Task<Result<IEnumerable<LoanCaseDto>>> SearchAsync(LoanCaseSearchRequest request, CancellationToken ct);
+    Task<Result<PagedResult<LoanCaseDto>>> GetPagedAsync(GetLoanCasesRequest request, CancellationToken ct);
     Task<Result<IEnumerable<LoanWorkflowHistoryDto>>> GetHistoryAsync(Guid caseId, CancellationToken ct);
     Task<Result> UpdateApplicationAsync(Guid caseId, UpdateLoanApplicationRequest request, CancellationToken ct);
     Task<Result> BeginDataEntryAsync(Guid caseId, CancellationToken ct);

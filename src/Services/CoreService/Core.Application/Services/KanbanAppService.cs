@@ -6,6 +6,7 @@ using Core.Application.Authorization;
 using Core.Application.Common;
 using Core.Application.DTOs;
 using Core.Application.Kanban;
+using Core.Application.Mappers;
 using Core.Domain.Enums;
 using Core.Domain.Identity;
 
@@ -19,12 +20,9 @@ public sealed class KanbanAppService(
     IUserContext userContext,
     ICaseStateManager investmentStateManager,
     IGuaranteeCaseStateManager guaranteeStateManager,
-    ILoanCaseStateManager loanStateManager) : IKanbanAppService
+    ILoanCaseStateManager loanStateManager,
+    IKanbanDtoMapper kanbanDtoMapper) : IKanbanAppService
 {
-    private const string InvestmentApiBase = "/api/v1/investmentcases";
-    private const string GuaranteeApiBase = "/api/v1/guaranteecases";
-    private const string RenewalApiBase = "/api/v1/guarantee-renewals";
-    private const string LoanApiBase = "/api/v1/loancases";
 
     public Task<Result<IReadOnlyList<KanbanCaseCardDto>>> GetActionRequiredAsync(CancellationToken cancellationToken)
         => GetActionRequiredAsync(module: null, cancellationToken);
@@ -108,22 +106,7 @@ public sealed class KanbanAppService(
                     .Select(a => a.ToString())
                     .ToArray();
 
-                return new KanbanCaseCardDto(
-                    x.Id,
-                    x.CaseNumber,
-                    CaseModuleType.Investment,
-                    InvestmentApiBase,
-                    nameof(CaseStatus),
-                    (int)x.CurrentStatus,
-                    CaseKanbanRules.GetPhaseTitle(x.CurrentPhase),
-                    CaseKanbanRules.GetStatusTitle(x.CurrentStatus),
-                    x.ApplicantType,
-                    x.StartupTitle,
-                    x.CompanyName,
-                    x.CreatedAt,
-                    x.UpdatedAt,
-                    CaseKanbanRules.GetPendingActionLabel(x.CurrentStatus, role),
-                    allowed);
+                return kanbanDtoMapper.MapInvestmentActionCard(x, role, allowed);
             });
     }
 
@@ -145,22 +128,7 @@ public sealed class KanbanAppService(
                     .Select(a => a.ToString())
                     .ToArray();
 
-                return new KanbanCaseCardDto(
-                    x.Id,
-                    x.CaseNumber,
-                    CaseModuleType.Guarantee,
-                    GuaranteeApiBase,
-                    nameof(GuaranteeCaseStatus),
-                    (int)x.CurrentStatus,
-                    GuaranteeKanbanRules.GetPhaseTitle(x.CurrentPhase),
-                    GuaranteeKanbanRules.GetStatusTitle(x.CurrentStatus),
-                    x.ApplicantType,
-                    x.RepresentativeName,
-                    x.CompanyName,
-                    x.CreatedAt,
-                    x.UpdatedAt,
-                    GuaranteeKanbanRules.GetPendingActionLabel(x.CurrentStatus, gRole),
-                    allowed);
+                return kanbanDtoMapper.MapGuaranteeActionCard(x, gRole, allowed);
             });
     }
 
@@ -174,22 +142,7 @@ public sealed class KanbanAppService(
 
         return projections
             .Where(x => IsRenewalActionRequired(x.CurrentStatus, role))
-            .Select(x => new KanbanCaseCardDto(
-                x.Id,
-                x.CaseNumber,
-                CaseModuleType.GuaranteeRenewal,
-                RenewalApiBase,
-                nameof(GuaranteeRenewalStatus),
-                (int)x.CurrentStatus,
-                "تمدید",
-                GetRenewalStatusTitle(x.CurrentStatus),
-                null,
-                x.ParentCaseNumber,
-                null,
-                x.CreatedAt,
-                x.UpdatedAt,
-                "اقدام شما لازم است",
-                []));
+            .Select(kanbanDtoMapper.MapRenewalActionCard);
     }
 
     private async Task<IEnumerable<KanbanCaseCardDto>> LoadLoanActionCardsAsync(
@@ -209,22 +162,7 @@ public sealed class KanbanAppService(
                     .Select(a => a.ToString())
                     .ToArray();
 
-                return new KanbanCaseCardDto(
-                    x.Id,
-                    x.CaseNumber,
-                    CaseModuleType.Loan,
-                    LoanApiBase,
-                    nameof(LoanCaseStatus),
-                    (int)x.CurrentStatus,
-                    LoanKanbanRules.GetPhaseTitle(x.CurrentPhase),
-                    LoanKanbanRules.GetStatusTitle(x.CurrentStatus),
-                    x.ApplicantType,
-                    x.RequestedAmount?.ToString("N0"),
-                    x.CompanyName,
-                    x.CreatedAt,
-                    x.UpdatedAt,
-                    LoanKanbanRules.GetPendingActionLabel(x.CurrentStatus, lRole),
-                    allowed);
+                return kanbanDtoMapper.MapLoanActionCard(x, lRole, allowed);
             });
     }
 
@@ -238,18 +176,7 @@ public sealed class KanbanAppService(
 
         return projections
             .Where(x => CaseKanbanRules.IsWatching(x.CurrentStatus, role))
-            .Select(x => new KanbanCaseSummaryDto(
-                x.Id,
-                x.CaseNumber,
-                CaseModuleType.Investment,
-                InvestmentApiBase,
-                nameof(CaseStatus),
-                (int)x.CurrentStatus,
-                CaseKanbanRules.GetPhaseTitle(x.CurrentPhase),
-                CaseKanbanRules.GetStatusTitle(x.CurrentStatus),
-                x.StartupTitle,
-                x.CreatedAt,
-                CaseKanbanRules.GetPendingActionLabel(x.CurrentStatus, role)));
+            .Select(x => kanbanDtoMapper.MapInvestmentWatchCard(x, role));
     }
 
     private async Task<IEnumerable<KanbanCaseSummaryDto>> LoadGuaranteeWatchAsync(
@@ -263,18 +190,7 @@ public sealed class KanbanAppService(
 
         return projections
             .Where(x => GuaranteeKanbanRules.IsWatching(x.CurrentStatus, gRole))
-            .Select(x => new KanbanCaseSummaryDto(
-                x.Id,
-                x.CaseNumber,
-                CaseModuleType.Guarantee,
-                GuaranteeApiBase,
-                nameof(GuaranteeCaseStatus),
-                (int)x.CurrentStatus,
-                GuaranteeKanbanRules.GetPhaseTitle(x.CurrentPhase),
-                GuaranteeKanbanRules.GetStatusTitle(x.CurrentStatus),
-                x.RepresentativeName,
-                x.CreatedAt,
-                GuaranteeKanbanRules.GetPendingActionLabel(x.CurrentStatus, gRole)));
+            .Select(x => kanbanDtoMapper.MapGuaranteeWatchCard(x, gRole));
     }
 
     private async Task<IEnumerable<KanbanCaseSummaryDto>> LoadRenewalWatchAsync(
@@ -287,18 +203,7 @@ public sealed class KanbanAppService(
 
         return projections
             .Where(x => IsRenewalWatching(x.CurrentStatus, role))
-            .Select(x => new KanbanCaseSummaryDto(
-                x.Id,
-                x.CaseNumber,
-                CaseModuleType.GuaranteeRenewal,
-                RenewalApiBase,
-                nameof(GuaranteeRenewalStatus),
-                (int)x.CurrentStatus,
-                "تمدید",
-                GetRenewalStatusTitle(x.CurrentStatus),
-                x.ParentCaseNumber,
-                x.CreatedAt,
-                "در جریان بررسی"));
+            .Select(kanbanDtoMapper.MapRenewalWatchCard);
     }
 
     private async Task<IEnumerable<KanbanCaseSummaryDto>> LoadLoanWatchAsync(
@@ -311,18 +216,7 @@ public sealed class KanbanAppService(
 
         return projections
             .Where(x => LoanKanbanRules.IsWatching(x.CurrentStatus, lRole))
-            .Select(x => new KanbanCaseSummaryDto(
-                x.Id,
-                x.CaseNumber,
-                CaseModuleType.Loan,
-                LoanApiBase,
-                nameof(LoanCaseStatus),
-                (int)x.CurrentStatus,
-                LoanKanbanRules.GetPhaseTitle(x.CurrentPhase),
-                LoanKanbanRules.GetStatusTitle(x.CurrentStatus),
-                x.CompanyName ?? x.RequestedAmount?.ToString("N0"),
-                x.CreatedAt,
-                LoanKanbanRules.GetPendingActionLabel(x.CurrentStatus, lRole)));
+            .Select(x => kanbanDtoMapper.MapLoanWatchCard(x, lRole));
     }
 
     private static bool IsRenewalActionRequired(GuaranteeRenewalStatus status, string role) => (status, role) switch
@@ -336,17 +230,6 @@ public sealed class KanbanAppService(
 
     private static bool IsRenewalWatching(GuaranteeRenewalStatus status, string role)
         => !IsRenewalActionRequired(status, role) && status is GuaranteeRenewalStatus.CeoReview or GuaranteeRenewalStatus.CreditDateUpdate;
-
-    private static string GetRenewalStatusTitle(GuaranteeRenewalStatus status) => status switch
-    {
-        GuaranteeRenewalStatus.Draft => "پیش‌نویس تمدید",
-        GuaranteeRenewalStatus.CeoReview => "بررسی مدیرعامل",
-        GuaranteeRenewalStatus.CreditDateUpdate => "به‌روزرسانی تاریخ",
-        GuaranteeRenewalStatus.Completed => "تکمیل",
-        GuaranteeRenewalStatus.Rejected => "رد شده",
-        GuaranteeRenewalStatus.Cancelled => "لغو",
-        _ => status.ToString()
-    };
 
     private Result<(string UserId, string Role)> EnsureKanbanAccess()
     {

@@ -13,6 +13,7 @@ using Core.Application.Requests;
 using Core.Application.Responses;
 using Core.Domain.Constants;
 using Core.Domain.Entities;
+using Core.Domain.Entities.Fund;
 using Core.Domain.Enums;
 using Core.Domain.Identity;
 using Core.Domain.Identity.Entities;
@@ -33,6 +34,7 @@ public sealed class GuaranteeCaseAppService(
     IUserContext userContext,
     IGuaranteeAuthorizationService authorizationService,
     IGuaranteeCaseDtoMapper dtoMapper,
+    IUserDisplayLookup userDisplayLookup,
     IHttpContextAccessor httpContextAccessor,
     ILogger<GuaranteeCaseAppService> logger) : IGuaranteeCaseAppService
 {
@@ -84,42 +86,52 @@ public sealed class GuaranteeCaseAppService(
         var auth = RequireUser();
         if (auth.IsFailure) return Result<GuaranteeCaseDto>.Fail(auth.Error!);
 
-        var entity = await unitOfWork.GuaranteeCases.GetScopedAsync(
+        var detail = await unitOfWork.GuaranteeCases.GetDetailProjectionAsync(
             caseId, auth.Value!, authorizationService.IsInternalUser, ct);
 
-        if (entity is null)
+        if (detail is null)
             return Result<GuaranteeCaseDto>.Fail(Error.NotFound(ApiMessages.GuaranteeCaseNotFound));
 
-        var creditSnapshot = await GuaranteeApplicantCreditSnapshotCalculator.ComputeAsync(dbContext, entity, ct);
+        var creditSnapshot = await GuaranteeApplicantCreditSnapshotCalculator.ComputeFundSnapshotAsync(
+            dbContext, currentCase: null, ct);
+        var fundCreditCapacity = await ResolveFundCreditCapacityForCaseAsync(detail.CurrentStatus, ct);
+
+        if (authorizationService.IsInternalUser
+            && (string.IsNullOrWhiteSpace(detail.ApplicantFullName) || string.IsNullOrWhiteSpace(detail.ApplicantPhoneNumber)))
+        {
+            var applicantDisplay = await ResolveApplicantDisplayAsync(detail.ApplicantUserId, ct);
+            detail = detail with
+            {
+                ApplicantFullName = detail.ApplicantFullName ?? applicantDisplay?.FullName,
+                ApplicantPhoneNumber = detail.ApplicantPhoneNumber ?? applicantDisplay?.PhoneNumber
+            };
+        }
 
         return Result<GuaranteeCaseDto>.Ok(
-            dtoMapper.MapCase(
-                entity,
+            dtoMapper.MapFromDetailProjection(
+                detail,
                 authorizationService.IsInternalUser,
-                entity.ApplicantCompany,
-                creditSnapshot));
+                creditSnapshot,
+                fundCreditCapacity));
     }
 
-    public async Task<Result<IEnumerable<GuaranteeCaseDto>>> SearchAsync(GuaranteeCaseSearchRequest request, CancellationToken ct)
+    public async Task<Result<PagedResult<GuaranteeCaseDto>>> GetPagedAsync(GetGuaranteeCasesRequest request, CancellationToken ct)
     {
         var auth = RequireUser();
-        if (auth.IsFailure) return Result<IEnumerable<GuaranteeCaseDto>>.Fail(auth.Error!);
+        if (auth.IsFailure) return Result<PagedResult<GuaranteeCaseDto>>.Fail(auth.Error!);
 
-        var list = await unitOfWork.GuaranteeCases.SearchScopedAsync(
-            request.CaseNumber,
-            request.ApplicantUserId,
-            request.Phase,
-            request.Status,
-            request.FromDate,
-            request.ToDate,
-            request.Page,
-            request.PageSize,
+        var page = await unitOfWork.GuaranteeCases.GetPagedAsync(
+            request,
             auth.Value!,
             authorizationService.IsInternalUser,
             ct);
 
-        var dtos = list.Select(x => dtoMapper.MapCase(x, authorizationService.IsInternalUser, x.ApplicantCompany));
-        return Result<IEnumerable<GuaranteeCaseDto>>.Ok(dtos);
+        var items = page.Items
+            .Select(x => dtoMapper.MapFromListProjection(x, authorizationService.IsInternalUser))
+            .ToList();
+
+        return Result<PagedResult<GuaranteeCaseDto>>.Ok(
+            new PagedResult<GuaranteeCaseDto>(items, page.Page, page.PageSize, page.TotalCount));
     }
 
     public async Task<Result<IEnumerable<GuaranteeWorkflowHistoryDto>>> GetHistoryAsync(Guid caseId, CancellationToken ct)
@@ -127,14 +139,23 @@ public sealed class GuaranteeCaseAppService(
         var auth = RequireUser();
         if (auth.IsFailure) return Result<IEnumerable<GuaranteeWorkflowHistoryDto>>.Fail(auth.Error!);
 
-        var entity = await unitOfWork.GuaranteeCases.GetScopedAsync(
+        var history = await unitOfWork.GuaranteeCases.GetWorkflowHistoryAsync(
             caseId, auth.Value!, authorizationService.IsInternalUser, ct);
 
-        if (entity is null)
-            return Result<IEnumerable<GuaranteeWorkflowHistoryDto>>.Fail(Error.NotFound(ApiMessages.GuaranteeCaseNotFound));
+        if (history.Count == 0)
+        {
+            var exists = await dbContext.GuaranteeCases
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.Id == caseId
+                         && (authorizationService.IsInternalUser || x.ApplicantUserId == auth.Value),
+                    ct);
 
-        return Result<IEnumerable<GuaranteeWorkflowHistoryDto>>.Ok(
-            entity.WorkflowHistory.OrderBy(x => x.CreatedAt).Select(dtoMapper.MapHistory));
+            if (!exists)
+                return Result<IEnumerable<GuaranteeWorkflowHistoryDto>>.Fail(Error.NotFound(ApiMessages.GuaranteeCaseNotFound));
+        }
+
+        return Result<IEnumerable<GuaranteeWorkflowHistoryDto>>.Ok(history.Select(dtoMapper.MapHistory));
     }
 
     public async Task<Result> UpdateApplicationAsync(Guid caseId, UpdateGuaranteeApplicationRequest request, CancellationToken ct)
@@ -239,6 +260,12 @@ public sealed class GuaranteeCaseAppService(
 
     public Task<Result> CeoRejectInitialAsync(Guid caseId, string reason, CancellationToken ct)
         => ApplyTransitionAsync(caseId, GuaranteeWorkflowAction.Reject, reason, ct);
+
+    public Task<Result> CeoCancelInitialAsync(Guid caseId, string reason, CancellationToken ct)
+        => ApplyTransitionAsync(caseId, GuaranteeWorkflowAction.Cancel, reason, ct);
+
+    public Task<Result> CancelAsync(Guid caseId, string reason, CancellationToken ct)
+        => ApplyTransitionAsync(caseId, GuaranteeWorkflowAction.Cancel, reason, ct);
 
     public Task<Result> ConfirmDraftContractUploadedAsync(Guid caseId, CancellationToken ct)
         => ApplyTransitionAsync(caseId, GuaranteeWorkflowAction.UploadDraftContract, null, ct);
@@ -403,19 +430,28 @@ public sealed class GuaranteeCaseAppService(
         var auth = RequireUser();
         if (auth.IsFailure) return Result<IEnumerable<GuaranteeCaseCommentDto>>.Fail(auth.Error!);
 
-        var entity = await unitOfWork.GuaranteeCases.GetScopedAsync(
+        var comments = await unitOfWork.GuaranteeCases.GetCommentsAsync(
             caseId, auth.Value!, authorizationService.IsInternalUser, ct);
 
-        if (entity is null)
-            return Result<IEnumerable<GuaranteeCaseCommentDto>>.Fail(Error.NotFound(ApiMessages.GuaranteeCaseNotFound));
+        if (comments.Count == 0)
+        {
+            var exists = await dbContext.GuaranteeCases
+                .AsNoTracking()
+                .AnyAsync(
+                    x => x.Id == caseId
+                         && (authorizationService.IsInternalUser || x.ApplicantUserId == auth.Value),
+                    ct);
+
+            if (!exists)
+                return Result<IEnumerable<GuaranteeCaseCommentDto>>.Fail(Error.NotFound(ApiMessages.GuaranteeCaseNotFound));
+        }
 
         var canViewInternal = authorizationService.HasPermission(GuaranteePermissions.ViewInternalComments);
-        var comments = entity.Comments
+        var filtered = comments
             .Where(x => (includeInternal && canViewInternal) || !x.IsInternal)
-            .OrderBy(x => x.CreatedAt)
             .Select(dtoMapper.MapComment);
 
-        return Result<IEnumerable<GuaranteeCaseCommentDto>>.Ok(comments);
+        return Result<IEnumerable<GuaranteeCaseCommentDto>>.Ok(filtered);
     }
 
     public async Task<Result<GuaranteeFundCreditLimitDto>> GetFundCreditLimitAsync(CancellationToken ct)
@@ -459,6 +495,10 @@ public sealed class GuaranteeCaseAppService(
         {
             return Result<GuaranteeFundCreditLimitDto>.Fail(
                 Error.Validation(ApiMessages.CreditLimitDatabasePrecisionTooSmall));
+        }
+        catch (InvalidOperationException ex) when (ex.Message == ApiMessages.FundCreditLimitPeriodOverlap)
+        {
+            return Result<GuaranteeFundCreditLimitDto>.Fail(Error.Conflict(ApiMessages.FundCreditLimitPeriodOverlap));
         }
 
         return Result<GuaranteeFundCreditLimitDto>.Ok(await BuildFundCreditLimitDtoAsync(ct));
@@ -545,17 +585,42 @@ public sealed class GuaranteeCaseAppService(
         string setByUserId,
         CancellationToken ct)
     {
-        var row = await dbContext.GuaranteeFundCreditLimits
-            .FirstOrDefaultAsync(x => x.Id == GuaranteeFundCreditLimit.SingletonId, ct);
-
-        if (row is null)
+        if (await FundCreditLimitCapacityCalculator.HasOverlappingPeriodAsync(
+                dbContext,
+                FundModuleType.Guarantee,
+                periodStart,
+                expiresAt,
+                excludeId: null,
+                ct))
         {
-            row = new GuaranteeFundCreditLimit(amount, periodStart, expiresAt, setByUserId);
-            await dbContext.GuaranteeFundCreditLimits.AddAsync(row, ct);
-            return;
+            throw new InvalidOperationException(ApiMessages.FundCreditLimitPeriodOverlap);
         }
 
-        row.SetCreditLimit(amount, periodStart, expiresAt, setByUserId);
+        var row = new FundCreditLimit(
+            FundModuleType.Guarantee,
+            amount,
+            periodStart,
+            expiresAt,
+            setByUserId);
+
+        await dbContext.FundCreditLimits.AddAsync(row, ct);
+    }
+
+    private async Task<FundCreditCapacitySnapshotDto?> ResolveFundCreditCapacityForCaseAsync(
+        GuaranteeCaseStatus status,
+        CancellationToken ct)
+    {
+        if (status is not (GuaranteeCaseStatus.CeoApprovalInitial or GuaranteeCaseStatus.CeoApprovalFinal))
+            return null;
+
+        if (!FundCreditLimitAuthorization.CanAccessFundCreditLimits(userContext.Roles))
+            return null;
+
+        return await FundCreditLimitCapacityCalculator.ComputeActiveAsync(
+            dbContext,
+            FundModuleType.Guarantee,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            ct);
     }
 
     private async Task<GuaranteeFundCreditLimitDto> BuildFundCreditLimitDtoAsync(CancellationToken ct)
@@ -564,19 +629,42 @@ public sealed class GuaranteeCaseAppService(
             dbContext,
             currentCase: null,
             ct);
-        var row = await dbContext.GuaranteeFundCreditLimits
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == GuaranteeFundCreditLimit.SingletonId, ct);
 
-        return new GuaranteeFundCreditLimitDto(
-            row?.CreditLimitWithCheck ?? 0m,
-            row?.PeriodStart ?? snapshot.PeriodStart ?? DateOnly.FromDateTime(DateTime.UtcNow),
-            row?.ExpiresAt ?? snapshot.ExpiresAt ?? DateOnly.FromDateTime(DateTime.UtcNow),
-            snapshot.FundIssuedGuaranteesTotal ?? 0m,
-            snapshot.ActiveCommitments ?? 0m,
-            snapshot.RemainingCredit,
-            row?.LastSetByUserId,
+        var referenceDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var pool = await FundCreditLimitCapacityCalculator.ResolveActivePoolAsync(
+            dbContext,
+            FundModuleType.Guarantee,
+            referenceDate,
+            ct);
+
+        var row = pool is null
+            ? null
+            : await dbContext.FundCreditLimits
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == pool.Id, ct);
+
+        var lastSetByUserId = row?.LastSetByUserId;
+        var lastSetByLookup = string.IsNullOrWhiteSpace(lastSetByUserId)
+            ? null
+            : (await userDisplayLookup.GetByIdsAsync([lastSetByUserId], ct)).GetValueOrDefault(lastSetByUserId);
+
+        return dtoMapper.MapFundCreditLimit(
+            snapshot,
+            row?.CreditLimitWithCheck ?? snapshot.CreditLimitWithCheck ?? 0m,
+            row?.PeriodStart ?? snapshot.PeriodStart ?? referenceDate,
+            row?.ExpiresAt ?? snapshot.ExpiresAt ?? referenceDate,
+            lastSetByUserId,
+            lastSetByLookup?.FullName,
             row?.UpdatedAt ?? row?.CreatedAt);
+    }
+
+    private async Task<UserDisplayDto?> ResolveApplicantDisplayAsync(string applicantUserId, CancellationToken ct)
+    {
+        if (!authorizationService.IsInternalUser)
+            return null;
+
+        var lookup = await userDisplayLookup.GetByIdsAsync([applicantUserId], ct);
+        return lookup.GetValueOrDefault(applicantUserId);
     }
 
     private async Task<Result> UpdateApprovalFormCoreAsync(

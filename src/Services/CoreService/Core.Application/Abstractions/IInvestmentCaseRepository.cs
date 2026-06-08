@@ -1,3 +1,5 @@
+using BuildingBlocks.Application.Results;
+using Core.Application.Requests;
 using Core.Domain.Entities;
 using Core.Domain.Enums;
 
@@ -7,6 +9,11 @@ public interface IInvestmentCaseRepository
 {
     Task<InvestmentCase?> GetAsync(Guid id, CancellationToken cancellationToken);
     Task<InvestmentCase?> GetScopedAsync(Guid id, string userId, bool isInternalUser, CancellationToken cancellationToken);
+    Task<InvestmentCaseListProjection?> GetDetailProjectionAsync(
+        Guid id,
+        string userId,
+        bool isInternalUser,
+        CancellationToken cancellationToken);
 
     /// <summary>Scoped load for workflow transitions (minimal graph, avoids spurious parent updates).</summary>
     Task<InvestmentCase?> GetScopedForTransitionAsync(Guid id, string userId, bool isInternalUser, CancellationToken cancellationToken);
@@ -18,26 +25,8 @@ public interface IInvestmentCaseRepository
     Task<InvestmentCase?> GetByCaseNumberAsync(string caseNumber, CancellationToken cancellationToken);
     Task AddAsync(InvestmentCase investmentCase, CancellationToken cancellationToken);
     Task<bool> ExistsCaseNumberAsync(string caseNumber, CancellationToken cancellationToken);
-    Task<IEnumerable<InvestmentCase>> SearchAsync(
-        string? caseNumber,
-        string? applicantUserId,
-        CasePhase? phase,
-        CaseStatus? status,
-        DateTimeOffset? fromDate,
-        DateTimeOffset? toDate,
-        int page,
-        int pageSize,
-        CancellationToken cancellationToken);
-
-    Task<IEnumerable<InvestmentCase>> SearchScopedAsync(
-        string? caseNumber,
-        string? applicantUserId,
-        CasePhase? phase,
-        CaseStatus? status,
-        DateTimeOffset? fromDate,
-        DateTimeOffset? toDate,
-        int page,
-        int pageSize,
+    Task<PagedResult<InvestmentCaseListProjection>> GetPagedAsync(
+        GetInvestmentCasesRequest request,
         string userId,
         bool isInternalUser,
         CancellationToken cancellationToken);

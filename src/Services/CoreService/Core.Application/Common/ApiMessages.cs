@@ -23,6 +23,7 @@ public static class ApiMessages
     public const string CompanyRequiredForCompanyApplicant = "برای متقاضی حقوقی، انتخاب شرکت الزامی است.";
     public const string CompanyNotFound = "شرکت انتخاب‌شده یافت نشد.";
     public const string CompanyAccessDenied = "به این شرکت دسترسی ندارید.";
+    public const string CompanyHasLinkedCases = "این شرکت دارای پرونده فعال است و امکان حذف آن وجود ندارد.";
     public const string DataEntry1NotEditable = "در وضعیت فعلی امکان ویرایش ورود اطلاعات ۱ وجود ندارد.";
     public const string DataEntry2NotEditable = "در وضعیت فعلی امکان ویرایش ورود اطلاعات ۲ وجود ندارد.";
     public const string FinancialWorksheetNotEditable = "در وضعیت فعلی امکان ویرایش کاربرگ مالی وجود ندارد.";
@@ -76,6 +77,8 @@ public static class ApiMessages
     public const string FundCreditLimitExpired = "سقف اعتبار صندوق منقضی شده است. مدیرعامل باید سقف جدید با بازه جدید تعیین کند.";
     public const string FundCreditLimitNotYetActive = "سقف اعتبار صندوق هنوز در بازه زمانی فعال نیست.";
     public const string InvalidFundCreditLimitPeriod = "تاریخ پایان سقف باید بعد از تاریخ شروع باشد.";
+    public const string FundCreditLimitPeriodOverlap =
+        "بازه زمانی انتخاب‌شده با یک سقف دوره‌ای دیگر برای همین ماژول همپوشانی دارد.";
     public const string GuaranteeApprovalFormAmountRequired = "مبلغ ضمانت‌نامه در فرم تصویب مشخص نشده است.";
     public const string FundCreditLimitExceededFormat =
         "مجموع ضمانت‌نامه‌های صادره در بازه سقف ({0} ریال) و تعهدات فعال ({1} ریال) از سقف تعیین‌شده توسط مدیرعامل ({2} ریال) بیشتر است.";
