@@ -45,4 +45,20 @@ public sealed class FundCreditLimit : Entity<Guid>, IAuditableEntity
         => periodStart <= ExpiresAt && expiresAt >= PeriodStart;
 
     public bool IsActiveOn(DateOnly date) => date >= PeriodStart && date <= ExpiresAt;
+
+    public void Update(
+        decimal creditLimitWithCheck,
+        DateOnly periodStart,
+        DateOnly expiresAt,
+        string setByUserId)
+    {
+        if (expiresAt < periodStart)
+            throw new ArgumentException("تاریخ پایان سقف نمی‌تواند قبل از تاریخ شروع باشد.");
+
+        CreditLimitWithCheck = creditLimitWithCheck;
+        PeriodStart = periodStart;
+        ExpiresAt = expiresAt;
+        LastSetByUserId = setByUserId;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
 }

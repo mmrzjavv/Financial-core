@@ -7,3 +7,8 @@ public sealed record CreateFundCreditLimitRequest(
     decimal CreditLimitWithCheck,
     DateOnly PeriodStart,
     DateOnly ExpiresAt);
+
+public sealed record UpdateFundCreditLimitRequest(
+    decimal CreditLimitWithCheck,
+    DateOnly PeriodStart,
+    DateOnly ExpiresAt);

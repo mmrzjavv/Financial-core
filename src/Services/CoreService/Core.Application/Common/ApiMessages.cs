@@ -79,6 +79,11 @@ public static class ApiMessages
     public const string InvalidFundCreditLimitPeriod = "تاریخ پایان سقف باید بعد از تاریخ شروع باشد.";
     public const string FundCreditLimitPeriodOverlap =
         "بازه زمانی انتخاب‌شده با یک سقف دوره‌ای دیگر برای همین ماژول همپوشانی دارد.";
+    public const string FundCreditLimitNotFound = "سقف اعتبار دوره‌ای یافت نشد.";
+    public const string FundCreditLimitHasUtilization =
+        "این سقف دوره‌ای دارای مصرف است و امکان حذف آن وجود ندارد.";
+    public const string FundCreditLimitBelowUtilization =
+        "مبلغ سقف نمی‌تواند کمتر از مصرف فعلی ({0} ریال) باشد.";
     public const string GuaranteeApprovalFormAmountRequired = "مبلغ ضمانت‌نامه در فرم تصویب مشخص نشده است.";
     public const string FundCreditLimitExceededFormat =
         "مجموع ضمانت‌نامه‌های صادره در بازه سقف ({0} ریال) و تعهدات فعال ({1} ریال) از سقف تعیین‌شده توسط مدیرعامل ({2} ریال) بیشتر است.";

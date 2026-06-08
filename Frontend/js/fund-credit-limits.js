@@ -1,5 +1,5 @@
 (function () {
-  const state = { panel: null, rows: [], busy: false };
+  const state = { panel: null, rows: [], busy: false, editingId: null };
 
   const MODULES = [
     { value: 1, label: "ضمانت‌نامه" },
@@ -68,6 +68,48 @@
     if (msg) qs("#fundCreditLimitsError")?.classList.add("hidden");
   }
 
+  function clearForm() {
+    const moduleSelect = qs("#fundCreditModuleType");
+    if (moduleSelect) {
+      moduleSelect.value = moduleSelect.options[0]?.value || "";
+      moduleSelect.disabled = false;
+    }
+    const periodStart = qs("#fundCreditPeriodStart");
+    if (periodStart) periodStart.value = "";
+    const expiresAt = qs("#fundCreditExpiresAt");
+    if (expiresAt) expiresAt.value = "";
+    const amount = qs("#fundCreditAmount");
+    if (amount) amount.value = "";
+    state.editingId = null;
+    const saveBtn = qs("#fundCreditSaveNew");
+    if (saveBtn) saveBtn.textContent = "ثبت سقف دوره‌ای";
+    qs("#fundCreditCancelEdit")?.classList.add("hidden");
+  }
+
+  function beginEdit(row) {
+    const id = pick(row, "id", "Id");
+    if (!id) return;
+
+    state.editingId = id;
+    const moduleSelect = qs("#fundCreditModuleType");
+    if (moduleSelect) {
+      moduleSelect.value = String(pick(row, "moduleType", "ModuleType") || "");
+      moduleSelect.disabled = true;
+    }
+    const periodStart = qs("#fundCreditPeriodStart");
+    if (periodStart) periodStart.value = pick(row, "periodStart", "PeriodStart") || "";
+    const expiresAt = qs("#fundCreditExpiresAt");
+    if (expiresAt) expiresAt.value = pick(row, "expiresAt", "ExpiresAt") || "";
+    const amount = qs("#fundCreditAmount");
+    if (amount) amount.value = String(pick(row, "creditLimitWithCheck", "CreditLimitWithCheck") || "");
+
+    const saveBtn = qs("#fundCreditSaveNew");
+    if (saveBtn) saveBtn.textContent = "ذخیره تغییرات";
+    qs("#fundCreditCancelEdit")?.classList.remove("hidden");
+    qs("#fundCreditLimitsForm")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    setInfo("در حال ویرایش سقف دوره‌ای — پس از تغییر، «ذخیره تغییرات» را بزنید.");
+  }
+
   function updateAccessUi() {
     const access = qs("#fundCreditLimitsAccess");
     const panel = qs("#fundCreditLimitsPanel");
@@ -106,12 +148,19 @@
     table.className = "fund-credit-grid";
     table.innerHTML =
       "<thead><tr>" +
-      "<th>ماژول</th><th>شروع</th><th>پایان</th><th>سقف</th><th>مصرف</th><th>مانده</th><th>ثبت‌کننده</th>" +
+      "<th>ماژول</th><th>شروع</th><th>پایان</th><th>سقف</th><th>مصرف</th><th>مانده</th><th>ثبت‌کننده</th><th>عملیات</th>" +
       "</tr></thead>";
     const tbody = document.createElement("tbody");
 
     state.rows.forEach((row) => {
       const tr = document.createElement("tr");
+      const id = pick(row, "id", "Id");
+      const utilized = Number(pick(row, "totalUtilized", "TotalUtilized") || 0);
+      const registrar =
+        pick(row, "lastSetByFullName", "LastSetByFullName") ||
+        pick(row, "lastSetByUserId", "LastSetByUserId") ||
+        "—";
+
       tr.innerHTML =
         "<td>" +
         moduleLabel(pick(row, "moduleType", "ModuleType")) +
@@ -126,8 +175,33 @@
         "</td><td>" +
         formatRial(pick(row, "remainingCapacity", "RemainingCapacity")) +
         "</td><td class=\"mono\">" +
-        (pick(row, "lastSetByUserId", "LastSetByUserId") || "—") +
+        registrar +
         "</td>";
+
+      const actionsTd = document.createElement("td");
+      const actions = document.createElement("div");
+      actions.className = "fund-credit-grid__actions";
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "btn btn--small";
+      editBtn.textContent = "ویرایش";
+      editBtn.addEventListener("click", () => beginEdit(row));
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "btn btn--small btn--warn";
+      deleteBtn.textContent = "حذف";
+      deleteBtn.title = utilized > 0 ? "سقف دارای مصرف است و قابل حذف نیست" : "";
+      deleteBtn.disabled = utilized > 0;
+      deleteBtn.addEventListener("click", () => {
+        void deleteLimit(id, row).catch((e) => setError(e.message || String(e)));
+      });
+
+      actions.appendChild(editBtn);
+      actions.appendChild(deleteBtn);
+      actionsTd.appendChild(actions);
+      tr.appendChild(actionsTd);
       tbody.appendChild(tr);
     });
 
@@ -144,16 +218,26 @@
     setInfo("فهرست سقف‌های دوره‌ای بارگذاری شد.");
   }
 
-  async function saveNewLimit() {
+  function readFormValues() {
     const moduleType = Number(qs("#fundCreditModuleType")?.value || 0);
     const amount = Number(qs("#fundCreditAmount")?.value || 0);
     const periodStart = (qs("#fundCreditPeriodStart")?.value || "").trim();
     const expiresAt = (qs("#fundCreditExpiresAt")?.value || "").trim();
+    return { moduleType, amount, periodStart, expiresAt };
+  }
 
-    if (!moduleType) throw new Error("نوع ماژول را انتخاب کنید.");
-    if (!Number.isFinite(amount) || amount <= 0) throw new Error("مبلغ سقف باید عددی بزرگ‌تر از صفر باشد.");
-    if (!periodStart || !expiresAt) throw new Error("تاریخ شروع و پایان دوره الزامی است.");
-    if (expiresAt < periodStart) throw new Error("تاریخ پایان باید بعد از تاریخ شروع باشد.");
+  function validateFormValues(values, requireModule) {
+    if (requireModule && !values.moduleType) throw new Error("نوع ماژول را انتخاب کنید.");
+    if (!Number.isFinite(values.amount) || values.amount <= 0) {
+      throw new Error("مبلغ سقف باید عددی بزرگ‌تر از صفر باشد.");
+    }
+    if (!values.periodStart || !values.expiresAt) throw new Error("تاریخ شروع و پایان دوره الزامی است.");
+    if (values.expiresAt < values.periodStart) throw new Error("تاریخ پایان باید بعد از تاریخ شروع باشد.");
+  }
+
+  async function saveNewLimit() {
+    const values = readFormValues();
+    validateFormValues(values, true);
 
     if (state.busy) return;
     state.busy = true;
@@ -162,14 +246,71 @@
         method: "POST",
         path: apiPath(""),
         body: {
-          moduleType,
-          creditLimitWithCheck: amount,
-          periodStart,
-          expiresAt,
+          moduleType: values.moduleType,
+          creditLimitWithCheck: values.amount,
+          periodStart: values.periodStart,
+          expiresAt: values.expiresAt,
         },
       });
+      clearForm();
       await loadList();
       setInfo("سقف اعتبار دوره‌ای جدید ثبت شد.");
+    } finally {
+      state.busy = false;
+    }
+  }
+
+  async function updateLimit() {
+    if (!state.editingId) return;
+    const values = readFormValues();
+    validateFormValues(values, false);
+
+    if (state.busy) return;
+    state.busy = true;
+    try {
+      await state.panel.apiRequest({
+        method: "PUT",
+        path: apiPath("/" + state.editingId),
+        body: {
+          creditLimitWithCheck: values.amount,
+          periodStart: values.periodStart,
+          expiresAt: values.expiresAt,
+        },
+      });
+      clearForm();
+      await loadList();
+      setInfo("سقف اعتبار دوره‌ای به‌روزرسانی شد.");
+    } finally {
+      state.busy = false;
+    }
+  }
+
+  async function deleteLimit(id, row) {
+    if (!id) return;
+    const moduleName = moduleLabel(pick(row, "moduleType", "ModuleType"));
+    const periodStart = pick(row, "periodStart", "PeriodStart") || "—";
+    const expiresAt = pick(row, "expiresAt", "ExpiresAt") || "—";
+    const message =
+      "آیا از حذف سقف دوره‌ای «" +
+      moduleName +
+      "» (" +
+      periodStart +
+      " تا " +
+      expiresAt +
+      ") مطمئن هستید؟";
+
+    if (!window.confirm(message)) return;
+
+    if (state.busy) return;
+    state.busy = true;
+    try {
+      await state.panel.apiRequest({
+        method: "DELETE",
+        path: apiPath("/" + id),
+      });
+      if (state.editingId === id) clearForm();
+      await loadList();
+      setInfo("سقف اعتبار دوره‌ای حذف شد.");
     } finally {
       state.busy = false;
     }
@@ -181,12 +322,21 @@
     });
 
     qs("#fundCreditSaveNew")?.addEventListener("click", () => {
-      void saveNewLimit().catch((e) => setError(e.message || String(e)));
+      const action = state.editingId ? updateLimit() : saveNewLimit();
+      void action.catch((e) => setError(e.message || String(e)));
+    });
+
+    qs("#fundCreditCancelEdit")?.addEventListener("click", () => {
+      clearForm();
+      setInfo("ویرایش لغو شد.");
     });
 
     document.addEventListener("testpanel:session-changed", () => {
       updateAccessUi();
-      if (!canManageFundCreditLimits()) state.rows = [];
+      if (!canManageFundCreditLimits()) {
+        state.rows = [];
+        clearForm();
+      }
     });
 
     document.querySelector('[data-tab="tabDashboard"]')?.addEventListener("click", () => {
