@@ -578,8 +578,8 @@
         if (target === "tabCases" && window.CasesHub) {
           window.CasesHub.loadCases();
         }
-        if (target === "tabDashboard" && typeof window.refreshGuaranteeCeoCreditAccess === "function") {
-          window.refreshGuaranteeCeoCreditAccess();
+        if (target === "tabDashboard" && typeof window.refreshFundCreditLimitsAccess === "function") {
+          window.refreshFundCreditLimitsAccess();
         }
       });
     });
@@ -1787,8 +1787,9 @@
     if (typeof window.initPortal === "function") window.initPortal(window.TestPanel);
     if (typeof window.initGuaranteePortal === "function") window.initGuaranteePortal(window.TestPanel);
     if (typeof window.initLoanPortal === "function") window.initLoanPortal(window.TestPanel);
-    if (typeof window.initGuaranteeCeoCredit === "function") window.initGuaranteeCeoCredit(window.TestPanel);
+    if (typeof window.initFundCreditLimits === "function") window.initFundCreditLimits(window.TestPanel);
     if (typeof window.initCasesHub === "function") window.initCasesHub(window.TestPanel);
+    if (typeof window.initDashboardAnalytics === "function") window.initDashboardAnalytics(window.TestPanel);
   }
 
   document.addEventListener("DOMContentLoaded", init);

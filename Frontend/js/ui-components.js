@@ -39,6 +39,49 @@
     return String(status);
   }
 
+  function pickCompany(obj) {
+    if (!obj) return null;
+    return obj.company || obj.Company || null;
+  }
+
+  function applicantTypeOf(obj) {
+    return Number(pick(obj, "applicantType", "ApplicantType")) || 0;
+  }
+
+  function companySummary(obj) {
+    const company = pickCompany(obj);
+    if (!company) return "—";
+    const name = pick(company, "name", "Name");
+    const nationalId = pick(company, "nationalId", "NationalId");
+    if (name && nationalId) return name + " · " + nationalId;
+    return name || nationalId || "—";
+  }
+
+  function applicantLabelFromCase(obj) {
+    const company = pickCompany(obj);
+    if (company && applicantTypeOf(obj) === 2) {
+      return pick(company, "name", "Name") || "شرکت";
+    }
+    const applicant = obj && (obj.applicant || obj.Applicant);
+    if (applicant) return pick(applicant, "fullName", "FullName") || "متقاضی";
+    return applicantTypeOf(obj) === 2 ? "حقوقی" : "حقیقی";
+  }
+
+  function caseSubjectFromCase(module, obj) {
+    if (module === "investment") {
+      const company = pickCompany(obj);
+      if (company && applicantTypeOf(obj) === 2) {
+        return pick(company, "name", "Name") || "سرمایه‌گذاری";
+      }
+      return pick(obj, "startupTitle", "StartupTitle") || pick(obj, "subject", "Subject") || "سرمایه‌گذاری";
+    }
+    if (module === "loan") {
+      const app = obj.application || obj.Application;
+      return pick(app, "facilitySubject", "FacilitySubject") || "تسهیلات";
+    }
+    return pick(obj, "guaranteeTypeTitle", "GuaranteeTypeTitle") || "ضمانت‌نامه";
+  }
+
   function renderCaseTable(host, rows, opts) {
     if (!host) return;
     host.innerHTML = "";
@@ -48,7 +91,7 @@
     }
     const wrap = el("div", "registry-table-wrap");
     const table = el("table", "registry-table");
-    const colLabels = ["شماره پرونده", "موضوع", "متقاضی", "وضعیت", ""];
+    const colLabels = ["شماره پرونده", "موضوع", "شرکت", "متقاضی", "وضعیت", ""];
     const thead = el("thead");
     const hr = el("tr");
     colLabels.forEach((h) => {
@@ -63,6 +106,7 @@
       const cells = [
         { cls: "mono", val: row.caseNumber || "—" },
         { cls: "", val: row.subject || "—" },
+        { cls: "", val: row.company || "—" },
         { cls: "", val: row.applicant || "—" },
         { cls: "", val: row.statusLabel || "—" },
       ];
@@ -407,6 +451,11 @@
   window.UIComponents = {
     el,
     pick,
+    pickCompany,
+    applicantTypeOf,
+    companySummary,
+    applicantLabelFromCase,
+    caseSubjectFromCase,
     formatDate,
     statusTitle,
     resolveCommentStepMeta,

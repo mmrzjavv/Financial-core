@@ -125,12 +125,20 @@
   }
 
   function applicantLabel(c) {
+    if (window.UIComponents) return UIComponents.applicantLabelFromCase(c);
     const company = c.company || c.Company;
     const type = Number(pick(c, "applicantType", "ApplicantType"));
     if (company && type === 2) return pick(company, "name", "Name") || "شرکت";
     if (state.module === "guarantee") return "حقیقی";
     const appId = pick(c, "applicantUserId", "ApplicantUserId");
     return appId ? "متقاضی · " + String(appId).slice(0, 8) + "…" : "متقاضی";
+  }
+
+  function companyLabel(c) {
+    if (window.UIComponents) return UIComponents.companySummary(c);
+    const company = c.company || c.Company;
+    if (!company) return "—";
+    return pick(company, "name", "Name") || "—";
   }
 
   function updateAccessUi() {
@@ -243,6 +251,9 @@
       const tdSt = document.createElement("td");
       tdSt.textContent = statusLabel(c);
 
+      const tdCompany = document.createElement("td");
+      tdCompany.textContent = companyLabel(c);
+
       const tdApp = document.createElement("td");
       tdApp.textContent = applicantLabel(c);
 
@@ -260,6 +271,7 @@
 
       tr.appendChild(tdNum);
       tr.appendChild(tdSt);
+      tr.appendChild(tdCompany);
       tr.appendChild(tdApp);
       tr.appendChild(tdDt);
       tr.appendChild(tdBtn);

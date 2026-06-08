@@ -44,93 +44,14 @@
     return ["CreditExpert", "CreditManager", "LegalExpert", "LegalManager", "FinancialExpert", "FinancialManager", "CEO", "Admin"].includes(role);
   }
 
-  function isCeoForCreditLimit() {
+  function canViewFundCreditCapacity() {
     const role = getSessionRole();
-    return role === "CEO" || role === "Admin";
+    return window.FundCreditCapacityUi && window.FundCreditCapacityUi.canViewFundCreditCapacity(role);
   }
 
-  async function saveFundCreditLimitFromPortal(amount) {
-    let periodStart = "";
-    let expiresAt = "";
-    try {
-      const cur = await state.panel.apiRequest({ method: "GET", path: gPath("/fund-credit-limit") });
-      const d = unwrap(cur.body);
-      periodStart = pick(d, "periodStart", "PeriodStart") || "";
-      expiresAt = pick(d, "expiresAt", "ExpiresAt") || "";
-    } catch (_) {
-      /* first-time set */
-    }
-    const y = new Date().getFullYear();
-    if (!periodStart) periodStart = y + "-01-01";
-    if (!expiresAt) expiresAt = y + "-12-31";
-    const res = await state.panel.apiRequest({
-      method: "PUT",
-      path: gPath("/fund-credit-limit"),
-      body: { creditLimitWithCheck: amount, periodStart, expiresAt },
-    });
-    unwrap(res.body);
-    await refreshCase();
-  }
-
-  function renderCeoCreditLimitBlock(card) {
-    const wrap = el("div", "card portal-card portal-card--nested portal-ceo-credit-inline");
-    wrap.appendChild(el("div", "card__title", "تعیین سقف اعتبار کل صندوق (مدیرعامل)"));
-    wrap.appendChild(
-      el(
-        "div",
-        "muted portal-stage__hint",
-        "یک سقف برای همه ضمانت‌نامه‌های صندوق. پس از ذخیره، در فرم تصویب هر پرونده (جدول ۱) هم دیده می‌شود."
-      )
-    );
-
-    const snap = pickApplicantCreditSnapshot();
-    const currentLimit = pick(snap, "creditLimitWithCheck", "CreditLimitWithCheck");
-    wrap.appendChild(
-      el(
-        "div",
-        "muted",
-        currentLimit
-          ? "سقف فعلی صندوق: " + formatRialAmount(currentLimit)
-          : "هنوز سقف کل صندوق ثبت نشده است."
-      )
-    );
-
-    const row = el("div", "formrow");
-    row.appendChild(el("label", "", "سقف اعتبار ضمانت‌نامه با چک (ریال)"));
-    const input = document.createElement("input");
-    input.type = "number";
-    input.id = "gCeoCreditLimitInput";
-    input.min = "1";
-    input.step = "1";
-    input.placeholder = "مثلاً 10000000000";
-    if (currentLimit != null && currentLimit !== "") input.value = String(currentLimit);
-    row.appendChild(input);
-    wrap.appendChild(row);
-
-    const msg = el("div", "portal-ceo-credit-inline__msg muted");
-    const btn = el("button", "btn btn--primary", "ذخیره سقف اعتبار");
-    btn.type = "button";
-    btn.addEventListener("click", () => {
-      void (async () => {
-        try {
-          setError("");
-          const n = Number(input.value);
-          if (!Number.isFinite(n) || n <= 0) throw new Error("مبلغ سقف باید عددی بزرگ‌تر از صفر باشد.");
-          await saveFundCreditLimitFromPortal(n);
-          msg.textContent = "سقف ذخیره شد.";
-          msg.classList.remove("muted");
-          msg.classList.add("portal-stage__hint");
-        } catch (e) {
-          setError(e.message || String(e));
-        }
-      })();
-    });
-    const btnRow = el("div", "row");
-    btnRow.appendChild(btn);
-    wrap.appendChild(btnRow);
-    wrap.appendChild(msg);
-
-    card.appendChild(wrap);
+  function renderFundCreditCapacityBlock(card) {
+    if (!window.FundCreditCapacityUi) return;
+    window.FundCreditCapacityUi.renderFundCreditCapacityWidget(card, state.caseData, getSessionRole());
   }
 
   function readValue(id, root) {
@@ -1027,7 +948,8 @@
     wrap.appendChild(el("div", "card__title", "اقدامات این مرحله"));
     const row = el("div", "row");
     actions.forEach((a) => {
-      const btn = el("button", "btn btn--primary", a.label);
+      const btnClass = a.variant === "warn" ? "btn btn--warn" : "btn btn--primary";
+      const btn = el("button", btnClass, a.label);
       btn.type = "button";
       if (status === 2 && a.id === "submit-app" && !requiredDocumentsComplete(savedGuaranteeType())) {
         btn.classList.add("btn--warn");
@@ -1507,8 +1429,8 @@
       );
     }
 
-    if ((status === 5 || status === 10) && isCeoForCreditLimit()) {
-      renderCeoCreditLimitBlock(card);
+    if ((status === 5 || status === 10) && canViewFundCreditCapacity()) {
+      renderFundCreditCapacityBlock(card);
     }
 
     const workflowUploadStatus = status === 6 || status === 7 || status === 9 || status === 11;
@@ -1551,7 +1473,10 @@
   function actionsForStatus(status) {
     const map = {
       1: [{ id: "begin-de", label: "شروع ورود اطلاعات", method: "POST", path: "/application/begin" }],
-      2: [{ id: "submit-app", label: "ارسال به واحد اعتبارات", method: "POST", path: "/application/submit" }],
+      2: [
+        { id: "submit-app", label: "ارسال به واحد اعتبارات", method: "POST", path: "/application/submit" },
+        { id: "cancel-case", label: "لغو پرونده", method: "POST", path: "/cancel", needsReason: true, variant: "warn" },
+      ],
       3: [
         { id: "credit-approve", label: "تأیید اعتبارات", method: "POST", path: "/credit/approve" },
         { id: "credit-revision", label: "درخواست اصلاح", method: "POST", path: "/credit/revision-request" },
@@ -1563,6 +1488,7 @@
       5: [
         { id: "ceo-ok", label: "تأیید مدیرعامل", method: "POST", path: "/ceo/initial/approve" },
         { id: "ceo-no", label: "رد", method: "POST", path: "/ceo/initial/reject", needsMessage: true },
+        { id: "ceo-cancel", label: "لغو پرونده", method: "POST", path: "/ceo/initial/cancel", needsMessage: true, variant: "warn" },
       ],
       6: [
         {
@@ -1572,7 +1498,10 @@
           path: "/legal/draft-uploaded",
         },
       ],
-      7: [{ id: "signed-submit", label: "ارسال قرارداد امضاشده", method: "POST", path: "/signed-package/submit" }],
+      7: [
+        { id: "signed-submit", label: "ارسال قرارداد امضاشده", method: "POST", path: "/signed-package/submit" },
+        { id: "cancel-case", label: "لغو پرونده", method: "POST", path: "/cancel", needsReason: true, variant: "warn" },
+      ],
       8: [
         { id: "fin-approve", label: "تأیید مدارک مالی", method: "POST", path: "/attachments/approve" },
         { id: "fin-revision", label: "درخواست اصلاح", method: "POST", path: "/attachments/revision-request" },
@@ -1581,6 +1510,7 @@
       10: [
         { id: "ceo-final-ok", label: "تأیید نهایی", method: "POST", path: "/ceo/final/approve" },
         { id: "ceo-final-no", label: "رد نهایی", method: "POST", path: "/ceo/final/reject", needsMessage: true },
+        { id: "ceo-final-cancel", label: "لغو پرونده", method: "POST", path: "/ceo/final/cancel", needsMessage: true, variant: "warn" },
       ],
       11: [{ id: "issue-ok", label: "تأیید صدور", method: "POST", path: "/issuance/uploaded" }],
     };
@@ -1609,6 +1539,11 @@
         const msg = prompt("پیام / توضیح:");
         if (!msg) return;
         body = { message: msg, comment: msg };
+      } else if (action.needsReason) {
+        const reason = prompt("دلیل لغو پرونده:");
+        if (!reason) return;
+        if (!confirm("آیا از لغو این پرونده اطمینان دارید؟")) return;
+        body = { reason };
       } else if (action.id === "credit-approve") {
         body = { internalComment: readValue("gCreditInternalComment") || null };
       } else if (action.id === "credit-revision") {
@@ -1706,6 +1641,8 @@
         setInfo("فرم تصویب ذخیره شد.");
       } else if (action.id === "approval-submit") {
         setInfo("فرم تصویب ارسال شد — پرونده به تأیید مدیرعامل رفت.");
+      } else if (action.id === "cancel-case" || action.id === "ceo-cancel" || action.id === "ceo-final-cancel") {
+        setInfo("پرونده لغو شد.");
       }
     } catch (e) {
       setError(e.message || String(e));

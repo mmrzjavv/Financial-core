@@ -102,7 +102,10 @@
     const id = pick(item, "id", "Id");
     card.dataset.caseId = id;
 
-    const title = pick(item, "startupTitle", "StartupTitle") || pick(item, "caseNumber", "CaseNumber");
+    const title =
+      pick(item, "startupTitle", "StartupTitle") ||
+      pick(item, "companyName", "CompanyName") ||
+      pick(item, "caseNumber", "CaseNumber");
     card.appendChild(el("div", "kanban-card__title", "[" + moduleLabel(item) + "] " + title));
     card.dataset.apiBase = pick(item, "apiBasePath", "ApiBasePath") || state.panel.casesBasePath();
     card.dataset.module = String(pick(item, "module", "Module") || "1");

@@ -466,6 +466,38 @@ a{color:#7dd3fc}
   background:linear-gradient(90deg, #2563eb, #38bdf8);
 }
 .dashboard-list{margin-top:16px}
+.dash-analytics-card{margin-bottom:16px}
+.dash-analytics-header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  margin-bottom:12px;
+}
+.dash-analytics-meta{font-size:.85rem;margin-top:4px}
+.dash-charts-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;
+}
+.dash-chart-panel{
+  background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:14px;
+}
+.dash-chart-canvas-wrap{position:relative;height:220px;margin-top:8px}
+.dash-chart-canvas-wrap--tall{height:260px}
+.dashboard-bar__fill--warn{background:linear-gradient(90deg,#f59e0b,#ef4444)}
+.dash-progress-card{
+  background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;
+  padding:12px;margin-bottom:10px;
+}
+.dash-progress-card__head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.dash-stepper{
+  height:8px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-top:8px;
+}
+.dash-stepper__fill{
+  height:100%;background:linear-gradient(90deg,var(--primary),#22c55e);border-radius:99px;
+  transition:width .4s ease;
+}
+.dash-stepper__label{font-size:.8rem;margin-top:4px}
+.dashboard-inbox{list-style:none;padding:0;margin:0}
+.dashboard-inbox li{margin-bottom:8px}
+.dash-inbox-link{width:100%;text-align:right;justify-content:flex-start}
+.dash-legacy-card{opacity:.92}
 .dashboard-activity{
   list-style:none;
   padding:0;
@@ -520,6 +552,22 @@ a{color:#7dd3fc}
   background:rgba(34,197,94,.06);
 }
 .portal-ceo-credit-inline__msg{margin-top:8px}
+
+.fund-credit-form{margin:12px 0 16px;display:grid;gap:8px}
+.fund-credit-grid-wrap{margin-top:12px;overflow-x:auto}
+.fund-credit-grid{width:100%;border-collapse:collapse;font-size:.88rem}
+.fund-credit-grid th,.fund-credit-grid td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:right}
+.fund-credit-grid th{color:var(--muted);font-weight:600}
+
+.fund-capacity-card{margin-top:12px}
+.fund-capacity-card__summary{font-weight:600;margin:8px 0}
+.fund-capacity-card__period,.fund-capacity-card__pct{font-size:.88rem;margin-top:4px}
+.fund-capacity-bar{height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:10px 0 4px}
+.fund-capacity-bar__fill{height:100%;background:linear-gradient(90deg,#22c55e,#eab308,#ef4444);border-radius:999px;transition:width .3s ease}
+
+.fund-credit-dash{margin-top:16px}
+.fund-credit-dash__section{margin-top:12px;display:grid;gap:8px}
+.fund-credit-dash__card{padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,.02)}
 .portal-stage-upload__role-hint{margin:10px 0 0; padding:10px 12px}
 .portal-dossier{
   margin-bottom:16px;
@@ -736,6 +784,7 @@ a{color:#7dd3fc}
   .kanban-columns{grid-template-columns:1fr 1fr}
   .portal-summary__grid{grid-template-columns:repeat(2,1fr)}
   .dashboard-metrics{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  .dash-charts-grid{grid-template-columns:1fr}
 }
 
 /* ── Responsive: mobile (≤767px) ── */

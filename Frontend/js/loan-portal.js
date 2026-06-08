@@ -60,6 +60,19 @@
     return model.normalizeRole(session.userRoleText, session.userRoleNumber);
   }
 
+  function canViewFundCreditCapacity() {
+    const role = getSessionRole();
+    return window.FundCreditCapacityUi && window.FundCreditCapacityUi.canViewFundCreditCapacity(role);
+  }
+
+  function renderFundCreditCapacityBlock() {
+    const card = el("div", "card portal-card fund-capacity-card-wrap");
+    if (window.FundCreditCapacityUi) {
+      window.FundCreditCapacityUi.renderFundCreditCapacityWidget(card, state.caseData, getSessionRole());
+    }
+    return card;
+  }
+
   function captureApplicationDraft() {
     const amount = qs("#lRequestedAmount");
     if (!amount) return null;
@@ -548,6 +561,10 @@
       host.appendChild(revisionBtn("/credit/revision-request"));
     }
 
+    if (status === 5 && canViewFundCreditCapacity()) {
+      host.appendChild(renderFundCreditCapacityBlock());
+    }
+
     if (status === 5 && ["CEO", "Admin"].includes(role)) {
       host.appendChild(actionBtn("تأیید مدیرعامل (اول)", () => postJson("/ceo/initial/approve", {})));
       host.appendChild(revisionBtn("/ceo/initial/reject"));
@@ -599,6 +616,10 @@
     if (status === 13 && ["LegalExpert", "LegalManager", "Admin"].includes(role)) {
       host.appendChild(renderDocumentGrid([{ type: 22, label: "قرارداد نهایی", required: true }]));
       host.appendChild(actionBtn("تأیید بارگذاری قرارداد نهایی", () => postEmpty("/legal/final-uploaded")));
+    }
+
+    if (status === 14 && canViewFundCreditCapacity()) {
+      host.appendChild(renderFundCreditCapacityBlock());
     }
 
     if (status === 14 && ["CEO", "Admin"].includes(role)) {

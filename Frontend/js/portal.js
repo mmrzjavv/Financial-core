@@ -1423,6 +1423,14 @@
     empty.classList.add("hidden");
     header.classList.remove("hidden");
     qs("#portalCaseNumber").textContent = pickCaseNumber(state.caseData) || "—";
+    const company = pickCompany(state.caseData);
+    const companyEl = qs("#portalCaseCompany");
+    if (companyEl) {
+      companyEl.textContent = company
+        ? (pickProp(company, "name", "Name") || "—") +
+          (pickProp(company, "nationalId", "NationalId") ? " · " + pickProp(company, "nationalId", "NationalId") : "")
+        : "—";
+    }
     const caseIdEl = qs("#portalCaseId");
     if (caseIdEl) caseIdEl.textContent = pickId(state.caseData) || state.caseId;
     const step = model.getStep(pickStatus(state.caseData));

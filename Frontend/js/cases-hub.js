@@ -57,24 +57,15 @@
   }
 
   function caseSubject(c) {
-    if (state.module === "investment") {
-      return pick(c, "startupTitle", "StartupTitle") || pick(c, "subject", "Subject") || "سرمایه‌گذاری";
-    }
-    if (state.module === "loan") {
-      const app = c.application || c.Application;
-      return pick(app, "facilitySubject", "FacilitySubject") || "تسهیلات";
-    }
-    return pick(c, "guaranteeTypeTitle", "GuaranteeTypeTitle") || "ضمانت‌نامه";
+    return UIComponents.caseSubjectFromCase(state.module, c);
   }
 
   function applicantName(c) {
-    const company = c.company || c.Company;
-    if (company && Number(pick(c, "applicantType", "ApplicantType")) === 2) {
-      return pick(company, "name", "Name") || "شرکت";
-    }
-    const applicant = c.applicant || c.Applicant;
-    if (applicant) return pick(applicant, "fullName", "FullName") || "متقاضی";
-    return "متقاضی";
+    return UIComponents.applicantLabelFromCase(c);
+  }
+
+  function companyLabel(c) {
+    return UIComponents.companySummary(c);
   }
 
   function normalizeList(body) {
@@ -157,6 +148,7 @@
       id: pick(c, "id", "Id"),
       caseNumber: pick(c, "caseNumber", "CaseNumber"),
       subject: caseSubject(c),
+      company: companyLabel(c),
       applicant: applicantName(c),
       statusLabel: UIComponents.statusTitle(state.module, pick(c, "currentStatus", "CurrentStatus")),
     }));
@@ -281,6 +273,12 @@
     if (numEl) {
       numEl.textContent = row ? pick(row, "caseNumber", "CaseNumber") || caseId : caseId;
     }
+    const companyEl = qs("#caseDetailCompany");
+    if (companyEl) {
+      const companyText = row ? companyLabel(row) : "—";
+      companyEl.textContent = companyText;
+      companyEl.classList.toggle("hidden", companyText === "—");
+    }
     document.dispatchEvent(
       new CustomEvent("testpanel:case-changed", { detail: { caseId, module: state.module } })
     );
@@ -375,7 +373,18 @@
 
   function updateDashboardNav() {
     const role = resolveRole();
-    const show = ["CEO", "Admin", "InvestmentManager", "FinancialManager"].includes(role);
+    const show =
+      ["CEO", "Admin", "InvestmentManager", "FinancialManager", "Applicant"].includes(role) ||
+      [
+        "InvestmentExpert",
+        "LegalExpert",
+        "LegalManager",
+        "FinancialExpert",
+        "CreditExpert",
+        "CreditManager",
+        "TechnicalExpert",
+        "TechnicalManager",
+      ].includes(role);
     qs("#navDashboard")?.classList.toggle("hidden", !show);
   }
 
