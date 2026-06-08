@@ -4,6 +4,7 @@ using Core.Application.Logging;
 using Core.Application.Requests;
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
+using Core.Domain.Identity;
 using Core.Domain.Identity.Entities;
 using MapsterMapper;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,7 @@ namespace Core.Application.Services;
 public interface ICompanyAppService
 {
     Task<Result<IReadOnlyList<CompanyDto>>> GetMyCompaniesAsync(CancellationToken cancellationToken);
+    Task<Result<PagedResult<CompanyAdminDto>>> GetAllCompaniesAsync(int take, int skip, CancellationToken cancellationToken);
     Task<Result<CompanyDto>> CreateAsync(SaveCompanyRequest request, CancellationToken cancellationToken);
     Task<Result<CompanyDto>> UpdateAsync(Guid companyId, SaveCompanyRequest request, CancellationToken cancellationToken);
     Task<Result> DeleteAsync(Guid companyId, CancellationToken cancellationToken);
@@ -42,6 +44,49 @@ public sealed class CompanyAppService(
             userId, list.Length);
 
         return Result<IReadOnlyList<CompanyDto>>.Ok(list);
+    }
+
+    public async Task<Result<PagedResult<CompanyAdminDto>>> GetAllCompaniesAsync(int take, int skip, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            ApplicationLog.Blocked(logger, "GetAllCompanies", "user is not authenticated");
+            return Result<PagedResult<CompanyAdminDto>>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
+        }
+
+        if (!await CanManageAllCompaniesAsync(userId, cancellationToken))
+        {
+            ApplicationLog.Blocked(logger, "GetAllCompanies", "user lacks privilege", userId.ToString());
+            return Result<PagedResult<CompanyAdminDto>>.Fail(Error.Forbidden(ApiMessages.CompanyAccessDenied));
+        }
+
+        ApplicationLog.Started(logger, "GetAllCompanies", userId.ToString());
+
+        var pageSize = Math.Clamp(take, 1, 200);
+        var companies = await unitOfWork.Companies.GetPagedListAsync(pageSize, Math.Max(0, skip), cancellationToken);
+        var total = await unitOfWork.Companies.CountAllAsync(cancellationToken);
+        var page = skip / pageSize + 1;
+
+        var items = companies.Select(c => new CompanyAdminDto(
+            c.Id,
+            c.Name,
+            c.EconomicCode,
+            c.RegistrationNumber,
+            c.NationalId,
+            c.PhoneNumber,
+            c.Address,
+            c.City,
+            c.Province,
+            c.PostalCode,
+            c.OwnerUserId,
+            FormatOwnerName(c.OwnerUser),
+            c.OwnerUser?.PhoneNumber)).ToArray();
+
+        ApplicationLog.Completed(logger,
+            "User {UserId} listed {Count} of {Total} companies",
+            userId, items.Length, total);
+
+        return Result<PagedResult<CompanyAdminDto>>.Ok(new PagedResult<CompanyAdminDto>(items, page, pageSize, total));
     }
 
     public async Task<Result<CompanyDto>> CreateAsync(SaveCompanyRequest request, CancellationToken cancellationToken)
@@ -103,7 +148,7 @@ public sealed class CompanyAppService(
             return Result<CompanyDto>.Fail(Error.NotFound(ApiMessages.CompanyNotFound));
         }
 
-        if (company.OwnerUserId != userId)
+        if (company.OwnerUserId != userId && !await CanManageAllCompaniesAsync(userId, cancellationToken))
         {
             ApplicationLog.Blocked(logger, "UpdateCompany", "user is not the owner", userId.ToString());
             return Result<CompanyDto>.Fail(Error.Forbidden(ApiMessages.CompanyAccessDenied));
@@ -176,5 +221,19 @@ public sealed class CompanyAppService(
     {
         userId = currentUser.UserId ?? Guid.Empty;
         return userId != Guid.Empty;
+    }
+
+    private async Task<bool> CanManageAllCompaniesAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await unitOfWork.Users.GetByIdAsync(userId);
+        if (user is null) return false;
+        return user.Role is UserRole.Admin or UserRole.Ceo or UserRole.TechnicalExpert;
+    }
+
+    private static string? FormatOwnerName(User? owner)
+    {
+        if (owner is null) return null;
+        var name = $"{owner.FirstName} {owner.LastName}".Trim();
+        return string.IsNullOrWhiteSpace(name) ? null : name;
     }
 }

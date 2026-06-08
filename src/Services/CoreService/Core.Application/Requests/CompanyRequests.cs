@@ -22,3 +22,18 @@ public sealed record CompanyDto(
     string? City,
     string? Province,
     string? PostalCode);
+
+public sealed record CompanyAdminDto(
+    Guid Id,
+    string Name,
+    string EconomicCode,
+    string? RegistrationNumber,
+    string? NationalId,
+    string? PhoneNumber,
+    string? Address,
+    string? City,
+    string? Province,
+    string? PostalCode,
+    Guid OwnerUserId,
+    string? OwnerFullName,
+    string? OwnerPhoneNumber);

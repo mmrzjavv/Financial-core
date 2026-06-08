@@ -19,6 +19,11 @@ public sealed class CompaniesController(ICompanyAppService service) : ApiControl
     public async Task<IActionResult> GetMine(CancellationToken ct)
         => Respond(await service.GetMyCompaniesAsync(ct), CompanySuccessMessages.CompaniesRetrieved);
 
+    [HttpGet]
+    [Authorize(Policy = "Companies.Manage")]
+    public async Task<IActionResult> GetAll([FromQuery] int take = 50, [FromQuery] int skip = 0, CancellationToken ct = default)
+        => Respond(await service.GetAllCompaniesAsync(take, skip, ct), CompanySuccessMessages.CompaniesRetrieved);
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] SaveCompanyRequest request, CancellationToken ct)
         => Respond(await service.CreateAsync(request, ct), CompanySuccessMessages.CompanyCreated, HttpStatusCode.Created);

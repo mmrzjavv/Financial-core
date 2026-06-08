@@ -11,6 +11,19 @@ public sealed class CompanyRepository(CoreDbContext dbContext)
     public Task<List<Company>> GetOwnedByUserAsync(Guid ownerUserId, CancellationToken cancellationToken = default)
         => ListAsync(company => company.OwnerUserId == ownerUserId, asNoTracking: true, cancellationToken: cancellationToken);
 
+    public Task<List<Company>> GetPagedListAsync(int take, int skip, CancellationToken cancellationToken = default)
+        => dbContext.Companies
+            .AsNoTracking()
+            .Include(c => c.OwnerUser)
+            .Where(c => !c.IsDeleted)
+            .OrderByDescending(c => c.CreateDate)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+    public Task<int> CountAllAsync(CancellationToken cancellationToken = default)
+        => dbContext.Companies.CountAsync(c => !c.IsDeleted, cancellationToken);
+
     public async Task<bool> HasLinkedCasesAsync(Guid companyId, CancellationToken cancellationToken = default)
     {
         if (await dbContext.InvestmentCases.AnyAsync(
