@@ -1,0 +1,129 @@
+using BuildingBlocks.Application.Errors;
+using BuildingBlocks.Application.Results;
+using BuildingBlocks.Domain.Abstractions;
+using Core.Application.Abstractions;
+using Core.Application.Common;
+using Core.Application.DTOs;
+using Core.Application.Mappers;
+using Core.Application.Requests;
+using Core.Domain.Entities.Fund;
+using Core.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+
+namespace Core.Application.Services;
+
+public sealed class FundCreditLimitAppService(
+    ICoreDbContext dbContext,
+    IUserContext userContext,
+    IUserDisplayLookup userDisplayLookup,
+    IFundCreditLimitDtoMapper fundCreditLimitDtoMapper) : IFundCreditLimitAppService
+{
+    public async Task<Result<FundCreditLimitDto>> CreateAsync(CreateFundCreditLimitRequest request, CancellationToken ct)
+    {
+        if (!FundCreditLimitAuthorization.CanAccessFundCreditLimits(userContext.Roles))
+            return Result<FundCreditLimitDto>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
+
+        var userId = userContext.UserId;
+        if (string.IsNullOrWhiteSpace(userId))
+            return Result<FundCreditLimitDto>.Fail(Error.Unauthorized(ApiMessages.AuthenticationRequired));
+
+        var amountValidation = ValidateAmount(request.CreditLimitWithCheck);
+        if (amountValidation.IsFailure)
+            return Result<FundCreditLimitDto>.Fail(amountValidation.Error!);
+
+        if (request.ExpiresAt < request.PeriodStart)
+            return Result<FundCreditLimitDto>.Fail(Error.Validation(ApiMessages.InvalidFundCreditLimitPeriod));
+
+        if (await FundCreditLimitCapacityCalculator.HasOverlappingPeriodAsync(
+                dbContext,
+                request.ModuleType,
+                request.PeriodStart,
+                request.ExpiresAt,
+                excludeId: null,
+                ct))
+        {
+            return Result<FundCreditLimitDto>.Fail(Error.Conflict(ApiMessages.FundCreditLimitPeriodOverlap));
+        }
+
+        var entity = new FundCreditLimit(
+            request.ModuleType,
+            request.CreditLimitWithCheck,
+            request.PeriodStart,
+            request.ExpiresAt,
+            userId);
+
+        await dbContext.FundCreditLimits.AddAsync(entity, ct);
+        await dbContext.SaveChangesAsync(ct);
+
+        var userLookup = await userDisplayLookup.GetByIdsAsync([userId], ct);
+        return Result<FundCreditLimitDto>.Ok(await MapDtoAsync(entity, userLookup, ct));
+    }
+
+    public async Task<Result<IReadOnlyList<FundCreditLimitDto>>> ListAsync(CancellationToken ct)
+    {
+        if (!FundCreditLimitAuthorization.CanAccessFundCreditLimits(userContext.Roles))
+            return Result<IReadOnlyList<FundCreditLimitDto>>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
+
+        var rows = await dbContext.FundCreditLimits
+            .AsNoTracking()
+            .OrderByDescending(x => x.ModuleType)
+            .ThenByDescending(x => x.PeriodStart)
+            .ToListAsync(ct);
+
+        var userLookup = await userDisplayLookup.GetByIdsAsync(
+            rows.Select(x => x.LastSetByUserId).Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id!),
+            ct);
+        var items = new List<FundCreditLimitDto>(rows.Count);
+        foreach (var row in rows)
+            items.Add(await MapDtoAsync(row, userLookup, ct));
+
+        return Result<IReadOnlyList<FundCreditLimitDto>>.Ok(items);
+    }
+
+    public async Task<Result<FundCreditLimitDashboardSectionDto>> GetDashboardSectionAsync(CancellationToken ct)
+    {
+        if (!FundCreditLimitAuthorization.CanAccessFundCreditLimits(userContext.Roles))
+            return Result<FundCreditLimitDashboardSectionDto>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
+
+        var listResult = await ListAsync(ct);
+        if (listResult.IsFailure)
+            return Result<FundCreditLimitDashboardSectionDto>.Fail(listResult.Error!);
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var all = listResult.Value!;
+        var active = all
+            .Where(x => x.PeriodStart <= today && x.ExpiresAt >= today)
+            .ToList();
+
+        return Result<FundCreditLimitDashboardSectionDto>.Ok(new FundCreditLimitDashboardSectionDto(active, all));
+    }
+
+    private static Result ValidateAmount(decimal amount)
+    {
+        if (amount <= 0)
+            return Result.Fail(Error.Validation(ApiMessages.InvalidCreditLimitAmount));
+
+        if (amount > GuaranteeFundCreditLimits.MaxCreditLimitWithCheck)
+            return Result.Fail(Error.Validation(ApiMessages.CreditLimitAmountTooLarge));
+
+        return Result.Ok();
+    }
+
+    private async Task<FundCreditLimitDto> MapDtoAsync(
+        FundCreditLimit row,
+        IReadOnlyDictionary<string, UserDisplayDto> userLookup,
+        CancellationToken ct)
+    {
+        var utilized = await FundCreditLimitCapacityCalculator.ComputeUtilizationAsync(
+            dbContext,
+            row.ModuleType,
+            row.PeriodStart,
+            row.ExpiresAt,
+            ct);
+
+        return fundCreditLimitDtoMapper.Map(
+            row,
+            utilized,
+            userDisplayLookup.ResolveFullName(userLookup, row.LastSetByUserId));
+    }
+}
