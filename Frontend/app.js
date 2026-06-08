@@ -1567,113 +1567,6 @@
     return root;
   }
 
-  function wireDashboard() {
-    qs("#btnLoadCeoDashboard").addEventListener("click", () =>
-      withUiError(async () => {
-        const errEl = qs("#ceoDashboardError");
-        errEl.classList.add("hidden");
-        const res = await apiRequest({ method: "GET", path: "/api/v1/dashboard/ceo" });
-        const d = unwrapDashboard(res.body);
-        if (!d) throw new Error("پاسخ داشبورد خالی است.");
-        const metrics = qs("#ceoDashboardMetrics");
-        metrics.classList.remove("hidden");
-        metrics.innerHTML =
-          '<div class="dashboard-metric"><span class="muted">پرونده فعال</span><strong>' +
-          (d.totalActiveCases ?? d.TotalActiveCases ?? 0) +
-          "</strong></div>" +
-          '<div class="dashboard-metric"><span class="muted">تکمیل‌شده</span><strong>' +
-          (d.completedCases ?? d.CompletedCases ?? 0) +
-          "</strong></div>" +
-          '<div class="dashboard-metric"><span class="muted">این ماه</span><strong>' +
-          (d.casesThisMonth ?? d.CasesThisMonth ?? 0) +
-          "</strong></div>" +
-          '<div class="dashboard-metric"><span class="muted">میانگین روز بررسی</span><strong>' +
-          (d.averageDaysInReview ?? d.AverageDaysInReview ?? 0) +
-          "</strong></div>" +
-          '<div class="dashboard-metric"><span class="muted">مبلغ درخواستی</span><strong>' +
-          formatMoney(d.totalRequestedAmount ?? d.TotalRequestedAmount) +
-          "</strong></div>" +
-          '<div class="dashboard-metric"><span class="muted">پرداخت تأییدشده</span><strong>' +
-          formatMoney(d.approvedPaymentsSum ?? d.ApprovedPaymentsSum) +
-          "</strong></div>" +
-          '<div class="dashboard-metric dashboard-metric--accent"><span class="muted">در انتظار تأیید مدیرعامل</span><strong>' +
-          (d.pendingCeoApprovals ?? d.PendingCeoApprovals ?? 0) +
-          "</strong></div>" +
-          '<div class="dashboard-metric"><span class="muted">در انتظار پرداخت</span><strong>' +
-          (d.waitingPaymentCount ?? d.WaitingPaymentCount ?? 0) +
-          "</strong></div>" +
-          '<div class="dashboard-metric"><span class="muted">نرخ تکمیل</span><strong>' +
-          (d.completionRate ?? d.CompletionRate ?? 0) +
-          "%</strong></div>" +
-          '<div class="dashboard-metric"><span class="muted">مبلغ خط لوله فعال</span><strong>' +
-          formatMoney(d.activePipelineRequestedAmount ?? d.ActivePipelineRequestedAmount) +
-          "</strong></div>" +
-          '<div class="dashboard-metric"><span class="muted">ردشده</span><strong>' +
-          (d.rejectedCount ?? d.RejectedCount ?? 0) +
-          "</strong></div>";
-        const funnel = qs("#ceoDashboardFunnel");
-        funnel.classList.remove("hidden");
-        renderBarChart(
-          funnel,
-          d.pipelineByStatus || d.PipelineByStatus || [],
-          "statusTitle",
-          "count"
-        );
-        const activity = qs("#ceoDashboardActivity");
-        activity.classList.remove("hidden");
-        const rows = d.recentActivity || d.RecentActivity || [];
-        activity.innerHTML =
-          '<div class="card__title">فعالیت اخیر</div><ul class="dashboard-activity">' +
-          rows
-            .map((r) => {
-              const cn = r.caseNumber || r.CaseNumber || "";
-              const act = r.action || r.Action || "";
-              const at = r.createdAt || r.CreatedAt || "";
-              return "<li><span class=\"mono\">" + cn + "</span> — " + act + " <span class=\"muted\">" + at + "</span></li>";
-            })
-            .join("") +
-          "</ul>";
-      }).catch((e) => {
-        const errEl = qs("#ceoDashboardError");
-        errEl.textContent = String(e.message || e);
-        errEl.classList.remove("hidden");
-      })
-    );
-
-    qs("#btnLoadBoardDashboard").addEventListener("click", () =>
-      withUiError(async () => {
-        const errEl = qs("#boardDashboardError");
-        errEl.classList.add("hidden");
-        const res = await apiRequest({ method: "GET", path: "/api/v1/dashboard/board" });
-        const d = unwrapDashboard(res.body);
-        if (!d) throw new Error("پاسخ داشبورد خالی است.");
-        const summary = qs("#boardDashboardSummary");
-        summary.classList.remove("hidden");
-        summary.innerHTML =
-          '<div class="dashboard-metric"><span class="muted">کل پرونده‌ها</span><strong>' +
-          (d.totalCases ?? d.TotalCases ?? 0) +
-          "</strong></div>" +
-          '<div class="dashboard-metric"><span class="muted">نرخ تکمیل</span><strong>' +
-          (d.completionRate ?? d.CompletionRate ?? 0) +
-          "%</strong></div>";
-        const trend = qs("#boardDashboardTrend");
-        trend.classList.remove("hidden");
-        const trendItems = (d.monthlyTrend || d.MonthlyTrend || []).map((m) => ({
-          statusTitle: (m.year || m.Year) + "/" + (m.month || m.Month),
-          count: m.count || m.Count,
-        }));
-        renderBarChart(trend, trendItems, "statusTitle", "count");
-        const status = qs("#boardDashboardStatus");
-        status.classList.remove("hidden");
-        renderBarChart(status, d.countsByStatus || d.CountsByStatus || [], "statusTitle", "count");
-      }).catch((e) => {
-        const errEl = qs("#boardDashboardError");
-        errEl.textContent = String(e.message || e);
-        errEl.classList.remove("hidden");
-      })
-    );
-  }
-
   function wireDebugTools() {
     qs("#btnManualSend").addEventListener("click", () =>
       withUiError(async () => {
@@ -1740,8 +1633,6 @@
     wireTabs();
     wireConfigModal();
     wireAuth();
-    wireDashboard();
-
     renderInspector();
     renderSessionsList();
     renderTopbar();
@@ -1789,7 +1680,11 @@
     if (typeof window.initLoanPortal === "function") window.initLoanPortal(window.TestPanel);
     if (typeof window.initFundCreditLimits === "function") window.initFundCreditLimits(window.TestPanel);
     if (typeof window.initCasesHub === "function") window.initCasesHub(window.TestPanel);
-    if (typeof window.initDashboardAnalytics === "function") window.initDashboardAnalytics(window.TestPanel);
+    if (typeof window.initHomeDashboard === "function") window.initHomeDashboard(window.TestPanel);
+    if (typeof window.initEmployeeKpiDashboard === "function") window.initEmployeeKpiDashboard(window.TestPanel);
+    if (typeof window.initAdminDashboard === "function") window.initAdminDashboard(window.TestPanel);
+    if (typeof window.initAdminUsers === "function") window.initAdminUsers(window.TestPanel);
+    if (typeof window.initAdminCompanies === "function") window.initAdminCompanies(window.TestPanel);
   }
 
   document.addEventListener("DOMContentLoaded", init);

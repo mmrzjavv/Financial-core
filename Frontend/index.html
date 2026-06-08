@@ -35,7 +35,10 @@
         <button class="navbtn is-active" data-tab="tabCases">پرونده‌ها</button>
         <button class="navbtn" data-tab="tabInbox">کارتابل</button>
         <button class="navbtn" data-tab="tabAccount">حساب کاربری</button>
-        <button class="navbtn hidden" data-tab="tabDashboard" id="navDashboard">داشبورد</button>
+        <button class="navbtn hidden" data-tab="tabDashboard" id="navDashboard">صفحه اصلی</button>
+        <button class="navbtn hidden" data-tab="tabAdminDashboard" id="navAdminDashboard">داشبورد مدیریت</button>
+        <button class="navbtn hidden" data-tab="tabAdminUsers" id="navAdminUsers">کاربران</button>
+        <button class="navbtn hidden" data-tab="tabAdminCompanies" id="navAdminCompanies">شرکت‌ها</button>
       </aside>
 
       <section class="content">
@@ -268,58 +271,91 @@
           </div>
         </div>
 
-        <!-- 4. Dashboard -->
+        <!-- 4. Home / Dashboard cockpit -->
         <div id="tabDashboard" class="tab">
-          <div class="card dash-analytics-card">
-            <div class="dash-analytics-header">
+          <div class="home-dashboard">
+            <div class="home-dashboard__subtabs">
+              <button type="button" id="homeTabOverview" class="home-subtab is-active">نمای کلی</button>
+              <button type="button" id="homeTabEmployeeKpi" class="home-subtab hidden">عملکرد پرسنل / KPI</button>
+            </div>
+            <div id="homeOverviewPanel">
+            <div class="home-dashboard__hero">
               <div>
-                <div class="card__title">داشبورد تحلیلی</div>
-                <div id="dashAnalyticsMeta" class="muted dash-analytics-meta"></div>
+                <h1 class="home-dashboard__title">صفحه اصلی — مرکز فرمان</h1>
+                <p id="homeDashboardMeta" class="muted home-dashboard__meta">نمای نقش را انتخاب کنید و داده‌ها را بارگذاری کنید.</p>
               </div>
-              <button id="btnLoadAnalyticsDashboard" type="button" class="btn btn--primary">بارگذاری</button>
-            </div>
-            <div id="dashAnalyticsError" class="alert alert--error hidden"></div>
-
-            <div id="dashViewExecutive">
-              <div id="dashExecMetrics" class="dashboard-metrics"></div>
-              <div class="dash-charts-grid">
-                <div class="dash-chart-panel">
-                  <div class="card__title">توزیع وضعیت پرونده‌ها</div>
-                  <div class="dash-chart-canvas-wrap"><canvas id="dashExecPie"></canvas></div>
+              <div class="home-dashboard__controls">
+                <div id="homeAdminControls" class="home-admin-controls hidden">
+                  <div class="home-role-select">
+                    <label for="homeRoleSwitcher">نمای نقش</label>
+                    <select id="homeRoleSwitcher" class="home-role-select__input"></select>
+                  </div>
+                  <div class="home-role-select home-dept-switcher hidden">
+                    <label for="homeDepartmentSwitcher">واحد (نمای دپارتمان)</label>
+                    <select id="homeDepartmentSwitcher" class="home-role-select__input">
+                      <option value="Legal">حقوقی</option>
+                      <option value="Financial">مالی</option>
+                      <option value="Credit">اعتبارات</option>
+                      <option value="Investment">سرمایه‌گذاری</option>
+                      <option value="Technical">فنی</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="dash-chart-panel">
-                  <div class="card__title">خروجی مالی ماهانه</div>
-                  <div class="dash-chart-canvas-wrap"><canvas id="dashExecBar"></canvas></div>
+                <button id="btnHomeLoad" type="button" class="btn btn--primary hidden">بارگذاری</button>
+                <button id="btnHomeRefreshCache" type="button" class="btn" title="تازه‌سازی کش داشبورد (Admin)">تازه‌سازی کش</button>
+              </div>
+            </div>
+
+            <div id="homeDashboardError" class="alert alert--error hidden"></div>
+
+            <div id="homeDashboardLoading" class="home-dashboard__skeleton hidden">
+              <div class="home-skeleton home-skeleton--kpi"></div>
+              <div class="home-skeleton-row">
+                <div class="home-skeleton home-skeleton--chart"></div>
+                <div class="home-skeleton home-skeleton--chart"></div>
+              </div>
+              <div class="home-skeleton home-skeleton--panel"></div>
+            </div>
+
+            <div id="homeDashboardContent" class="home-dashboard__content">
+              <div id="homeSystemHealth" class="home-system-health"></div>
+              <div id="homeKpiStrip" class="home-kpi-strip"></div>
+              <div id="homeModuleSections" class="home-module-sections"></div>
+              <div id="homeChartsGrid" class="home-charts-grid"></div>
+              <div id="homePanelsArea" class="home-panels-area"></div>
+            </div>
+            </div>
+
+            <div id="homeEmployeeKpiPanel" class="employee-kpi hidden">
+              <div class="employee-kpi__hero">
+                <div>
+                  <h2 class="employee-kpi__title">عملکرد پرسنل و SLA</h2>
+                  <p id="employeeKpiMeta" class="muted employee-kpi__meta">زمان رسیدگی بر اساس تاریخچه گردش کار محاسبه شده است.</p>
+                </div>
+                <div class="employee-kpi__controls">
+                  <div class="home-role-select">
+                    <label for="employeeKpiPeriod">بازه زمانی</label>
+                    <select id="employeeKpiPeriod" class="home-role-select__input">
+                      <option value="Last30Days">۳۰ روز اخیر</option>
+                      <option value="Last90Days">۹۰ روز اخیر</option>
+                      <option value="ThisQuarter">فصل جاری</option>
+                      <option value="AllTime">کل دوره</option>
+                    </select>
+                  </div>
+                  <button id="btnEmployeeKpiRefresh" type="button" class="btn btn--primary" title="اجرای فوری محاسبه KPI">اجرای محاسبه</button>
                 </div>
               </div>
-              <div id="dashExecBottlenecks" class="dashboard-chart"></div>
-              <div id="dashExecActivity" class="dashboard-list"></div>
-            </div>
-
-            <div id="dashViewDepartment" class="hidden">
-              <div id="dashDeptMetrics" class="dashboard-metrics"></div>
-              <div class="dash-chart-panel">
-                <div class="card__title">صف انتظار به تفکیک ماژول</div>
-                <div class="dash-chart-canvas-wrap dash-chart-canvas-wrap--tall"><canvas id="dashDeptBar"></canvas></div>
+              <div id="employeeKpiError" class="alert alert--error hidden"></div>
+              <div id="employeeKpiLoading" class="home-dashboard__skeleton hidden">
+                <div class="home-skeleton home-skeleton--chart"></div>
+                <div class="home-skeleton home-skeleton--panel"></div>
               </div>
-              <div id="dashDeptInbox" class="dashboard-list"></div>
-            </div>
-
-            <div id="dashViewApplicant" class="hidden">
-              <div id="dashApplicantMetrics" class="dashboard-metrics"></div>
-              <div id="dashApplicantCases" class="dashboard-list"></div>
-              <div id="dashApplicantComments" class="dashboard-list"></div>
+              <div id="employeeKpiContent" class="employee-kpi__content">
+                <div id="employeeKpiDepartments" class="employee-kpi__departments"></div>
+              </div>
             </div>
           </div>
-          <div id="dashFundCreditLimits" class="card fund-credit-dash hidden"></div>
-          <div class="card dash-legacy-card">
-            <div class="card__title">داشبورد مدیرعامل (خلاصه)</div>
-            <button id="btnLoadCeoDashboard" type="button" class="btn">بارگذاری</button>
-            <div id="ceoDashboardError" class="alert alert--error hidden"></div>
-            <div id="ceoDashboardMetrics" class="dashboard-metrics hidden"></div>
-            <div id="ceoDashboardFunnel" class="dashboard-chart hidden"></div>
-            <div id="ceoDashboardActivity" class="dashboard-list hidden"></div>
-          </div>
+
           <div id="fundCreditLimitsAccess" class="alert alert--error hidden">
             دسترسی به سقف اعتبار دوره‌ای محدود است.
           </div>
@@ -337,17 +373,221 @@
               <div class="formrow"><label>شروع دوره</label><input id="fundCreditPeriodStart" type="date" /></div>
               <div class="formrow"><label>پایان دوره</label><input id="fundCreditExpiresAt" type="date" /></div>
               <div class="formrow"><label>سقف (ریال)</label><input id="fundCreditAmount" type="number" min="1" step="1" /></div>
-              <button id="fundCreditSaveNew" type="button" class="btn btn--primary">ثبت سقف دوره‌ای</button>
+              <div class="fund-credit-form__actions">
+                <button id="fundCreditSaveNew" type="button" class="btn btn--primary">ثبت سقف دوره‌ای</button>
+                <button id="fundCreditCancelEdit" type="button" class="btn hidden">انصراف از ویرایش</button>
+              </div>
             </div>
             <div id="fundCreditLimitsGrid" class="fund-credit-grid-wrap"></div>
           </div>
-          <div class="card">
-            <div class="card__title">داشبورد هیئت مدیره</div>
-            <button id="btnLoadBoardDashboard" type="button" class="btn btn--primary">بارگذاری</button>
-            <div id="boardDashboardError" class="alert alert--error hidden"></div>
-            <div id="boardDashboardSummary" class="dashboard-metrics hidden"></div>
-            <div id="boardDashboardTrend" class="dashboard-chart hidden"></div>
-            <div id="boardDashboardStatus" class="dashboard-chart hidden"></div>
+        </div>
+
+        <!-- 5. Admin Dashboard (all roles overview) -->
+        <div id="tabAdminDashboard" class="tab hidden">
+          <div class="admin-dashboard">
+            <div class="admin-dashboard__hero">
+              <div>
+                <h1 class="admin-dashboard__title">داشبورد مدیریت — نمای تمام نقش‌ها</h1>
+                <p id="adminDashboardMeta" class="muted admin-dashboard__meta"></p>
+              </div>
+              <div class="admin-dashboard__actions">
+                <button id="btnLoadAdminDashboard" type="button" class="btn btn--primary">بارگذاری</button>
+                <button id="btnRefreshAdminDashboard" type="button" class="btn">تازه‌سازی کش</button>
+              </div>
+            </div>
+            <div id="adminDashboardError" class="alert alert--error hidden"></div>
+            <div id="adminDashboardLoading" class="admin-dashboard__loading hidden">در حال بارگذاری داده‌ها…</div>
+
+            <div id="adminKpiStrip" class="admin-kpi-strip"></div>
+            <div id="adminSystemHealth" class="home-system-health"></div>
+            <div id="adminModuleSections" class="home-module-sections"></div>
+
+            <nav id="adminRoleNav" class="admin-role-nav"></nav>
+
+            <!-- Overview section -->
+            <section class="admin-role-section" data-section="executive">
+              <div class="admin-section-header">
+                <h2>نمای اجرایی</h2>
+                <p class="muted">خلاصه KPI، توزیع وضعیت، خروجی مالی و روند پرونده‌ها</p>
+              </div>
+              <div class="admin-charts-grid admin-charts-grid--3">
+                <div class="admin-chart-card">
+                  <div class="admin-chart-card__title">توزیع وضعیت (دونات)</div>
+                  <div class="admin-chart-card__canvas"><canvas id="adminChartStatusDoughnut"></canvas></div>
+                </div>
+                <div class="admin-chart-card">
+                  <div class="admin-chart-card__title">توزیع فاز (پای)</div>
+                  <div class="admin-chart-card__canvas"><canvas id="adminChartPhasePie"></canvas></div>
+                </div>
+                <div class="admin-chart-card">
+                  <div class="admin-chart-card__title">حجم فعال ماژول‌ها (پای)</div>
+                  <div class="admin-chart-card__canvas"><canvas id="adminChartVolumePie"></canvas></div>
+                </div>
+              </div>
+              <div class="admin-charts-grid admin-charts-grid--2">
+                <div class="admin-chart-card">
+                  <div class="admin-chart-card__title">خروجی مالی ماهانه</div>
+                  <div class="admin-chart-card__canvas admin-chart-card__canvas--tall"><canvas id="adminChartMonthlyBar"></canvas></div>
+                </div>
+                <div class="admin-chart-card">
+                  <div class="admin-chart-card__title">روند ماهانه پرونده‌ها</div>
+                  <div class="admin-chart-card__canvas admin-chart-card__canvas--tall"><canvas id="adminChartTrendLine"></canvas></div>
+                </div>
+              </div>
+              <div class="admin-chart-card admin-chart-card--wide">
+                <div class="admin-chart-card__title">خط لوله وضعیت (۱۰ وضعیت برتر)</div>
+                <div class="admin-chart-card__canvas admin-chart-card__canvas--tall"><canvas id="adminChartPipelineBar"></canvas></div>
+              </div>
+              <div id="adminBottlenecks" class="admin-bottlenecks card"></div>
+            </section>
+
+            <!-- CEO section -->
+            <section class="admin-role-section hidden" data-section="ceo">
+              <div class="admin-section-header">
+                <h2>داشبورد مدیرعامل</h2>
+                <p class="muted">شاخص‌های مالی و خط لوله تأیید</p>
+              </div>
+              <div id="adminCeoMetrics" class="dashboard-metrics"></div>
+              <div class="admin-charts-grid admin-charts-grid--1">
+                <div class="admin-chart-card">
+                  <div class="admin-chart-card__title">خط لوله وضعیت CEO (دونات)</div>
+                  <div class="admin-chart-card__canvas admin-chart-card__canvas--tall"><canvas id="adminChartCeoPipeline"></canvas></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Board section -->
+            <section class="admin-role-section hidden" data-section="board">
+              <div class="admin-section-header">
+                <h2>داشبورد هیئت مدیره</h2>
+                <p class="muted">توزیع فاز، وضعیت و روند ماهانه</p>
+              </div>
+              <div class="admin-charts-grid admin-charts-grid--2">
+                <div class="admin-chart-card">
+                  <div class="admin-chart-card__title">توزیع وضعیت (پای)</div>
+                  <div class="admin-chart-card__canvas admin-chart-card__canvas--tall"><canvas id="adminChartBoardStatus"></canvas></div>
+                </div>
+                <div class="admin-chart-card">
+                  <div class="admin-chart-card__title">توزیع فاز (دونات)</div>
+                  <div class="admin-chart-card__canvas admin-chart-card__canvas--tall"><canvas id="adminChartBoardPhase"></canvas></div>
+                </div>
+              </div>
+              <div class="admin-chart-card admin-chart-card--wide">
+                <div class="admin-chart-card__title">روند ماهانه (میله‌ای)</div>
+                <div class="admin-chart-card__canvas admin-chart-card__canvas--tall"><canvas id="adminChartBoardTrend"></canvas></div>
+              </div>
+            </section>
+
+            <!-- Departments section -->
+            <section class="admin-role-section hidden" data-section="departments">
+              <div class="admin-section-header">
+                <h2>واحدهای سازمانی</h2>
+                <p class="muted">صف انتظار هر واحد و توزیع ماژول</p>
+              </div>
+              <div class="admin-chart-card admin-chart-card--wide">
+                <div class="admin-chart-card__title">مقایسه صف انتظار واحدها</div>
+                <div class="admin-chart-card__canvas admin-chart-card__canvas--tall"><canvas id="adminChartDeptCompare"></canvas></div>
+              </div>
+              <div id="adminDeptGrid" class="admin-dept-grid"></div>
+            </section>
+
+            <!-- Applicant section -->
+            <section class="admin-role-section hidden" data-section="applicant">
+              <div class="admin-section-header">
+                <h2>متقاضیان</h2>
+                <p class="muted">خلاصه تجمیعی تمام متقاضیان</p>
+              </div>
+              <div id="adminApplicantMetrics" class="dashboard-metrics"></div>
+              <div class="admin-charts-grid admin-charts-grid--1">
+                <div class="admin-chart-card">
+                  <div class="admin-chart-card__title">پرونده‌های فعال به تفکیک ماژول (پای)</div>
+                  <div class="admin-chart-card__canvas admin-chart-card__canvas--tall"><canvas id="adminChartApplicantPie"></canvas></div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- 6. Admin Users -->
+        <div id="tabAdminUsers" class="tab hidden">
+          <div id="adminUsersAccess" class="alert alert--error hidden"></div>
+          <div id="adminUsersPanel" class="admin-mgmt hidden">
+            <div class="card">
+              <div class="card__title">مدیریت کاربران و نشست‌ها</div>
+              <p class="muted">مشاهده کاربران، نشست‌های فعال، اخراج از سیستم، ویرایش و حذف — فقط مدیرعامل، کارشناس فنی و مدیر سیستم.</p>
+              <div id="adminUsersError" class="alert alert--error hidden"></div>
+              <div id="adminUsersInfo" class="alert alert--ok hidden"></div>
+              <div class="admin-mgmt__toolbar">
+                <button id="adminUsersLoad" type="button" class="btn btn--primary">بارگذاری کاربران</button>
+                <button id="adminUsersLoadOnline" type="button" class="btn">کاربران آنلاین</button>
+                <button id="adminUsersPrevPage" type="button" class="btn btn--small">صفحه قبل</button>
+                <button id="adminUsersNextPage" type="button" class="btn btn--small">صفحه بعد</button>
+                <span id="adminUsersMeta" class="muted admin-mgmt__meta"></span>
+              </div>
+              <div id="adminUsersGrid" class="admin-mgmt-grid-wrap"></div>
+            </div>
+
+            <div class="card">
+              <div class="card__title">نشست‌های کاربر</div>
+              <div id="adminUsersSessions" class="admin-mgmt-sessions"></div>
+            </div>
+
+            <div id="adminUsersEditForm" class="card">
+              <div class="card__title">ویرایش کاربر</div>
+              <div class="grid2">
+                <div class="formrow"><label>نام</label><input id="adminUserFirstName" /></div>
+                <div class="formrow"><label>نام خانوادگی</label><input id="adminUserLastName" /></div>
+                <div class="formrow"><label>موبایل</label><input id="adminUserPhone" class="mono" /></div>
+                <div class="formrow"><label>ایمیل</label><input id="adminUserEmail" /></div>
+                <div class="formrow"><label>کد ملی</label><input id="adminUserNationalCode" class="mono" /></div>
+                <div class="formrow"><label>نقش</label><select id="adminUserRole"></select></div>
+              </div>
+              <div class="formrow"><label><input id="adminUserIsActive" type="checkbox" checked /> فعال</label></div>
+              <div class="admin-mgmt__toolbar">
+                <button id="adminUserSave" type="button" class="btn btn--primary">ذخیره کاربر</button>
+                <button id="adminUserCancelEdit" type="button" class="btn hidden">انصراف از ویرایش</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 7. Admin Companies -->
+        <div id="tabAdminCompanies" class="tab hidden">
+          <div id="adminCompaniesAccess" class="alert alert--error hidden"></div>
+          <div id="adminCompaniesPanel" class="admin-mgmt hidden">
+            <div class="card">
+              <div class="card__title">فهرست شرکت‌ها</div>
+              <p class="muted">مشاهده، ویرایش و حذف شرکت‌های ثبت‌شده — فقط مدیرعامل، کارشناس فنی و مدیر سیستم.</p>
+              <div id="adminCompaniesError" class="alert alert--error hidden"></div>
+              <div id="adminCompaniesInfo" class="alert alert--ok hidden"></div>
+              <div class="admin-mgmt__toolbar">
+                <button id="adminCompaniesLoad" type="button" class="btn btn--primary">بارگذاری شرکت‌ها</button>
+                <button id="adminCompaniesPrevPage" type="button" class="btn btn--small">صفحه قبل</button>
+                <button id="adminCompaniesNextPage" type="button" class="btn btn--small">صفحه بعد</button>
+                <span id="adminCompaniesMeta" class="muted admin-mgmt__meta"></span>
+              </div>
+              <div id="adminCompaniesGrid" class="admin-mgmt-grid-wrap"></div>
+            </div>
+
+            <div id="adminCompaniesEditForm" class="card">
+              <div class="card__title">ویرایش شرکت</div>
+              <p id="adminCompanyOwnerMeta" class="muted"></p>
+              <div class="grid2">
+                <div class="formrow"><label>نام شرکت</label><input id="adminCompanyName" /></div>
+                <div class="formrow"><label>کد اقتصادی</label><input id="adminCompanyEconomicCode" class="mono" /></div>
+                <div class="formrow"><label>شماره ثبت</label><input id="adminCompanyRegistrationNumber" class="mono" /></div>
+                <div class="formrow"><label>شناسه ملی</label><input id="adminCompanyNationalId" class="mono" /></div>
+                <div class="formrow"><label>تلفن</label><input id="adminCompanyPhone" class="mono" /></div>
+                <div class="formrow"><label>شهر</label><input id="adminCompanyCity" /></div>
+                <div class="formrow"><label>استان</label><input id="adminCompanyProvince" /></div>
+                <div class="formrow"><label>کد پستی</label><input id="adminCompanyPostalCode" class="mono" /></div>
+              </div>
+              <div class="formrow"><label>آدرس</label><input id="adminCompanyAddress" /></div>
+              <div class="admin-mgmt__toolbar">
+                <button id="adminCompanySave" type="button" class="btn btn--primary">ذخیره شرکت</button>
+                <button id="adminCompanyCancelEdit" type="button" class="btn hidden">انصراف از ویرایش</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -404,7 +644,12 @@
     <script src="js/fund-credit-limits.js"></script>
     <script src="js/cases-hub.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="js/dashboard-analytics.js"></script>
+    <script src="js/dashboard-ui.js"></script>
+    <script src="js/admin-dashboard.js"></script>
+    <script src="js/admin-users.js"></script>
+    <script src="js/admin-companies.js"></script>
+    <script src="js/home-dashboard.js"></script>
+    <script src="js/employee-kpi-dashboard.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
