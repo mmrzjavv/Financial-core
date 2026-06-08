@@ -4,5 +4,6 @@ public enum DashboardSnapshotType
 {
     Executive = 1,
     Department = 2,
-    Applicant = 3
+    Applicant = 3,
+    EmployeeKpi = 4
 }
