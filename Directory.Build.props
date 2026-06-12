@@ -13,5 +13,12 @@
   <PropertyGroup Condition="'$(ContinuousIntegrationBuild)' == 'true'">
     <WarningsAsErrors />
   </PropertyGroup>
+
+  <!-- Hide NuGet BuildHost content files from the project tree (EF design-time tooling). -->
+  <Target Name="ExcludeNuGetBuildHostContent" BeforeTargets="AssignTargetPaths">
+    <ItemGroup>
+      <Content Remove="@(Content)" Condition="$([System.String]::Copy('%(FullPath)').Contains('BuildHost-net'))" />
+    </ItemGroup>
+  </Target>
 </Project>
 

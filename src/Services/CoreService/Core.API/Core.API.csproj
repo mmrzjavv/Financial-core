@@ -9,15 +9,6 @@
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
     <PackageReference Include="FluentValidation.AspNetCore" />
     <PackageReference Include="Mapster.DependencyInjection" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Common">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
@@ -40,61 +31,6 @@
     <ProjectReference Include="../Core.Infrastructure/Core.Infrastructure.csproj" />
     <ProjectReference Include="../Core.Persistence/Core.Persistence.csproj" />
     <ProjectReference Include="../Core.Workflow/Core.Workflow.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\Microsoft.Bcl.AsyncInterfaces.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\Microsoft.Build.Locator.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.exe" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.exe.config" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\Newtonsoft.Json.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\System.Buffers.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\System.Collections.Immutable.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\System.CommandLine.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\System.Memory.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\System.Numerics.Vectors.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\System.Runtime.CompilerServices.Unsafe.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\System.Text.Encodings.Web.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\System.Text.Json.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\System.Threading.Tasks.Extensions.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\System.ValueTuple.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\cs\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\de\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\es\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\fr\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\it\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\ja\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\ko\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\pl\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\pt-BR\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\ru\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\tr\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\zh-Hans\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-net472\zh-Hant\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\Microsoft.Build.Locator.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.deps.json" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.dll.config" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.runtimeconfig.json" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\Newtonsoft.Json.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\System.Collections.Immutable.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\System.CommandLine.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\System.Text.Encodings.Web.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\System.Text.Json.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\cs\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\de\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\es\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\fr\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\it\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\ja\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\ko\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\pl\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\pt-BR\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\ru\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\runtimes\browser\lib\net6.0\System.Text.Encodings.Web.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\tr\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\zh-Hans\System.CommandLine.resources.dll" />
-    <_ContentIncludedByDefault Remove="C:\Users\AsusIran\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.11.0\contentFiles\any\any\BuildHost-netcore\zh-Hant\System.CommandLine.resources.dll" />
   </ItemGroup>
 </Project>
 

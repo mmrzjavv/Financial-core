@@ -1,0 +1,5 @@
+cd D:\work\Maskan\Panel\Financial-Core\tools\e2e-simulator
+python -m streamlit run app.py
+
+cd D:\work\Maskan\Panel\Financial-Core\tools\e2e-simulator
+.\run_ui.ps1

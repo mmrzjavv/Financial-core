@@ -48,3 +48,16 @@ Thumbs.db
 # appsettings local overrides
 ##################################
 appsettings.Development.json
+
+##################################
+# Python
+##################################
+__pycache__/
+*.pyc
+.pytest_cache/
+
+##################################
+# Scratch / temp
+##################################
+_tmp/
+_tmp_*

@@ -1,0 +1,73 @@
+# Copy to config.yaml and adjust for your environment.
+base_url: "http://localhost:5081"
+api_version: "1"
+dev_otp: "123456"
+
+# Must match Core API appsettings.json -> Otp:SeedAdminPhone when DevBypassEnabled is true.
+# That phone is auto-promoted to Admin on register/login and can assign roles to E2E personas.
+seed_admin_phone: "09358357344"
+
+# Concurrency — keep moderate to avoid overwhelming the API / S3.
+max_concurrent_cases: 5
+request_timeout_seconds: 120
+
+# Default batch size per module when using the UI defaults.
+default_cases_per_module: 100
+
+# Path distribution weights (must sum to 1.0)
+path_weights:
+  happy: 0.40
+  revision: 0.40
+  rejection: 0.10
+  enrichment: 0.10
+
+# Dedicated E2E test users (phones must be unique in Identity).
+# Admin provisions roles on first run; existing users are reused (idempotent).
+personas:
+  - key: admin
+    phone: "09181000001"
+    role: 100
+    first_name: E2E
+    last_name: Admin
+  - key: applicant
+    phone: "09181000002"
+    role: 1
+    first_name: E2E
+    last_name: Applicant
+  - key: investment_expert
+    phone: "09181000003"
+    role: 10
+    first_name: E2E
+    last_name: InvExpert
+  - key: investment_manager
+    phone: "09181000004"
+    role: 11
+    first_name: E2E
+    last_name: InvManager
+  - key: legal_expert
+    phone: "09181000005"
+    role: 20
+    first_name: E2E
+    last_name: Legal
+  - key: financial_expert
+    phone: "09181000006"
+    role: 30
+    first_name: E2E
+    last_name: Financial
+  - key: ceo
+    phone: "09181000007"
+    role: 12
+    first_name: E2E
+    last_name: CEO
+  - key: credit_expert
+    phone: "09181000008"
+    role: 50
+    first_name: E2E
+    last_name: Credit
+  - key: credit_manager
+    phone: "09181000009"
+    role: 51
+    first_name: E2E
+    last_name: CreditMgr
+
+reports_dir: "reports"
