@@ -1,6 +1,7 @@
 using BuildingBlocks.Application.Errors;
 using BuildingBlocks.Application.Results;
 using BuildingBlocks.Domain.Abstractions;
+using BuildingBlocks.Persistence.Queries;
 using Core.Application.Abstractions;
 using Core.Application.Common;
 using Core.Application.DTOs;
@@ -134,10 +135,32 @@ public sealed class FundCreditLimitAppService(
         return Result.Ok();
     }
 
-    public async Task<Result<IReadOnlyList<FundCreditLimitDto>>> ListAsync(CancellationToken ct)
+    public async Task<Result<PagedResult<FundCreditLimitDto>>> ListAsync(GetFundCreditLimitsRequest request, CancellationToken ct)
     {
         if (!FundCreditLimitAuthorization.CanAccessFundCreditLimits(userContext.Roles))
-            return Result<IReadOnlyList<FundCreditLimitDto>>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
+            return Result<PagedResult<FundCreditLimitDto>>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
+
+        var page = await dbContext.FundCreditLimits
+            .AsNoTracking()
+            .OrderByDescending(x => x.ModuleType)
+            .ThenByDescending(x => x.PeriodStart)
+            .ToPagedResultAsync(request.NormalizedPageNumber, request.NormalizedPageSize, ct);
+
+        var userLookup = await userDisplayLookup.GetByIdsAsync(
+            page.Items.Select(x => x.LastSetByUserId).Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id!),
+            ct);
+        var items = new List<FundCreditLimitDto>(page.Items.Count);
+        foreach (var row in page.Items)
+            items.Add(await MapDtoAsync(row, userLookup, ct));
+
+        return Result<PagedResult<FundCreditLimitDto>>.Ok(
+            new PagedResult<FundCreditLimitDto>(items, page.Page, page.PageSize, page.TotalCount));
+    }
+
+    public async Task<Result<FundCreditLimitDashboardSectionDto>> GetDashboardSectionAsync(CancellationToken ct)
+    {
+        if (!FundCreditLimitAuthorization.CanAccessFundCreditLimits(userContext.Roles))
+            return Result<FundCreditLimitDashboardSectionDto>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
 
         var rows = await dbContext.FundCreditLimits
             .AsNoTracking()
@@ -148,24 +171,11 @@ public sealed class FundCreditLimitAppService(
         var userLookup = await userDisplayLookup.GetByIdsAsync(
             rows.Select(x => x.LastSetByUserId).Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id!),
             ct);
-        var items = new List<FundCreditLimitDto>(rows.Count);
+        var all = new List<FundCreditLimitDto>(rows.Count);
         foreach (var row in rows)
-            items.Add(await MapDtoAsync(row, userLookup, ct));
-
-        return Result<IReadOnlyList<FundCreditLimitDto>>.Ok(items);
-    }
-
-    public async Task<Result<FundCreditLimitDashboardSectionDto>> GetDashboardSectionAsync(CancellationToken ct)
-    {
-        if (!FundCreditLimitAuthorization.CanAccessFundCreditLimits(userContext.Roles))
-            return Result<FundCreditLimitDashboardSectionDto>.Fail(Error.Forbidden(ApiMessages.NotAllowed));
-
-        var listResult = await ListAsync(ct);
-        if (listResult.IsFailure)
-            return Result<FundCreditLimitDashboardSectionDto>.Fail(listResult.Error!);
+            all.Add(await MapDtoAsync(row, userLookup, ct));
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var all = listResult.Value!;
         var active = all
             .Where(x => x.PeriodStart <= today && x.ExpiresAt >= today)
             .ToList();

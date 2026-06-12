@@ -12,7 +12,7 @@ public interface IFundCreditLimitAppService
 
     Task<Result> DeleteAsync(Guid id, CancellationToken ct);
 
-    Task<Result<IReadOnlyList<FundCreditLimitDto>>> ListAsync(CancellationToken ct);
+    Task<Result<PagedResult<FundCreditLimitDto>>> ListAsync(GetFundCreditLimitsRequest request, CancellationToken ct);
 
     Task<Result<FundCreditLimitDashboardSectionDto>> GetDashboardSectionAsync(CancellationToken ct);
 }

@@ -1,5 +1,13 @@
 (function () {
-  const state = { panel: null, rows: [], busy: false, editingId: null };
+  const state = {
+    panel: null,
+    rows: [],
+    total: 0,
+    pageNumber: 1,
+    pageSize: 20,
+    busy: false,
+    editingId: null,
+  };
 
   const MODULES = [
     { value: 1, label: "ضمانت‌نامه" },
@@ -19,6 +27,39 @@
 
   function unwrap(body) {
     return state.panel.unwrapEnvelope(body).payload;
+  }
+
+  function unwrapPaged(body) {
+    const payload = unwrap(body);
+    if (Array.isArray(payload)) {
+      return { list: payload, total: payload.length, page: 1, pageSize: payload.length };
+    }
+    const list = pick(payload, "items", "Items") || [];
+    const total = pick(payload, "totalCount", "TotalCount") ?? list.length;
+    const page = pick(payload, "page", "Page") ?? pick(payload, "pageNumber", "PageNumber") ?? 1;
+    const pageSize = pick(payload, "pageSize", "PageSize") ?? state.pageSize;
+    return { list, total, page, pageSize };
+  }
+
+  function readPageSize() {
+    const raw = Number(qs("#fundCreditPageSize")?.value || state.pageSize);
+    return Number.isFinite(raw) && raw > 0 ? raw : 20;
+  }
+
+  function updatePagerMeta() {
+    const meta = qs("#fundCreditLimitsMeta");
+    if (!meta) return;
+    const totalPages = state.pageSize > 0 ? Math.max(1, Math.ceil(state.total / state.pageSize)) : 1;
+    meta.textContent =
+      "صفحه " +
+      state.pageNumber +
+      " از " +
+      totalPages +
+      " — نمایش " +
+      state.rows.length +
+      " از " +
+      state.total +
+      " سقف";
   }
 
   function apiPath(suffix) {
@@ -141,6 +182,7 @@
 
     if (!state.rows.length) {
       host.appendChild(document.createTextNode("هنوز سقف دوره‌ای ثبت نشده است."));
+      updatePagerMeta();
       return;
     }
 
@@ -207,13 +249,22 @@
 
     table.appendChild(tbody);
     host.appendChild(table);
+    updatePagerMeta();
   }
 
-  async function loadList() {
+  async function loadList(pageNumber) {
     setError("");
-    const res = await state.panel.apiRequest({ method: "GET", path: apiPath("") });
-    const payload = unwrap(res.body);
-    state.rows = Array.isArray(payload) ? payload : pick(payload, "items", "Items") || [];
+    state.pageSize = readPageSize();
+    state.pageNumber = Number(pageNumber) > 0 ? Number(pageNumber) : state.pageNumber;
+    const res = await state.panel.apiRequest({
+      method: "GET",
+      path: apiPath("?pageNumber=" + state.pageNumber + "&pageSize=" + state.pageSize),
+    });
+    const { list, total, page, pageSize } = unwrapPaged(res.body);
+    state.rows = list;
+    state.total = total;
+    state.pageNumber = page;
+    state.pageSize = pageSize;
     renderGrid();
     setInfo("فهرست سقف‌های دوره‌ای بارگذاری شد.");
   }
@@ -253,7 +304,7 @@
         },
       });
       clearForm();
-      await loadList();
+      await loadList(state.pageNumber);
       setInfo("سقف اعتبار دوره‌ای جدید ثبت شد.");
     } finally {
       state.busy = false;
@@ -278,7 +329,7 @@
         },
       });
       clearForm();
-      await loadList();
+      await loadList(state.pageNumber);
       setInfo("سقف اعتبار دوره‌ای به‌روزرسانی شد.");
     } finally {
       state.busy = false;
@@ -309,7 +360,9 @@
         path: apiPath("/" + id),
       });
       if (state.editingId === id) clearForm();
-      await loadList();
+      const totalPages = state.pageSize > 0 ? Math.ceil((state.total - 1) / state.pageSize) : 1;
+      const nextPage = state.pageNumber > totalPages ? Math.max(1, totalPages) : state.pageNumber;
+      await loadList(nextPage);
       setInfo("سقف اعتبار دوره‌ای حذف شد.");
     } finally {
       state.busy = false;
@@ -318,7 +371,24 @@
 
   function wire() {
     qs("#fundCreditLoadList")?.addEventListener("click", () => {
-      void loadList().catch((e) => setError(e.message || String(e)));
+      state.pageNumber = 1;
+      void loadList(1).catch((e) => setError(e.message || String(e)));
+    });
+
+    qs("#fundCreditPrevPage")?.addEventListener("click", () => {
+      if (state.pageNumber <= 1) return;
+      void loadList(state.pageNumber - 1).catch((e) => setError(e.message || String(e)));
+    });
+
+    qs("#fundCreditNextPage")?.addEventListener("click", () => {
+      const totalPages = state.pageSize > 0 ? Math.ceil(state.total / state.pageSize) : 1;
+      if (state.pageNumber >= totalPages) return;
+      void loadList(state.pageNumber + 1).catch((e) => setError(e.message || String(e)));
+    });
+
+    qs("#fundCreditPageSize")?.addEventListener("change", () => {
+      state.pageNumber = 1;
+      void loadList(1).catch((e) => setError(e.message || String(e)));
     });
 
     qs("#fundCreditSaveNew")?.addEventListener("click", () => {
@@ -335,14 +405,17 @@
       updateAccessUi();
       if (!canManageFundCreditLimits()) {
         state.rows = [];
+        state.total = 0;
+        state.pageNumber = 1;
         clearForm();
+        renderGrid();
       }
     });
 
     document.querySelector('[data-tab="tabDashboard"]')?.addEventListener("click", () => {
       updateAccessUi();
       if (canManageFundCreditLimits() && !state.rows.length) {
-        void loadList().catch((e) => setError(e.message || String(e)));
+        void loadList(1).catch((e) => setError(e.message || String(e)));
       }
     });
   }

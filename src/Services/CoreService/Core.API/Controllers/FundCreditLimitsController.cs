@@ -36,9 +36,9 @@ public sealed class FundCreditLimitsController(IFundCreditLimitAppService servic
     }
 
     [HttpGet]
-    public async Task<IActionResult> List(CancellationToken ct)
+    public async Task<IActionResult> List([FromQuery] GetFundCreditLimitsRequest request, CancellationToken ct)
     {
-        var result = await service.ListAsync(ct);
+        var result = await service.ListAsync(request, ct);
         return Respond(result, "فهرست سقف‌های اعتبار دوره‌ای صندوق دریافت شد.");
     }
 }

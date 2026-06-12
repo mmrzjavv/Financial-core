@@ -364,7 +364,18 @@
             <div class="muted portal-stage__hint">تخصیص بودجه برای ماژول ضمانت‌نامه و تسهیلات — بازه‌های غیرهمپوشان.</div>
             <div id="fundCreditLimitsError" class="alert alert--error hidden"></div>
             <div id="fundCreditLimitsInfo" class="alert alert--ok hidden"></div>
-            <button id="fundCreditLoadList" type="button" class="btn">بارگذاری فهرست</button>
+            <div class="admin-mgmt__toolbar">
+              <button id="fundCreditLoadList" type="button" class="btn btn--primary">بارگذاری فهرست</button>
+              <button id="fundCreditPrevPage" type="button" class="btn btn--small">صفحه قبل</button>
+              <button id="fundCreditNextPage" type="button" class="btn btn--small">صفحه بعد</button>
+              <label class="muted">تعداد در صفحه</label>
+              <select id="fundCreditPageSize" class="btn btn--small">
+                <option value="10">۱۰</option>
+                <option value="20" selected>۲۰</option>
+                <option value="50">۵۰</option>
+              </select>
+              <span id="fundCreditLimitsMeta" class="muted admin-mgmt__meta"></span>
+            </div>
             <div id="fundCreditLimitsForm" class="fund-credit-form">
               <div class="formrow">
                 <label>ماژول</label>
