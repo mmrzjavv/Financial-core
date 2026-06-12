@@ -75,9 +75,12 @@ public sealed class LoanAuthorizationService(IUserContext userContext) : ILoanAu
             [UserRoleClaims.Ceo] =
             [
                 LoanPermissions.ReadAll,
+                LoanPermissions.ViewInternalComments,
+                LoanPermissions.DownloadDocuments,
                 LoanPermissions.CeoApprove
             ],
-            [UserRoleClaims.Admin] = AllLoanPermissions
+            [UserRoleClaims.Admin] = AllLoanPermissions,
+            [UserRoleClaims.TechnicalExpert] = AllLoanPermissions
         };
 
     public string? UserId => userContext.UserId;

@@ -2,6 +2,27 @@
 (function () {
   const MODULE = { Investment: 1, Guarantee: 2, GuaranteeRenewal: 3, Loan: 4 };
 
+  const STATUS_BY_KEY = {
+    Draft: 1,
+    DataEntry: 2,
+    PendingCreditReview: 3,
+    RevisionRequestedByCredit: 4,
+    PendingCeoInitialApproval: 5,
+    CanceledByCeo: 6,
+    PendingLegalRawContract: 7,
+    PendingApplicantSignature: 8,
+    PendingLegalFinalReview: 9,
+    RevisionRequestedByLegal: 10,
+    PendingFinancialReview: 11,
+    RevisionRequestedByFinancial: 12,
+    PendingLegalFinalContract: 13,
+    PendingCeoFinalApproval: 14,
+    ReadyForPayment: 15,
+    RepaymentPhase: 16,
+    Completed: 17,
+    Archived: 18,
+  };
+
   const STEPS = {
     1: { id: 1, title: "پیش‌نویس", unit: "applicant", phase: 1 },
     2: { id: 2, title: "ورود اطلاعات", unit: "applicant", phase: 1 },
@@ -81,8 +102,15 @@
       .sort((a, b) => a.id - b.id);
   }
 
+  function coerceStatus(status) {
+    if (status == null || status === "") return 0;
+    const n = Number(status);
+    if (!Number.isNaN(n)) return n;
+    return STATUS_BY_KEY[String(status)] ?? 0;
+  }
+
   function getStepOrderIndex(status) {
-    const value = Number(status);
+    const value = coerceStatus(status);
     return getStepperSteps().findIndex((step) => step.id === value);
   }
 
@@ -94,7 +122,8 @@
   }
 
   function stepForStatus(status) {
-    return STEPS[Number(status)] || { title: "نامشخص", unit: "all", phase: 0 };
+    const value = coerceStatus(status);
+    return STEPS[value] || { id: value, title: "نامشخص", unit: "all", phase: 0 };
   }
 
   function canActOnCase(status, role) {
@@ -144,6 +173,7 @@
     APPLICANT_CATEGORIES,
     FACILITY_TYPES,
     normalizeRole,
+    coerceStatus,
     getUnit,
     getStepperSteps,
     getStepOrderIndex,

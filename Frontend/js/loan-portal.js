@@ -19,7 +19,14 @@
   }
 
   function pickStatus(obj) {
-    return Number(pick(obj, "currentStatus", "CurrentStatus") ?? 0);
+    const raw = pick(obj, "currentStatus", "CurrentStatus") ?? 0;
+    return model && typeof model.coerceStatus === "function" ? model.coerceStatus(raw) : Number(raw) || 0;
+  }
+
+  const PRIVILEGED_VIEW_ROLES = ["Admin", "CEO", "TechnicalExpert"];
+
+  function canViewFullCaseDossier() {
+    return PRIVILEGED_VIEW_ROLES.includes(getSessionRole());
   }
 
   function el(tag, cls, text) {
@@ -245,7 +252,9 @@
   }
 
   function shouldShowCaseDossier(status) {
-    return isInternalUser() && [3, 5, 7, 9, 11, 13, 14, 15, 16].includes(Number(status));
+    const value = model.coerceStatus ? model.coerceStatus(status) : Number(status) || 0;
+    if (canViewFullCaseDossier() && value >= 1) return true;
+    return isInternalUser() && [3, 5, 7, 9, 11, 13, 14, 15, 16].includes(value);
   }
 
   function labelFromOptions(value, options) {
