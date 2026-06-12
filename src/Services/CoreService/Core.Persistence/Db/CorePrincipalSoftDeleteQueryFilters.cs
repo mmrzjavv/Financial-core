@@ -10,6 +10,7 @@ internal static class CorePrincipalSoftDeleteQueryFilters
     {
         modelBuilder.ApplyFilterForSoftDeletePrincipal<InvestmentCaseComment, InvestmentCase>(e => e.Case);
         modelBuilder.ApplyFilterForSoftDeletePrincipal<InvestmentCaseEvaluation, InvestmentCase>(e => e.Case);
+        modelBuilder.ApplyFilterForSoftDeletePrincipal<InvestmentCaseEvaluationItem, InvestmentCase>(e => e.Evaluation.Case);
         modelBuilder.ApplyFilterForSoftDeletePrincipal<InvestmentCaseRevision, InvestmentCase>(e => e.Case);
         modelBuilder.ApplyFilterForSoftDeletePrincipal<InvestmentCaseValuation, InvestmentCase>(e => e.Case);
         modelBuilder.ApplyFilterForSoftDeletePrincipal<InvestmentCaseWorkflowHistory, InvestmentCase>(e => e.Case);
@@ -25,5 +26,12 @@ internal static class CorePrincipalSoftDeleteQueryFilters
         modelBuilder.ApplyFilterForSoftDeletePrincipal<GuaranteeCaseWorkflowHistory, GuaranteeCase>(e => e.Case);
         modelBuilder.ApplyFilterForSoftDeletePrincipal<GuaranteeCaseDocument, GuaranteeCase>(e => e.Case);
         modelBuilder.ApplyFilterForSoftDeletePrincipal<GuaranteeRenewalCase, GuaranteeCase>(e => e.ParentGuaranteeCase);
+
+        modelBuilder.ApplyFilterForSoftDeletePrincipal<LoanApprovalDetail, LoanCase>(e => e.Case);
+        modelBuilder.ApplyFilterForSoftDeletePrincipal<LoanCaseApplication, LoanCase>(e => e.Case);
+        modelBuilder.ApplyFilterForSoftDeletePrincipal<LoanCaseComment, LoanCase>(e => e.Case);
+        modelBuilder.ApplyFilterForSoftDeletePrincipal<LoanCaseWorkflowHistory, LoanCase>(e => e.Case);
+        modelBuilder.ApplyFilterForSoftDeletePrincipal<LoanInstallment, LoanCase>(e => e.Case);
+        modelBuilder.ApplyFilterForSoftDeletePrincipal<LoanPayment, LoanCase>(e => e.Case);
     }
 }
