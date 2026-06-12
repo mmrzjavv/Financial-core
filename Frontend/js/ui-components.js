@@ -37,11 +37,19 @@
       return step ? step.title : String(status);
     }
     if (module === "loan" && window.LoanWorkflowModel) {
-      const step = LoanWorkflowModel.stepForStatus(status);
+      const value =
+        typeof LoanWorkflowModel.coerceStatus === "function"
+          ? LoanWorkflowModel.coerceStatus(status)
+          : Number(status);
+      const step = LoanWorkflowModel.stepForStatus(value);
       return step ? step.title : String(status);
     }
     if (window.WorkflowModel && typeof WorkflowModel.getStep === "function") {
-      const step = WorkflowModel.getStep(status);
+      const value =
+        typeof WorkflowModel.coerceStatus === "function"
+          ? WorkflowModel.coerceStatus(status)
+          : Number(status);
+      const step = WorkflowModel.getStep(value);
       if (step) return step.title;
     }
     return String(status);
@@ -225,11 +233,28 @@
   }
 
   function stepMetaForStatus(module, status) {
-    const value = Number(status);
-    if (!value) return null;
-    if (module === "loan" && window.LoanWorkflowModel) return LoanWorkflowModel.stepForStatus(value);
-    if (module === "guarantee" && window.GuaranteeWorkflowModel) return GuaranteeWorkflowModel.stepForStatus(value);
-    if (window.WorkflowModel && WorkflowModel.getStep) return WorkflowModel.getStep(value);
+    let value = Number(status);
+    if (module === "loan" && window.LoanWorkflowModel) {
+      value =
+        typeof LoanWorkflowModel.coerceStatus === "function"
+          ? LoanWorkflowModel.coerceStatus(status)
+          : Number(status);
+      return value ? LoanWorkflowModel.stepForStatus(value) : null;
+    }
+    if (module === "guarantee" && window.GuaranteeWorkflowModel) {
+      value =
+        typeof GuaranteeWorkflowModel.coerceStatus === "function"
+          ? GuaranteeWorkflowModel.coerceStatus(status)
+          : Number(status);
+      return value ? GuaranteeWorkflowModel.stepForStatus(value) : null;
+    }
+    if (window.WorkflowModel && WorkflowModel.getStep) {
+      value =
+        typeof WorkflowModel.coerceStatus === "function"
+          ? WorkflowModel.coerceStatus(status)
+          : Number(status);
+      return value ? WorkflowModel.getStep(value) : null;
+    }
     return null;
   }
 
