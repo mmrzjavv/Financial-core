@@ -292,7 +292,7 @@
         method: "GET",
         path: "/api/v1/analytics/employee-kpis?period=" + encodeURIComponent(state.period),
       });
-      const raw = unwrap(res);
+      const raw = unwrap(res.body);
       state.data = raw;
 
       const computedAt = pick(raw, "computedAtUtc", "ComputedAtUtc");

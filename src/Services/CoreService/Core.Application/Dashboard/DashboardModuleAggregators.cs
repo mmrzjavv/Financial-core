@@ -596,6 +596,7 @@ public sealed class DashboardModuleAggregators(ICoreDbContext dbContext)
 
         var samples = await dbContext.InvestmentCases.AsNoTracking()
             .Where(c => !c.IsDeleted && reviewStatuses.Contains((int)c.CurrentStatus) && c.UpdatedAt != null)
+            .OrderBy(c => c.UpdatedAt)
             .Select(c => new { c.CreatedAt, UpdatedAt = c.UpdatedAt!.Value })
             .Take(500)
             .ToListAsync(ct);
