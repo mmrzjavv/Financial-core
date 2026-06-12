@@ -81,7 +81,10 @@
   }
 
   function investmentStatusLabel(status) {
-    const n = Number(status);
+    const n =
+      WorkflowModel && typeof WorkflowModel.coerceStatus === "function"
+        ? WorkflowModel.coerceStatus(status)
+        : Number(status);
     if (WorkflowModel && WorkflowModel.STEPS) {
       const step = WorkflowModel.STEPS.find((s) => s.status === n);
       if (step) return step.title + " (" + n + ")";
@@ -90,7 +93,10 @@
   }
 
   function investmentPhaseLabel(phase) {
-    const n = Number(phase);
+    const n =
+      WorkflowModel && typeof WorkflowModel.coercePhase === "function"
+        ? WorkflowModel.coercePhase(phase)
+        : Number(phase);
     if (WorkflowModel && WorkflowModel.PHASES && WorkflowModel.PHASES[n]) {
       return WorkflowModel.PHASES[n] + " (" + n + ")";
     }
@@ -118,12 +124,12 @@
   }
 
   function statusLabel(c) {
-    const st = Number(pick(c, "currentStatus", "CurrentStatus"));
+    const st = pick(c, "currentStatus", "CurrentStatus");
     return state.module === "guarantee" ? guaranteeStatusLabel(st) : investmentStatusLabel(st);
   }
 
   function phaseLabel(c) {
-    const ph = Number(pick(c, "currentPhase", "CurrentPhase"));
+    const ph = pick(c, "currentPhase", "CurrentPhase");
     return state.module === "guarantee" ? guaranteePhaseLabel(ph) : investmentPhaseLabel(ph);
   }
 

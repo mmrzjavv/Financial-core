@@ -49,12 +49,14 @@
 
   function pickStatus(obj) {
     if (!obj || typeof obj !== "object") return 0;
-    return Number(obj.currentStatus ?? obj.CurrentStatus ?? 0);
+    const raw = obj.currentStatus ?? obj.CurrentStatus ?? 0;
+    return typeof model.coerceStatus === "function" ? model.coerceStatus(raw) : Number(raw) || 0;
   }
 
   function pickPhase(obj) {
     if (!obj || typeof obj !== "object") return 0;
-    return Number(obj.currentPhase ?? obj.CurrentPhase ?? 0);
+    const raw = obj.currentPhase ?? obj.CurrentPhase ?? 0;
+    return typeof model.coercePhase === "function" ? model.coercePhase(raw) : Number(raw) || 0;
   }
 
   function pickCaseNumber(obj) {
@@ -1433,8 +1435,9 @@
     }
     const caseIdEl = qs("#portalCaseId");
     if (caseIdEl) caseIdEl.textContent = pickId(state.caseData) || state.caseId;
-    const step = model.getStep(pickStatus(state.caseData));
-    qs("#portalCaseStatus").textContent = step ? step.title : String(pickStatus(state.caseData));
+    const statusValue = pickStatus(state.caseData);
+    const step = model.getStep(statusValue);
+    qs("#portalCaseStatus").textContent = step ? step.title : String(statusValue);
     qs("#portalCasePhase").textContent = model.PHASES[pickPhase(state.caseData)] || "—";
     qs("#portalCaseRole").textContent = getSessionRole() || "بدون نقش";
     renderActionHint();

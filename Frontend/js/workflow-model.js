@@ -17,6 +17,51 @@
     5: "اختتام",
   };
 
+  const STATUS_BY_KEY = {
+    Draft: 1,
+    DataEntry1: 2,
+    ReviewDataEntry1: 3,
+    DataEntry2: 4,
+    ReviewDataEntry2: 5,
+    InitialValuation: 6,
+    SecondaryValuation: 7,
+    WaitingPreliminaryContract: 8,
+    WaitingUserReviewPreliminaryContract: 9,
+    ContractDrafting: 10,
+    WaitingContractSignature: 11,
+    WaitingSignedContractUpload: 12,
+    WaitingFinancialWorksheet: 13,
+    FinancialWorksheetReview: 14,
+    WaitingPayment: 15,
+    Completed: 16,
+    Rejected: 17,
+    Cancelled: 18,
+    Archived: 19,
+    WaitingCeoApproval: 20,
+  };
+
+  const PHASE_BY_KEY = {
+    Application: 1,
+    Valuation: 2,
+    Legal: 3,
+    Finance: 4,
+    Closing: 5,
+  };
+
+  function coerceStatus(status) {
+    if (status == null || status === "") return 0;
+    const n = Number(status);
+    if (!Number.isNaN(n)) return n;
+    return STATUS_BY_KEY[String(status)] ?? 0;
+  }
+
+  function coercePhase(phase) {
+    if (phase == null || phase === "") return 0;
+    const n = Number(phase);
+    if (!Number.isNaN(n)) return n;
+    return PHASE_BY_KEY[String(phase)] ?? 0;
+  }
+
   const STEPS = [
     { status: 1, key: "Draft", title: "پیش‌نویس", unit: "applicant", phase: 1 },
     { status: 2, key: "DataEntry1", title: "فرم اولیه", unit: "applicant", phase: 1 },
@@ -118,7 +163,7 @@
   }
 
   function getStepOrderIndex(status) {
-    const value = Number(status);
+    const value = coerceStatus(status);
     return getStepperSteps().findIndex((step) => step.status === value);
   }
 
@@ -126,12 +171,12 @@
     const ai = getStepOrderIndex(a);
     const bi = getStepOrderIndex(b);
     if (ai >= 0 && bi >= 0) return ai - bi;
-    return Number(a) - Number(b);
+    return coerceStatus(a) - coerceStatus(b);
   }
 
   function getStep(status) {
-    const value = Number(status);
-    if (!Number.isNaN(value)) {
+    const value = coerceStatus(status);
+    if (value) {
       const byNumber = STEPS.find((step) => step.status === value);
       if (byNumber) return byNumber;
     }
@@ -155,7 +200,7 @@
   }
 
   function phaseForStatus(status) {
-    const value = Number(status);
+    const value = coerceStatus(status);
     if (value <= 5) return 1;
     if (value <= 7) return 2;
     if (value <= 12) return 3;
@@ -194,6 +239,8 @@
     BUSINESS_STAGES,
     APPLICANT_DOCUMENTS,
     normalizeRole,
+    coerceStatus,
+    coercePhase,
     getStep,
     getStepperSteps,
     getStepOrderIndex,
